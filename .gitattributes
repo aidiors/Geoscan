@@ -1,0 +1,6 @@
+reference/materials/* -text
+reference/hackathon/* -text
+reference/materials/*.exe filter=lfs diff=lfs merge=lfs -text
+reference/materials/*.pptx filter=lfs diff=lfs merge=lfs -text
+dist/** text eol=lf
+frontend/index.html text eol=lf

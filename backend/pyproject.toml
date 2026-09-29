@@ -1,0 +1,39 @@
+[project]
+name = "geoplan-optimizer"
+version = "1.0.0"
+description = "Typed API for planning UAV survey missions"
+requires-python = ">=3.14"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "pydantic>=2.10,<3",
+  "rasterio>=1.5,<2",
+  "shapely>=2.1,<3",
+  "uvicorn>=0.32,<1",
+]
+
+[dependency-groups]
+dev = [
+  "httpx2>=0.1",
+  "pytest>=8,<9",
+  "ruff>=0.11,<1",
+  "ty>=0.0.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-p no:cacheprovider"
+filterwarnings = [
+  "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = ["pytest-cache-files-*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.ty.environment]
+python-version = "3.14"

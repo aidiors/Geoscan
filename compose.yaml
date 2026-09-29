@@ -1,0 +1,10 @@
+services:
+  geoplan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: geoplan:local
+    ports:
+      - "${GEOPLAN_PORT:-8000}:8000"
+    restart: unless-stopped
+    init: true

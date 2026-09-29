@@ -1,0 +1,20 @@
+from src.coverage_benchmark import default_coverage_benchmark_cases, run_coverage_benchmark
+
+
+def main() -> None:
+    results = run_coverage_benchmark(default_coverage_benchmark_cases())
+    print(
+        "case_id,algorithm,angle_degrees,route_distance_km,turn_count,"
+        "segment_count,runtime_ms,gap_percent,geometry_valid,error_message"
+    )
+    for result in results:
+        print(
+            f"{result.case_id},{result.algorithm},{result.selected_angle_degrees},"
+            f"{result.route_distance_km},{result.turn_count},{result.segment_count},"
+            f"{result.runtime_ms},{result.gap_to_reference_percent},{result.geometry_valid},"
+            f"{result.error_message or ''}"
+        )
+
+
+if __name__ == "__main__":
+    main()
