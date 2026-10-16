@@ -23,7 +23,7 @@ RUN apt-get update \
 
 COPY --from=uv /uv /uvx /bin/
 WORKDIR /app
-COPY backend/pyproject.toml backend/uv.lock ./backend/
+COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./backend/
 RUN uv sync --project backend --locked --no-dev --no-install-project
 
 COPY backend/src ./backend/src

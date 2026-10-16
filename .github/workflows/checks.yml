@@ -14,6 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
       - run: uv sync --directory backend --locked
       - run: uv run --directory backend python ../scripts/check_architecture.py
       - run: uv run --directory backend python ../scripts/check_docs.py
@@ -48,6 +50,8 @@ jobs:
           node-version: "22.20"
           cache: npm
       - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
       - run: npm ci
       - run: uv sync --directory backend --locked
       - run: npx playwright install --with-deps chrome

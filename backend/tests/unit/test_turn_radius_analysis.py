@@ -197,7 +197,7 @@ def test_turn_radius_analysis_reuses_maximum_radius_route_when_smaller_search_fa
 
 
 def test_turn_radius_analysis_route_returns_stable_schema() -> None:
-    client = TestClient(create_app(create_default_dependencies()))
+    client = TestClient(create_app(create_default_dependencies(), serve_frontend=False))
     coverage = default_coverage_benchmark_cases()[0].request
 
     response = client.post(
@@ -214,7 +214,7 @@ def test_turn_radius_analysis_route_returns_stable_schema() -> None:
 
 
 def test_turn_radius_analysis_route_accepts_zero_radius() -> None:
-    client = TestClient(create_app(create_default_dependencies()))
+    client = TestClient(create_app(create_default_dependencies(), serve_frontend=False))
     coverage = default_coverage_benchmark_cases()[0].request
 
     response = client.post(
@@ -228,7 +228,7 @@ def test_turn_radius_analysis_route_accepts_zero_radius() -> None:
 
 
 def test_turn_radius_analysis_route_rejects_unsorted_radii_with_stable_error() -> None:
-    client = TestClient(create_app(create_default_dependencies()))
+    client = TestClient(create_app(create_default_dependencies(), serve_frontend=False))
     coverage = default_coverage_benchmark_cases()[0].request
 
     response = client.post(
