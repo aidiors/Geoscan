@@ -6,29 +6,24 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
-from src.adaptive_coverage import AdaptiveCoveragePlanner
-from src.assignment import HybridAssignmentOptimizer
-from src.curvature import DubinsSweepTransitionPlanner
-from src.dubins import ExactDubinsPlanner
-from src.exporters import CanonicalMissionExportVerifier
-from src.optimizer import BidirectionalRouteOptimizer
-from src.safety_audit import IndependentPlanSafetyAuditor
-from src.scheduler import ConflictAwareMissionScheduler
-from src.schemas import (
-    AllowedAirspace,
-    Coordinate,
-    DroneSpec,
-    ErrorCode,
-    MissionTask,
-    NoFlyZone,
-    OptimizationCriterion,
-    PlanRequest,
-    RestrictionValidity,
-    ValidityMode,
-    WorkSegment,
-)
-from src.services import CruiseMissionDurationCalculator, PlanningError, build_plan
-from src.terrain import InverseDistanceTerrainProvider, TerrainFollowingProfilePlanner
+from geoplan.assignment.solver import HybridAssignmentOptimizer
+from geoplan.coverage.adaptive import AdaptiveCoveragePlanner
+from geoplan.coverage.models import WorkSegment
+from geoplan.domain.airspace import AllowedAirspace, NoFlyZone, RestrictionValidity
+from geoplan.domain.enums import ErrorCode, MissionTask, OptimizationCriterion, ValidityMode
+from geoplan.domain.fleet import DroneSpec
+from geoplan.domain.geo import Coordinate
+from geoplan.errors import PlanningError
+from geoplan.flight.duration import CruiseMissionDurationCalculator
+from geoplan.flight.terrain import InverseDistanceTerrainProvider, TerrainFollowingProfilePlanner
+from geoplan.geodata.exporters import CanonicalMissionExportVerifier
+from geoplan.navigation.curvature import DubinsSweepTransitionPlanner
+from geoplan.navigation.dubins import ExactDubinsPlanner
+from geoplan.navigation.optimizer import BidirectionalRouteOptimizer
+from geoplan.planning.engine import build_plan
+from geoplan.planning.models import PlanRequest
+from geoplan.safety.audit import IndependentPlanSafetyAuditor
+from geoplan.scheduling.scheduler import ConflictAwareMissionScheduler
 
 
 class AirspaceScenario(StrEnum):

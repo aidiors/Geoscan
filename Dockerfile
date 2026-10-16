@@ -24,9 +24,10 @@ RUN apt-get update \
 COPY --from=uv /uv /uvx /bin/
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock ./backend/
-RUN uv sync --project backend --locked --no-dev
+RUN uv sync --project backend --locked --no-dev --no-install-project
 
 COPY backend/src ./backend/src
+RUN uv sync --project backend --locked --no-dev
 COPY --from=frontend-builder /app/dist ./dist
 
 RUN useradd --create-home --uid 10001 geoplan \
@@ -37,4 +38,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=20s --timeout=3s --start-period=20s --retries=3 \
   CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
 
-CMD ["uvicorn", "src.main:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "geoplan.bootstrap:app", "--host", "0.0.0.0", "--port", "8000"]

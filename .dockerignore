@@ -12,6 +12,10 @@ backend/.ruff_cache
 backend/.pytest_cache
 backend/tests
 backend/benchmarks
+backend/scenarios
+backend/src/*.egg-info
+work
+outputs
 docs
 reference
 tmp

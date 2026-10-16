@@ -12,30 +12,25 @@ from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds
 from shapely.geometry import Polygon
 
-from src.geometry import LocalProjection
-from src.main import create_default_dependencies
-from src.schemas import (
-    AllowedAirspace,
+from geoplan.composition import create_default_dependencies
+from geoplan.coverage.models import CoverageArea, SensorProfile, SurveyParameters
+from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone, RestrictionValidity
+from geoplan.domain.enums import (
     AltitudeMode,
     AltitudeReference,
-    Coordinate,
-    CoverageArea,
-    DroneSpec,
-    FlightObstacle,
-    GeoTiffTerrainSource,
     ImportedGeometryType,
     MissionTask,
-    NoFlyZone,
     OptimizationCriterion,
-    PlanRequest,
-    RestrictionValidity,
     SafetyAuditStatus,
-    SensorProfile,
-    SurveyParameters,
     ValidityMode,
-    WindCondition,
 )
-from src.services import build_plan
+from geoplan.domain.environment import WindCondition
+from geoplan.domain.fleet import DroneSpec
+from geoplan.domain.geo import Coordinate
+from geoplan.domain.terrain import GeoTiffTerrainSource
+from geoplan.navigation.geometry import LocalProjection
+from geoplan.planning.engine import build_plan
+from geoplan.planning.models import PlanRequest
 
 AREA_SIDE_M = 10_000.0
 EXPECTED_AREA_M2 = AREA_SIDE_M**2

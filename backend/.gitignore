@@ -2,4 +2,5 @@
 .ruff_cache/
 .pytest_cache/
 __pycache__/
+*.egg-info/
 pytest-cache-files-*/

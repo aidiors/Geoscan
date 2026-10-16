@@ -3,18 +3,14 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
-from src.coverage import BoustrophedonCoveragePlanner
-from src.coverage_benchmark import urban_obstacle_coverage_case
-from src.curvature import HybridAStarSweepTransitionPlanner
-from src.main import create_default_dependencies
-from src.routing import RouteGeometryError
-from src.schemas import (
-    TurnAwareSweepRequest,
-    TurnAwareSweepResult,
-    UrbanObstacleOrderBenchmark,
-    UrbanObstacleOrderMeasurement,
-)
-from src.turn_aware import build_turn_aware_sweep_route
+from benchmarks.models import UrbanObstacleOrderBenchmark, UrbanObstacleOrderMeasurement
+from geoplan.composition import create_default_dependencies
+from geoplan.coverage.sweep import BoustrophedonCoveragePlanner
+from geoplan.navigation.curvature import HybridAStarSweepTransitionPlanner
+from geoplan.navigation.models import TurnAwareSweepRequest, TurnAwareSweepResult
+from geoplan.navigation.routing import RouteGeometryError
+from geoplan.navigation.turn_aware import build_turn_aware_sweep_route
+from scenarios.coverage import urban_obstacle_coverage_case
 
 RADII_M = [15.0, 27.5, 40.0]
 
@@ -94,7 +90,7 @@ def _evaluate_original_order(
     request: TurnAwareSweepRequest,
     transition_planner: HybridAStarSweepTransitionPlanner,
 ) -> TurnAwareSweepResult:
-    with patch("src.turn_aware._reorder_obstacle_blocks", return_value=None):
+    with patch("geoplan.navigation.turn_aware._reorder_obstacle_blocks", return_value=None):
         return build_turn_aware_sweep_route(request, transition_planner)
 
 

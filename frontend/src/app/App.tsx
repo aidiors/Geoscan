@@ -1,0 +1,119 @@
+import { useTheme } from "./theme";
+import { ControlsPanel } from "@/features/planner/ui/ControlsPanel";
+import { DemoShowcase } from "@/features/demos/ui/DemoShowcase";
+import { Header } from "@/app/Header";
+import { MissionMap } from "@/widgets/mission-map/MissionMap";
+import { ResultsPanel } from "@/features/planner/ui/ResultsPanel";
+import { activeWorkAreas } from "@/features/planner/api/buildPlanRequest";
+import { usePlanner } from "@/features/planner/model/usePlanner";
+
+export default function App() {
+  const [theme, setTheme] = useTheme();
+  const {
+    scenarioId,
+    demoCaseId,
+    showcaseOpen,
+    setShowcaseOpen,
+    task,
+    objective,
+    setObjective,
+    drones,
+    selectedDroneId,
+    setSelectedDroneId,
+    sites,
+    setSites,
+    importedZones,
+    setImportedZones,
+    survey,
+    setSurvey,
+    settings,
+    setSettings,
+    plan,
+    radiusAnalysis,
+    analyzingRadii,
+    revision,
+    status,
+    setStatus,
+    pendingSiteRole,
+    setPendingSiteRole,
+    calculating,
+    importing,
+    exporting,
+    scenario,
+    mapZones,
+    fitKey,
+    invalidate,
+    handleScenarioChange,
+    handleDemoCaseLoad,
+    handleTaskChange,
+    handleUpdateDrone,
+    handleAddDrone,
+    handleRemoveDrone,
+    handleAddSite,
+    handleImport,
+    handleCalculate,
+    handleDemoCaseRun,
+    handleAnalyzeRadii,
+    handleExport,
+    saveScenario,
+    loadScenario,
+  } = usePlanner();
+  return (
+    <div className="app-shell">
+      <Header status={status} revision={revision} theme={theme} calculating={calculating} onOpenShowcase={() => setShowcaseOpen(true)} onCalculate={() => void handleCalculate()} onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
+      <DemoShowcase
+        open={showcaseOpen}
+        selectedCaseId={demoCaseId}
+        plan={plan}
+        calculating={calculating}
+        onClose={() => setShowcaseOpen(false)}
+        onLoad={handleDemoCaseLoad}
+        onRun={(caseId) => void handleDemoCaseRun(caseId)}
+      />
+      <main className="workspace">
+        <ControlsPanel
+          scenarioId={scenarioId}
+          task={task}
+          objective={objective}
+          drones={drones}
+          selectedDroneId={selectedDroneId}
+          sites={sites}
+          importedZones={importedZones}
+          survey={survey}
+          settings={settings}
+          pendingSiteRole={pendingSiteRole}
+          importing={importing}
+          onScenarioChange={handleScenarioChange}
+          onTaskChange={handleTaskChange}
+          onObjectiveChange={(nextObjective) => { setObjective(nextObjective); invalidate("Критерий изменён — требуется новый расчёт"); }}
+          onSelectDrone={setSelectedDroneId}
+          onUpdateDrone={handleUpdateDrone}
+          onAddDrone={handleAddDrone}
+          onRemoveDrone={handleRemoveDrone}
+          onUpdateSurvey={(patch) => { setSurvey((current) => ({ ...current, ...patch })); invalidate("Параметры съёмки изменены"); }}
+          onUpdateSettings={(patch) => { setSettings((current) => ({ ...current, ...patch })); invalidate("Ограничения расчёта изменены"); }}
+          onArmSite={(role) => { setPendingSiteRole(role); setStatus("Щёлкните по карте, чтобы добавить площадку"); }}
+          onAssignSite={(siteId, droneId) => { setSites((current) => current.map((flightSite) => flightSite.site_id === siteId ? { ...flightSite, assignedDroneId: droneId } : flightSite)); invalidate("Назначение площадки изменено"); }}
+          onRemoveSite={(siteId) => { setSites((current) => current.filter((flightSite) => flightSite.site_id !== siteId)); invalidate("Площадка удалена"); }}
+          onImport={handleImport}
+          onRemoveZone={(zoneId) => { setImportedZones((current) => current.filter((zone) => zone.zone_id !== zoneId)); invalidate("Зона удалена"); }}
+          onSave={saveScenario}
+          onLoad={loadScenario}
+        />
+        <MissionMap
+          key={fitKey}
+          zones={mapZones}
+          sites={sites}
+          drones={drones}
+          plan={plan}
+          radiusAnalysis={radiusAnalysis}
+          selectedDroneId={selectedDroneId}
+          pendingSiteRole={pendingSiteRole}
+          onAddSite={handleAddSite}
+          onClearZones={() => { setImportedZones([]); invalidate("Импортированные зоны очищены"); }}
+        />
+        <ResultsPanel plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
+      </main>
+    </div>
+  );
+}

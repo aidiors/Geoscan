@@ -5,17 +5,17 @@ from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 
-from src.coverage_benchmark import (
+from benchmarks.coverage import (
     BENCHMARK_ALGORITHMS,
     OPTIMISTIC_LOWER_BOUND_ALGORITHMS,
-    default_coverage_benchmark_cases,
     run_coverage_benchmark,
 )
-from src.schemas import (
+from benchmarks.models import (
     CoverageBenchmarkResult,
     CoverageExperimentArtifacts,
     CoverageExperimentReport,
 )
+from scenarios.coverage import default_coverage_benchmark_cases
 
 
 def run_experiment() -> CoverageExperimentReport:

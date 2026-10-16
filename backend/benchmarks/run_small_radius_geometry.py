@@ -1,13 +1,13 @@
-from src.coverage import BoustrophedonCoveragePlanner
-from src.coverage_benchmark import (
+from benchmarks.models import SmallRadiusBenchmarkMethod, SmallRadiusBenchmarkRequest
+from benchmarks.small_radius import run_small_radius_benchmark
+from geoplan.composition import create_default_dependencies
+from geoplan.coverage.sweep import BoustrophedonCoveragePlanner
+from geoplan.navigation.curvature import DubinsSweepTransitionPlanner
+from geoplan.navigation.dubins import ExactDubinsPlanner
+from scenarios.coverage import (
     geometry_stress_coverage_benchmark_cases,
     large_scattered_work_area_cases,
 )
-from src.curvature import DubinsSweepTransitionPlanner
-from src.dubins import ExactDubinsPlanner
-from src.main import create_default_dependencies
-from src.schemas import SmallRadiusBenchmarkMethod, SmallRadiusBenchmarkRequest
-from src.small_radius_benchmark import run_small_radius_benchmark
 
 if __name__ == "__main__":
     report = run_small_radius_benchmark(

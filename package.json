@@ -11,6 +11,7 @@
     "preview": "vite preview --config frontend/vite.config.ts",
     "lint": "eslint frontend/src --max-warnings 0",
     "typecheck": "tsc --noEmit",
+    "check:architecture": "node --test scripts/check_frontend_architecture.test.mjs && node scripts/check_frontend_architecture.mjs",
     "test": "vitest run --config frontend/vitest.config.ts",
     "test:e2e": "npm run build && playwright test"
   },

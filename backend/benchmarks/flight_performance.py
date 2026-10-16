@@ -4,8 +4,10 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 
-from src.schemas import Coordinate, MissionDurationRequest, WindCondition
-from src.services import CruiseMissionDurationCalculator
+from geoplan.domain.environment import WindCondition
+from geoplan.domain.geo import Coordinate
+from geoplan.flight.duration import CruiseMissionDurationCalculator
+from geoplan.flight.models import MissionDurationRequest
 
 
 class FlightPerformanceMeasurement(BaseModel):

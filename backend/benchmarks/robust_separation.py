@@ -5,20 +5,16 @@ from time import perf_counter
 
 from pydantic import BaseModel, ConfigDict
 
-from src.exporters import CanonicalMissionExportVerifier
-from src.safety_audit import IndependentPlanSafetyAuditor
-from src.scheduler import ConflictAwareMissionScheduler
-from src.schemas import (
-    Coordinate,
-    DroneSpec,
-    Mission,
-    MissionScheduleRequest,
-    MissionTask,
-    OptimizationCriterion,
-    PlanRequest,
-    SafetyCheckCode,
-    WorkSegment,
-)
+from geoplan.coverage.models import WorkSegment
+from geoplan.domain.enums import MissionTask, OptimizationCriterion, SafetyCheckCode
+from geoplan.domain.fleet import DroneSpec
+from geoplan.domain.geo import Coordinate
+from geoplan.domain.mission import Mission
+from geoplan.geodata.exporters import CanonicalMissionExportVerifier
+from geoplan.planning.models import PlanRequest
+from geoplan.safety.audit import IndependentPlanSafetyAuditor
+from geoplan.scheduling.models import MissionScheduleRequest
+from geoplan.scheduling.scheduler import ConflictAwareMissionScheduler
 
 
 class RobustSeparationMeasurement(BaseModel):
