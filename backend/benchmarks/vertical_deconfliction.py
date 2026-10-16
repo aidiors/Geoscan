@@ -5,18 +5,14 @@ from time import perf_counter
 
 from pydantic import BaseModel, ConfigDict
 
-from src.main import create_default_dependencies
-from src.schemas import (
-    AllowedAirspace,
-    Coordinate,
-    DroneSpec,
-    MissionTask,
-    OptimizationCriterion,
-    PlanRequest,
-    SafetyAuditStatus,
-    WorkSegment,
-)
-from src.services import build_plan
+from geoplan.composition import create_default_dependencies
+from geoplan.coverage.models import WorkSegment
+from geoplan.domain.airspace import AllowedAirspace
+from geoplan.domain.enums import MissionTask, OptimizationCriterion, SafetyAuditStatus
+from geoplan.domain.fleet import DroneSpec
+from geoplan.domain.geo import Coordinate
+from geoplan.planning.engine import build_plan
+from geoplan.planning.models import PlanRequest
 
 
 class VerticalDeconflictionMeasurement(BaseModel):

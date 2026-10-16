@@ -1,4 +1,5 @@
-from src.coverage_benchmark import default_coverage_benchmark_cases, run_coverage_benchmark
+from benchmarks.coverage import run_coverage_benchmark
+from scenarios.coverage import default_coverage_benchmark_cases
 
 
 def main() -> None:

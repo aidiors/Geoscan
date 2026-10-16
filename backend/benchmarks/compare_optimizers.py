@@ -1,7 +1,7 @@
 from statistics import median
 
-from src.algorithm_benchmark import run_optimization_benchmark
-from src.schemas import BenchmarkDrone, BenchmarkTask, OptimizationBenchmarkRequest
+from benchmarks.assignment import run_optimization_benchmark
+from benchmarks.models import BenchmarkDrone, BenchmarkTask, OptimizationBenchmarkRequest
 
 REPETITIONS = 7
 

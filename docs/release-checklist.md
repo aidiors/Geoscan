@@ -5,14 +5,18 @@
 - `npm ci`
 - `npm run typecheck`
 - `npm run lint`
+- `npm run check:architecture`
 - `npm test`
+- `npm run build`
 - `npm run test:e2e`
 - из `backend/`: `uv sync --locked`, `uv run ruff format --check .`,
-  `uv run ruff check .`, `uv run ty check src tests benchmarks`, `uv run pytest -q`
+  `uv run ruff check .`, `uv run ty check src tests benchmarks scenarios`, `uv run pytest -q`
+- из корня: `python scripts/check_architecture.py`
+- из корня: `python scripts/check_docs.py`
 - `docker compose up --build` и проверка `http://127.0.0.1:8000/health`
 
-GitHub Actions дополнительно собирает итоговый образ, запускает контейнер и
-проверяет health endpoint и выдачу веб-интерфейса.
+GitHub Actions выполняет проверки кода, тесты, E2E и сборку контейнера с
+проверкой health endpoint и выдачи веб-интерфейса.
 
 ## Ручная приёмка перед отправкой
 
@@ -27,10 +31,13 @@ GitHub Actions дополнительно собирает итоговый об
 
 - исходный код и `uv.lock`/`package-lock.json`;
 - `Dockerfile`, `compose.yaml` и `.dockerignore`;
-- собранный веб-интерфейс в `dist/` для запуска без Node.js;
-- исследования и результаты вычислительных проверок в `docs/`;
+- документация в `docs/`;
 - исходные материалы в `reference/` через Git LFS;
 - README с локальным и контейнерным запуском.
+
+`dist/` создаётся командой `npm run build` и не хранится в Git. Для передачи
+готовой версии используйте Docker-образ либо отдельный архив сборки.
+Результаты бенчмарков генерируются отдельно по [инструкции](benchmarks.md).
 
 После свежего клонирования выполнить `git lfs pull`, чтобы получить большие
 исходные материалы и шаблон презентации.

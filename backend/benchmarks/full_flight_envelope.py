@@ -6,18 +6,14 @@ from time import perf_counter
 
 from pydantic import BaseModel, ConfigDict
 
-from src.coverage_benchmark import default_coverage_benchmark_cases
-from src.main import create_default_dependencies
-from src.routing import route_bearing_degrees
-from src.schemas import (
-    Coordinate,
-    DroneSpec,
-    FlightSite,
-    MissionTask,
-    OptimizationCriterion,
-    PlanRequest,
-)
-from src.services import build_plan
+from geoplan.composition import create_default_dependencies
+from geoplan.domain.enums import MissionTask, OptimizationCriterion
+from geoplan.domain.fleet import DroneSpec, FlightSite
+from geoplan.domain.geo import Coordinate
+from geoplan.navigation.routing import route_bearing_degrees
+from geoplan.planning.engine import build_plan
+from geoplan.planning.models import PlanRequest
+from scenarios.coverage import default_coverage_benchmark_cases
 
 
 @dataclass(frozen=True)

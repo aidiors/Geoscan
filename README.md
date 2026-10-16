@@ -70,12 +70,16 @@ GeoPlan — веб-сервис подготовки индивидуальны�
 
 Требуются Python 3.14, `uv` и Node.js 22.13.0 или новее.
 
+Python 3.14 закреплён в `backend/.python-version`, метаданных проекта и CI.
+Следующая минорная версия Python подключается после отдельной проверки
+совместимости зависимостей.
+
 ```powershell
 npm ci
 npm run build
 cd backend
 uv sync --locked
-uv run uvicorn src.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn geoplan.bootstrap:app --host 127.0.0.1 --port 8000
 ```
 
 Интерфейс и API: `http://127.0.0.1:8000/`.
@@ -120,6 +124,7 @@ docker compose down
 npm ci
 npm run typecheck
 npm run lint
+npm run check:architecture
 npm test
 npm run build
 npm run test:e2e
@@ -131,15 +136,30 @@ npm run test:e2e
 uv sync --locked
 uv run ruff format --check .
 uv run ruff check .
-uv run ty check src tests benchmarks
+uv run ty check src tests benchmarks scenarios
 uv run pytest -q
 uv run python -m benchmarks.compare_optimizers
 ```
 
+Зависимости сервера включают устанавливаемый пакет `geoplan`. После изменения
+`pyproject.toml` выполните `uv sync --locked` повторно. Серверные тесты работают
+без сборки интерфейса. Проверка структуры из корня проекта:
+
+```powershell
+python scripts/check_architecture.py
+python scripts/check_docs.py
+```
+
+HTTP-контракт можно выгрузить без запуска сервера и без `dist/`:
+
+```powershell
+uv run --directory backend python ../scripts/export_openapi.py --output ../work/openapi.json
+```
+
 Сквозная проверка поднимает приложение на порту `8013` и использует установленный
 Google Chrome. Перед ней установите зависимости обеих частей проекта.
-Результаты контрольных прогонов и команды отдельных бенчмарков приведены в
-[сводке проверок](docs/benchmark-results/README.md).
+Команды воспроизведения и ограничения интерпретации результатов приведены в
+[инструкции бенчмарков](docs/benchmarks.md).
 
 ## API
 
@@ -164,27 +184,30 @@ Google Chrome. Перед ней установите зависимости о�
 
 | Каталог или модуль | Назначение |
 |---|---|
-| `backend/src/schemas.py` | входные и выходные модели API |
-| `backend/src/imports.py`, `exporters.py` | импорт геоданных и экспорт заданий |
-| `backend/src/coverage.py`, `adaptive_coverage.py`, `coverage_decomposition.py` | галсы, параметры съёмки и декомпозиция зон |
-| `backend/src/geometry.py`, `routing.py`, `optimizer.py` | проекция, геометрия и обход ограничений |
-| `backend/src/assignment.py` | точное и эвристическое распределение заданий |
-| `backend/src/scheduler.py`, `vertical_deconfliction.py` | расписание и разведение миссий |
-| `backend/src/terrain.py`, `flight_performance.py`, `safety_audit.py` | рельеф, оценка полёта и независимые проверки |
-| `backend/src/services.py` | сборка полного плана |
+| `backend/src/geoplan/bootstrap.py`, `composition.py` | точка запуска и сборка зависимостей |
+| `backend/src/geoplan/api/` | HTTP-маршруты и создание приложения |
+| `backend/src/geoplan/domain/` | координаты, парк, миссии, ограничения и диагностика |
+| `backend/src/geoplan/planning/` | этапы планирования, кандидаты, ограничения и отчёты |
+| `backend/src/geoplan/coverage/` | галсы, оценка вариантов и декомпозиция зон |
+| `backend/src/geoplan/navigation/` | геометрия, обход ограничений, Dubins и Hybrid A* |
+| `backend/src/geoplan/assignment/`, `scheduling/` | распределение и расписание |
+| `backend/src/geoplan/airspace/`, `flight/` | временные окна, рельеф, энергия и аварийный уход |
+| `backend/src/geoplan/safety/`, `geodata/` | независимый аудит, импорт и экспорт |
 | `backend/benchmarks/` | вычислительные эксперименты |
-| `backend/tests/` | серверные тесты |
-| `frontend/src/`, `frontend/e2e/` | React-интерфейс и его тесты |
-| `dist/` | сборка Vite, которую обслуживает FastAPI |
+| `backend/scenarios/` | общие фабрики данных для тестов и экспериментов |
+| `backend/tests/{unit,integration,contracts,benchmarks}/` | серверные проверки по назначению |
+| `frontend/src/app/` | сборка экрана и тема |
+| `frontend/src/features/` | планирование, демонстрации, импорт и экспорт |
+| `frontend/src/widgets/`, `shared/` | карта, HTTP-транспорт и общая геометрия |
+| `frontend/e2e/` | сквозные проверки интерфейса |
+| `dist/` | локальная сборка Vite; создаётся командой build, исключена из Git |
 | `reference/` | исходные материалы кейса |
+
+Внутренние модели алгоритмов находятся рядом с их реализацией в `models.py`.
+Правила зависимостей и описание рефакторинга — в
+[документации архитектуры](docs/architecture/README.md).
 
 ## Документация
 
-- [Алгоритмы покрытия](docs/coverage-optimization-research.md).
-- [Сравнение десяти стратегий распределения](docs/optimization-comparison.md)
-  и [числовые результаты](docs/optimization-comparison.csv).
-- [Решения по ответам экспертов](docs/expert-faq-decisions.md).
-- [Аудит исходных KML](docs/expert-kml-data-audit.md).
-- [Обзор полётного ПО](docs/similar-flight-planning-software-review.md).
-- [Соответствие требованиям и ограничения](docs/final-requirements-audit-20260928.md).
-- [Чек-лист передачи](docs/release-checklist.md).
+Актуальные инструкции и предметные контракты собраны в
+[оглавлении документации](docs/README.md).

@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const backendCommand = process.platform === "win32"
-  ? "backend\\.venv\\Scripts\\python.exe -m uvicorn src.main:app --app-dir backend --host 127.0.0.1 --port 8013"
-  : "uv run --directory backend uvicorn src.main:app --host 127.0.0.1 --port 8013";
+  ? "backend\\.venv\\Scripts\\python.exe -m uvicorn geoplan.bootstrap:app --host 127.0.0.1 --port 8013"
+  : "uv run --directory backend uvicorn geoplan.bootstrap:app --host 127.0.0.1 --port 8013";
 
 export default defineConfig({
   testDir: "./frontend/e2e",

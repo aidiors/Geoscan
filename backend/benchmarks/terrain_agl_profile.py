@@ -6,8 +6,9 @@ from time import perf_counter
 
 from pydantic import BaseModel, ConfigDict
 
-from src.schemas import Coordinate, InlineTerrainSource, TerrainElevationSample
-from src.terrain import (
+from geoplan.domain.geo import Coordinate
+from geoplan.domain.terrain import InlineTerrainSource, TerrainElevationSample
+from geoplan.flight.terrain import (
     InverseDistanceTerrainProvider,
     TerrainDataUnavailableError,
     TerrainFollowingProfilePlanner,

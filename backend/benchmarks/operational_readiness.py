@@ -6,21 +6,17 @@ from time import perf_counter
 
 from pydantic import BaseModel, ConfigDict
 
-from src.assignment import HybridAssignmentOptimizer
-from src.main import create_default_dependencies
-from src.schemas import (
-    AssignmentOptimizationRequest,
-    Coordinate,
-    DroneSpec,
-    Mission,
-    MissionAssignmentCandidate,
-    MissionTask,
-    OptimizationCriterion,
-    PayloadCapability,
-    PlanRequest,
-    WorkSegment,
-)
-from src.services import PlanningError, build_plan
+from geoplan.assignment.models import AssignmentOptimizationRequest, MissionAssignmentCandidate
+from geoplan.assignment.solver import HybridAssignmentOptimizer
+from geoplan.composition import create_default_dependencies
+from geoplan.coverage.models import WorkSegment
+from geoplan.domain.enums import MissionTask, OptimizationCriterion
+from geoplan.domain.fleet import DroneSpec, PayloadCapability
+from geoplan.domain.geo import Coordinate
+from geoplan.domain.mission import Mission
+from geoplan.errors import PlanningError
+from geoplan.planning.engine import build_plan
+from geoplan.planning.models import PlanRequest
 
 
 @dataclass(frozen=True)
