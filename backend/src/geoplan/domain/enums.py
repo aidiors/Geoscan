@@ -57,6 +57,7 @@ class SafetyCheckCode(StrEnum):
 
 
 class AssignmentAlgorithm(StrEnum):
+    PRODUCTIVE_ROUTE_POOL = "productive_route_pool"
     EXACT_BRANCH_AND_BOUND = "exact_branch_and_bound"
     FAST_GREEDY = "fast_greedy"
     MULTISTART_LOCAL_SEARCH = "multistart_local_search"
@@ -77,6 +78,7 @@ class ScheduleConflictType(StrEnum):
 class CoverageAlgorithm(StrEnum):
     BOUSTROPHEDON_SWEEP = "boustrophedon_sweep"
     ADAPTIVE_DECOMPOSED_SWEEP = "adaptive_decomposed_sweep"
+    FREEFORM_PATTERN_POOL = "freeform_pattern_pool"
 
 
 class CoverageAngleCost(StrEnum):
@@ -116,6 +118,8 @@ class RouteAlgorithm(StrEnum):
 
 
 class OptimizationScope(StrEnum):
+    FIXED_TRACK_ROUTE_POOL = "fixed_track_route_pool"
+    FREEFORM_COVERAGE_ROUTE_POOL = "freeform_coverage_route_pool"
     GENERATED_ROUTE_ASSIGNMENT = "generated_route_assignment"
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from itertools import pairwise
+from math import isfinite
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -62,9 +64,65 @@ class Mission(BaseModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     stages: list[MissionStage] = Field(default_factory=list)
+    photo_capture_route_indices: list[int] | None = Field(
+        default=None, min_length=1, max_length=4_000
+    )
+
+    @property
+    def route_leg_durations_minutes(self) -> list[float] | None:
+        """Validate a complete explicit horizontal clock; None denotes legacy input."""
+        if not any(s.leg_durations_minutes is not None for s in self.stages):
+            return None
+        points, durations = [self.route[0]], []
+        for stage in self.stages:
+            if stage.coordinates[0] != points[-1]:
+                raise ValueError("Explicit stages must form a continuous route.")
+            times = stage.leg_durations_minutes
+            if times is None:
+                if any(a != b for a, b in pairwise(stage.coordinates)):
+                    raise ValueError("All moving stages require explicit leg times.")
+                times = [0.0] * (len(stage.coordinates) - 1)
+            vertical = (
+                self.vertical_climb_duration_minutes
+                if stage.stage_type is MissionStageType.TAKEOFF
+                else self.vertical_descent_duration_minutes
+                if stage.stage_type is MissionStageType.LANDING
+                else 0.0
+            )
+            if abs(stage.duration_minutes - sum(times) - vertical) > 1e-7:
+                raise ValueError("Stage duration must match its legs and vertical time.")
+            for point, duration in zip(stage.coordinates[1:], times, strict=True):
+                if point != points[-1]:
+                    points.append(point)
+                    durations.append(duration)
+                elif duration > 0:
+                    raise ValueError(
+                        "Stationary dwell must be represented separately from route edges."
+                    )
+        horizontal = (
+            self.duration_minutes
+            - self.vertical_climb_duration_minutes
+            - self.vertical_descent_duration_minutes
+        )
+        if points != self.route or abs(sum(durations) - horizontal) > 1e-7:
+            raise ValueError(
+                "Explicit clock must cover the complete horizontal route and duration."
+            )
+        return durations
 
     @model_validator(mode="after")
     def schedule_offsets_are_complete(self) -> Mission:
+        _ = self.route_leg_durations_minutes
+        captures = self.photo_capture_route_indices
+        if captures is not None:
+            if (
+                captures != sorted(set(captures))
+                or captures[0] < 0
+                or captures[-1] >= len(self.route)
+            ):
+                raise ValueError("Photo captures require distinct ordered route indices.")
+            if self.image_count != len(captures) or self.route_leg_durations_minutes is None:
+                raise ValueError("Photo captures require an exact clock and matching image count.")
         if (
             self.vertical_climb_duration_minutes + self.vertical_descent_duration_minutes
             >= self.duration_minutes
@@ -97,6 +155,26 @@ class MissionStage(BaseModel):
     stage_type: MissionStageType
     coordinates: list[Coordinate] = Field(min_length=1)
     duration_minutes: float = Field(default=0, ge=0)
+    leg_durations_minutes: list[float] | None = Field(default=None, max_length=100_000)
+
+    @model_validator(mode="after")
+    def leg_times_match_geometry(self) -> MissionStage:
+        if self.leg_durations_minutes is None:
+            return self
+        if len(self.leg_durations_minutes) != len(self.coordinates) - 1:
+            raise ValueError("Each stage edge requires one duration.")
+        if any(not isfinite(t) or t < 0 for t in self.leg_durations_minutes):
+            raise ValueError("Leg durations must be finite and nonnegative.")
+        if any(
+            t == 0 and (a.latitude, a.longitude) != (b.latitude, b.longitude)
+            for a, b, t in zip(
+                self.coordinates, self.coordinates[1:], self.leg_durations_minutes, strict=False
+            )
+        ):
+            raise ValueError("A moving leg must have positive duration.")
+        if sum(self.leg_durations_minutes) > self.duration_minutes + 1e-7:
+            raise ValueError("Leg durations exceed their stage duration.")
+        return self
 
 
 class DronePlan(BaseModel):

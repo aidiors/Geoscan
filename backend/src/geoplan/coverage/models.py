@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from geoplan.domain.airspace import NoFlyZone
@@ -21,6 +23,10 @@ class WorkSegment(BaseModel):
     strip_spacing_m: float | None = Field(default=None, gt=0)
     survey_speed_limit_kmh: float | None = Field(default=None, gt=0)
     flight_direction_degrees: float | None = Field(default=None, ge=0, lt=180)
+    survey_tracks: list[tuple[Coordinate, Coordinate]] | None = Field(
+        default=None, min_length=1, max_length=5_000
+    )
+    coverage_pattern: Literal["contours", "shell", "split_shell"] | None = None
 
 
 class CoverageArea(BaseModel):

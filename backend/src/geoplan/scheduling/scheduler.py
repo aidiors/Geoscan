@@ -9,6 +9,7 @@ from typing import Protocol
 from geoplan.domain.enums import ScheduleAlgorithm, ScheduleConflictType
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
+from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import LocalProjection, projection_for_coordinates
 from geoplan.scheduling.models import (
     MissionScheduleRequest,
@@ -19,7 +20,6 @@ from geoplan.scheduling.models import (
 )
 from geoplan.scheduling.vertical import (
     apply_vertical_layer,
-    horizontal_duration_minutes,
     vertical_interval_gap_m,
 )
 
@@ -678,7 +678,7 @@ def _timed_legs(
     projection: LocalProjection,
 ) -> list[TimedLeg]:
     horizontal_start = start_minutes + mission.vertical_climb_duration_minutes
-    horizontal_duration = horizontal_duration_minutes(mission)
+    offsets = mission_route_clock(mission).offsets_minutes
     legs: list[TimedLeg] = []
     if mission.vertical_climb_duration_minutes > 0:
         departure = projection.project(mission.route[0])
@@ -690,7 +690,15 @@ def _timed_legs(
                 end_xy=departure,
             )
         )
-    legs.extend(_route_legs(mission.route, horizontal_start, horizontal_duration, projection))
+    legs.extend(
+        TimedLeg(
+            horizontal_start + offsets[i],
+            horizontal_start + offsets[i + 1],
+            projection.project(a),
+            projection.project(b),
+        )
+        for i, (a, b) in enumerate(pairwise(mission.route))
+    )
     if mission.vertical_descent_duration_minutes > 0:
         landing = projection.project(mission.route[-1])
         legs.append(

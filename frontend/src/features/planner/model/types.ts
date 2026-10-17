@@ -114,4 +114,5 @@ export interface PlanningSettings {
   planningEnd: string;
   turnRadius: number;
   fastHeuristic: boolean;
+  productiveRouting: boolean;
 }

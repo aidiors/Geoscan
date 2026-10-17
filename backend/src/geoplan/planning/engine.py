@@ -1,30 +1,46 @@
 from __future__ import annotations
 
 from geoplan.airspace.windows import _schedule_time_windows, _vertical_layers_by_segment_id
-from geoplan.assignment.models import AssignmentOptimizationRequest
+from geoplan.assignment.models import (
+    AssignmentOptimizationRequest,
+    AssignmentOptimizationResult,
+    MissionAssignmentCandidate,
+)
 from geoplan.assignment.solver import AssignmentOptimizer
+from geoplan.coverage.models import WorkSegment
 from geoplan.coverage.sweep import CoveragePlanner
 from geoplan.domain.diagnostics import FeasibilityRecommendation
 from geoplan.domain.enums import (
+    AssignmentAlgorithm,
     ErrorCode,
+    OptimalityStatus,
     OptimizationScope,
     RecommendationCode,
     RecommendationConfidence,
     RouteAlgorithm,
 )
+from geoplan.domain.fleet import DroneSpec
+from geoplan.domain.mission import Mission
 from geoplan.errors import PlanningError
 from geoplan.flight.duration import MissionDurationCalculator
 from geoplan.flight.terrain import VerticalProfilePlanner
 from geoplan.navigation.curvature import SweepTransitionPlanner
 from geoplan.navigation.optimizer import RouteOptimizer
-from geoplan.planning.candidates import _create_candidate_groups
+from geoplan.planning.candidates import (
+    _candidate_evaluation,
+    _candidate_is_feasible,
+    _create_candidate_groups,
+)
+from geoplan.planning.constraints import _constraints_for_segment
 from geoplan.planning.eligibility import (
     _drones_capable_of_environment,
     _drones_capable_of_task,
     _drones_capable_of_wind,
     _drones_with_eligible_sites,
 )
+from geoplan.planning.freeform import improve_freeform_routes
 from geoplan.planning.models import OptimizationSummary, PlanRequest, PlanResponse
+from geoplan.planning.productive import improve_productive_routes
 from geoplan.planning.reporting import (
     _create_drone_plans,
     _create_feasibility_report,
@@ -35,6 +51,7 @@ from geoplan.planning.segments import (
     _coverage_reference_airspeed_kmh,
     _resolve_segments,
 )
+from geoplan.planning.survey_phases import normalize_reference_missions
 from geoplan.safety.audit import PlanSafetyAuditor
 from geoplan.scheduling.models import MissionScheduleRequest, ScheduleSummary
 from geoplan.scheduling.scheduler import MissionScheduler, ScheduleWindowUnavailableError
@@ -65,6 +82,115 @@ def build_plan(
         sweep_transition_planner,
         coverage_reference_airspeed_kmh,
     )
+    baseline_error: PlanningError | None = None
+    baseline = None
+    try:
+        optimized = _assign_segments(
+            request,
+            segments,
+            eligible_drones,
+            duration_calculator,
+            route_optimizer,
+            sweep_transition_planner,
+            vertical_profile_planner,
+            assignment_optimizer,
+        )
+        baseline = _finish_plan(
+            request,
+            segments,
+            optimized,
+            mission_scheduler,
+            safety_auditor,
+            coverage_planner,
+            coverage_reference_airspeed_kmh,
+            len(eligible_drones),
+        )
+    except PlanningError as error:
+        if not request.productive_routing:
+            raise
+        baseline_error = error
+    if request.productive_routing:
+
+        def create_candidate(segment: WorkSegment, drone: DroneSpec) -> Mission | None:
+            candidate, _ = _candidate_evaluation(
+                segment,
+                drone,
+                request,
+                duration_calculator,
+                route_optimizer,
+                sweep_transition_planner,
+                vertical_profile_planner,
+                _constraints_for_segment(segment, request),
+            )
+            return (
+                candidate.mission
+                if candidate is not None and _candidate_is_feasible(candidate)
+                else None
+            )
+
+        def evaluate(
+            grouped: list[WorkSegment], assignments: list[MissionAssignmentCandidate]
+        ) -> PlanResponse:
+            loads: dict[str, float] = {}
+            turnarounds = {
+                d.drone_id: max(request.turnaround_minutes, d.minimum_turnaround_minutes)
+                for d in eligible_drones
+            }
+            for assignment in assignments:
+                drone_id = assignment.drone_id
+                loads[drone_id] = (
+                    loads.get(drone_id, -turnarounds[drone_id])
+                    + turnarounds[drone_id]
+                    + assignment.mission.duration_minutes
+                )
+            result = AssignmentOptimizationResult(
+                assignments=assignments,
+                algorithm=AssignmentAlgorithm.PRODUCTIVE_ROUTE_POOL,
+                optimality=OptimalityStatus.HEURISTIC,
+                completion_minutes=max(loads.values()),
+                total_flight_minutes=sum(a.mission.duration_minutes for a in assignments),
+                active_drone_count=len(loads),
+            )
+            return _finish_plan(
+                request,
+                grouped,
+                result,
+                mission_scheduler,
+                safety_auditor,
+                coverage_planner,
+                coverage_reference_airspeed_kmh,
+                len(eligible_drones),
+            )
+
+        improved = improve_productive_routes(
+            request, segments, eligible_drones, baseline, create_candidate, evaluate
+        )
+        if improved is not None:
+            return improve_freeform_routes(
+                request,
+                segments,
+                eligible_drones,
+                improved,
+                create_candidate,
+                evaluate,
+                reference=baseline,
+            )
+    if baseline is not None:
+        return baseline
+    assert baseline_error is not None
+    raise baseline_error
+
+
+def _assign_segments(
+    request: PlanRequest,
+    segments: list[WorkSegment],
+    eligible_drones: list[DroneSpec],
+    duration_calculator: MissionDurationCalculator,
+    route_optimizer: RouteOptimizer,
+    sweep_transition_planner: SweepTransitionPlanner,
+    vertical_profile_planner: VerticalProfilePlanner,
+    assignment_optimizer: AssignmentOptimizer,
+) -> AssignmentOptimizationResult:
     candidate_groups = _create_candidate_groups(
         segments,
         eligible_drones,
@@ -120,7 +246,22 @@ def build_plan(
             message="Ограничение числа БВС не позволяет распределить все участки.",
             recommendations=assignment_recommendations,
         ) from error
+    return optimized
+
+
+def _finish_plan(
+    request: PlanRequest,
+    segments: list[WorkSegment],
+    optimized: AssignmentOptimizationResult,
+    mission_scheduler: MissionScheduler,
+    safety_auditor: PlanSafetyAuditor,
+    coverage_planner: CoveragePlanner,
+    coverage_reference_airspeed_kmh: float | None,
+    eligible_drone_count: int,
+) -> PlanResponse:
     missions = [selected.mission for selected in optimized.assignments]
+    if request.productive_routing and request.minimum_turn_radius_m == 0 and not request.segments:
+        missions = normalize_reference_missions(segments, missions)
     vertical_layers = _vertical_layers_by_segment_id(missions, request)
     schedule_request = MissionScheduleRequest(
         missions=missions,
@@ -210,15 +351,23 @@ def build_plan(
         feasibility=_create_feasibility_report(
             metrics,
             request,
-            len(eligible_drones),
+            eligible_drone_count,
         ),
         optimization=OptimizationSummary(
             algorithm=optimized.algorithm,
             coverage_algorithm=coverage_planner.coverage_algorithm,
             route_algorithm=RouteAlgorithm.BIDIRECTIONAL_VISIBILITY_GRAPH,
-            scope=OptimizationScope.GENERATED_ROUTE_ASSIGNMENT,
+            scope=(
+                OptimizationScope.FIXED_TRACK_ROUTE_POOL
+                if optimized.algorithm is AssignmentAlgorithm.PRODUCTIVE_ROUTE_POOL
+                else OptimizationScope.GENERATED_ROUTE_ASSIGNMENT
+            ),
             optimality=optimized.optimality,
-            completion_minutes=optimized.completion_minutes,
+            completion_minutes=(
+                schedule.makespan_minutes
+                if optimized.algorithm is AssignmentAlgorithm.PRODUCTIVE_ROUTE_POOL
+                else optimized.completion_minutes
+            ),
             total_flight_minutes=optimized.total_flight_minutes,
             active_drone_count=optimized.active_drone_count,
             survey_turn_radius_m=request.minimum_turn_radius_m,

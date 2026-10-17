@@ -139,6 +139,7 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "survey_turn_radius_m": 0.0,
         "coverage_angle_cost": "geometric_distance",
         "coverage_reference_airspeed_kmh": None,
+        "productive_routing": None,
     }
 
 

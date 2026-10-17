@@ -72,6 +72,7 @@ class PlanRequest(BaseModel):
     turnaround_minutes: float = Field(default=0, ge=0, le=1_440)
     minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
     optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
+    productive_routing: bool = False
     planning_start_time: datetime | None = None
     planning_end_time: datetime | None = None
 
@@ -174,6 +175,18 @@ class PlanMetrics(BaseModel):
     sortie_count: int = Field(default=0, ge=0)
 
 
+class ProductiveRoutingSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    selected_variant: str
+    evaluated_variants: int = Field(ge=0)
+    freeform_candidates_checked: int = Field(default=0, ge=0)
+    baseline_makespan_minutes: float | None = None
+    baseline_total_flight_minutes: float | None = None
+    baseline_transit_minutes: float | None = None
+    message: str
+
+
 class OptimizationSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -188,6 +201,7 @@ class OptimizationSummary(BaseModel):
     survey_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
     coverage_angle_cost: CoverageAngleCost = CoverageAngleCost.GEOMETRIC_DISTANCE
     coverage_reference_airspeed_kmh: float | None = Field(default=None, gt=0, le=300)
+    productive_routing: ProductiveRoutingSummary | None = None
 
 
 class PlanResponse(BaseModel):

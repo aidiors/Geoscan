@@ -402,6 +402,7 @@ export function usePlanner() {
       planningEnd: snapshot.settings.planningEnd ?? "",
       turnRadius: snapshot.settings.turnRadius ?? 0,
       fastHeuristic: snapshot.settings.fastHeuristic ?? false,
+      productiveRouting: snapshot.settings.productiveRouting ?? true,
     });
     invalidate("Сценарий восстановлен — требуется новый расчёт");
   }

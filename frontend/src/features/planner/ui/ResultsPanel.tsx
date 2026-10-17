@@ -19,6 +19,7 @@ interface ResultsPanelProps {
 }
 
 const algorithmLabels: Record<NonNullable<PlanResponse["optimization"]>["algorithm"], string> = {
+  productive_route_pool: "Оптимизация галсов и вылетов",
   exact_branch_and_bound: "Точное распределение branch-and-bound",
   fast_greedy: "Быстрая эвристика",
   multistart_local_search: "Многопроходная оптимизация",
@@ -98,7 +99,21 @@ export function ResultsPanel({
       {plan?.optimization && (
         <div className="algorithm-card">
           <Sparkles size={17} />
-          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{coverageAngleSummary} · обход по графу видимости</small><small>{plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
+          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.algorithm === "productive_route_pool" ? "Сравнение вариантов вылетов после расчёта безопасного расписания" : plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Контуры и прямые проходы; учтены запуск и посадка" : coverageAngleSummary} · обход по графу видимости</small><small>{plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
+        </div>
+      )}
+
+      {plan?.optimization?.productive_routing && (
+        <div className="algorithm-card">
+          <Route size={17} />
+          <span>
+            <b>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Свободное покрытие" : "Сравнение вылетов"}</b>
+            <small>{plan.optimization.productive_routing.message}</small>
+            {plan.optimization.productive_routing.baseline_makespan_minutes !== null && (
+              <small>Исходный план: {format(plan.optimization.productive_routing.baseline_makespan_minutes)} мин до завершения · {format(plan.optimization.productive_routing.baseline_total_flight_minutes ?? 0)} мин налёта</small>
+            )}
+            <small>Холостой налёт: {format(plan.drone_plans.reduce((sum, drone) => sum + drone.missions.reduce((elapsed, mission) => elapsed + (mission.transit_duration_minutes ?? 0), 0), 0))} мин{plan.optimization.productive_routing.baseline_transit_minutes !== null ? ` · исходный ${format(plan.optimization.productive_routing.baseline_transit_minutes)} мин` : ""}</small>
+          </span>
         </div>
       )}
 

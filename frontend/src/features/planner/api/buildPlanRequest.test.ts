@@ -43,9 +43,20 @@ const settings: PlanningSettings = {
   planningEnd: "",
   turnRadius: 0,
   fastHeuristic: false,
+  productiveRouting: true,
 };
 
 describe("plan request", () => {
+  it("allows comparison with the reference pipeline and keeps fast mode fast", () => {
+    const scenario = scenarios[0];
+    const build = (overrides: Partial<PlanningSettings>) => buildPlanRequest(
+      "flight", scenario.task, scenario, cloneFleet(), cloneSites(scenario), [], survey,
+      { ...settings, ...overrides },
+    );
+    expect(build({ productiveRouting: false }).productive_routing).toBe(false);
+    expect(build({ productiveRouting: true, fastHeuristic: true }).productive_routing).toBe(false);
+    expect(build({ productiveRouting: true, fastHeuristic: false }).productive_routing).toBe(true);
+  });
   it("uses imported work and restriction zones instead of demonstration geometry", () => {
     const scenario = scenarios[0];
     const workArea = { ...scenario.workAreas[0], zone_id: "imported-work" };
@@ -73,6 +84,7 @@ describe("plan request", () => {
     expect(request.completion_deadline_minutes).toBe(45);
     expect(request.maximum_active_drones).toBe(2);
     expect(request.optimization_mode).toBe("optimized");
+    expect(request.productive_routing).toBe(true);
     expect(request.minimum_separation_m).toBe(50);
     expect(request.minimum_vertical_separation_m).toBe(30);
     expect(request.vertical_deconfliction_step_m).toBe(30);

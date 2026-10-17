@@ -19,21 +19,41 @@ def route_duration_minutes(
     wind: WindCondition | None,
     ground_speed_limit_kmh: float | None = None,
 ) -> float:
-    legs = [
-        (start, end, coordinate_distance_km(start, end))
-        for start, end in pairwise(route)
-        if coordinate_distance_km(start, end) > 0
-    ]
+    durations = route_leg_durations_minutes(
+        route, distance_km, cruise_speed_kmh, wind, ground_speed_limit_kmh
+    )
+    return (
+        sum(durations)
+        if any(durations)
+        else (distance_km / _limited_speed(cruise_speed_kmh, ground_speed_limit_kmh) * 60)
+    )
+
+
+def route_leg_durations_minutes(
+    route: list[Coordinate],
+    distance_km: float,
+    cruise_speed_kmh: float,
+    wind: WindCondition | None,
+    ground_speed_limit_kmh: float | None = None,
+) -> list[float]:
+    """One duration per geometric edge, including zero-length edges."""
+    legs = [(start, end, coordinate_distance_km(start, end)) for start, end in pairwise(route)]
     total_length = sum(distance for _, _, distance in legs)
     if total_length == 0:
-        return distance_km / _limited_speed(cruise_speed_kmh, ground_speed_limit_kmh) * 60
-    duration_hours = 0.0
+        times = [0.0] * len(legs)
+        if times:
+            times[-1] = distance_km / _limited_speed(cruise_speed_kmh, ground_speed_limit_kmh) * 60
+        return times
+    durations = []
     for start, end, geometric_distance in legs:
+        if geometric_distance == 0:
+            durations.append(0.0)
+            continue
         leg_distance = distance_km * geometric_distance / total_length
         ground_speed = ground_speed_kmh(start, end, cruise_speed_kmh, wind)
         ground_speed = _limited_speed(ground_speed, ground_speed_limit_kmh)
-        duration_hours += leg_distance / ground_speed
-    return duration_hours * 60
+        durations.append(leg_distance / ground_speed * 60)
+    return durations
 
 
 def ground_speed_kmh(

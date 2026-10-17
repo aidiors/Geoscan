@@ -466,3 +466,21 @@ export function cloneSites(scenario: Scenario): FlightSiteState[] {
     coordinate: { ...flightSite.coordinate },
   }));
 }
+
+// Synthetic holdout geometry shared in scale with the backend coverage experiments.
+const circleCoordinates: Array<[number, number]> = Array.from({ length: 64 }, (_, index) => {
+  const angle = 2 * Math.PI * index / 64;
+  return [37.62 + 720 * Math.cos(angle) / (111320 * Math.cos(55.75 * Math.PI / 180)),
+    55.75 + 720 * Math.sin(angle) / 110574];
+});
+const circleHome: [number, number] = [37.62 - 860 / (111320 * Math.cos(55.75 * Math.PI / 180)),
+  55.75 - 860 / 110574];
+scenarios.push({
+  id: "freeform-circle", title: "Свободное покрытие округлой территории",
+  description: "Сравнение прямых проходов, контуров и смешанных маршрутов на синтетической области.",
+  task: "rgb", altitude: 100,
+  workAreas: [polygon("freeform-target", "Округлая территория", "work_area", circleCoordinates)],
+  noFlyZones: [], segments: [],
+  sites: [site("freeform-start", "Старт", "takeoff", ...circleHome),
+    site("freeform-land", "Посадка", "landing", ...circleHome)],
+});

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Literal
 from xml.sax.saxutils import escape
@@ -14,6 +14,7 @@ from geoplan.domain.fleet import AutopilotProfile
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import DronePlan, Mission, MissionStage
 from geoplan.errors import PlanningError
+from geoplan.flight.trajectory import mission_route_clock
 from geoplan.geodata.models import (
     ExportRequest,
     GeoJsonFeature,
@@ -29,9 +30,10 @@ from geoplan.geodata.models import (
     QGroundControlPlan,
     QGroundControlSimpleItem,
 )
+from geoplan.navigation.routing import coordinate_distance_km
 from geoplan.safety.audit import ExportVerificationResult
 
-MavCommand = Literal[16, 21, 22, 178, 206]
+MavCommand = Literal[16, 21, 22, 178, 206, 2000]
 MavFrame = Literal[2, 3, 10]
 
 MAV_CMD_NAV_WAYPOINT: Literal[16] = 16
@@ -39,6 +41,7 @@ MAV_CMD_NAV_LAND: Literal[21] = 21
 MAV_CMD_NAV_TAKEOFF: Literal[22] = 22
 MAV_CMD_DO_CHANGE_SPEED: Literal[178] = 178
 MAV_CMD_DO_SET_CAM_TRIGG_DIST: Literal[206] = 206
+MAV_CMD_IMAGE_START_CAPTURE: Literal[2000] = 2000
 MAV_FRAME_MISSION: Literal[2] = 2
 MAV_FRAME_GLOBAL_RELATIVE_ALT: Literal[3] = 3
 MAV_FRAME_GLOBAL_TERRAIN_ALT: Literal[10] = 10
@@ -122,8 +125,25 @@ def _mission_exports_match(mission: Mission) -> bool:
     expected_autopilot = [
         [coordinate.longitude, coordinate.latitude] for coordinate in mission.route
     ]
+    captures_match = True
+    if mission.photo_capture_route_indices is not None:
+        position = None
+        actual = []
+        for command in _mission_commands(mission):
+            if command.command in {16, 21, 22}:
+                position = (command.params[5], command.params[4])
+            if command.command == MAV_CMD_IMAGE_START_CAPTURE:
+                actual.append(position)
+                captures_match &= command.params[2:4] == [1, len(actual)]
+            if command.command == MAV_CMD_DO_SET_CAM_TRIGG_DIST:
+                captures_match = False
+        captures_match &= actual == [
+            (mission.route[i].longitude, mission.route[i].latitude)
+            for i in mission.photo_capture_route_indices
+        ]
     return (
-        geojson_matches
+        captures_match
+        and geojson_matches
         and kml_matches
         and _deduplicate(autopilot_coordinates) == _deduplicate(expected_autopilot)
     )
@@ -279,8 +299,16 @@ def _mission_planner_lines(missions: list[Mission]) -> list[str]:
 
 def _autopilot_commands(missions: list[Mission]) -> list[AutopilotCommand]:
     commands: list[AutopilotCommand] = []
+    capture_sequence = 0
     for mission in missions:
-        commands.extend(_mission_commands(mission))
+        for command in _mission_commands(mission):
+            if command.command == MAV_CMD_IMAGE_START_CAPTURE:
+                capture_sequence += 1
+                command = replace(
+                    command,
+                    params=[*command.params[:3], capture_sequence, *command.params[4:]],
+                )
+            commands.append(command)
     return commands
 
 
@@ -300,6 +328,23 @@ def _mission_commands(mission: Mission) -> list[AutopilotCommand]:
             params=[0, mission.cruise_speed_kmh / 3.6, -1, 0, 0, 0, 0],
         ),
     ]
+    clock = mission_route_clock(mission)
+    route_index = 0
+    capture_indices = set(mission.photo_capture_route_indices or [])
+    captured = set()
+
+    def capture_at(index: int) -> None:
+        if index in capture_indices and index not in captured:
+            captured.add(index)
+            commands.append(
+                AutopilotCommand(
+                    command=MAV_CMD_IMAGE_START_CAPTURE,
+                    frame=MAV_FRAME_MISSION,
+                    params=[0, 0, 1, len(captured), 0, 0, 0],
+                )
+            )
+
+    last_speed = None
     last_coordinate = mission.route[0]
     route_stages = [
         stage for stage in mission.stages if stage.stage_type is not MissionStageType.TAKEOFF
@@ -313,22 +358,69 @@ def _mission_commands(mission: Mission) -> list[AutopilotCommand]:
             position_frame,
         )
     else:
-        trigger_spacing_m = _camera_trigger_spacing_m(mission)
+        trigger_spacing_m = (
+            None
+            if mission.photo_capture_route_indices is not None
+            else _camera_trigger_spacing_m(mission)
+        )
         for stage in route_stages:
+            if stage.stage_type is MissionStageType.SURVEY:
+                capture_at(route_index)
             if stage.stage_type is MissionStageType.SURVEY and trigger_spacing_m is not None:
                 commands.append(_camera_trigger_command(trigger_spacing_m))
             coordinates = stage.coordinates
             if stage.stage_type is MissionStageType.LANDING:
                 coordinates = coordinates[:-1]
-            last_coordinate = _append_waypoint_commands(
-                commands,
-                coordinates,
-                commanded_altitude_m,
-                last_coordinate,
-                position_frame,
-            )
+            if clock.phase_timed:
+                for coordinate in coordinates:
+                    if coordinate == last_coordinate:
+                        continue
+                    duration = (
+                        clock.offsets_minutes[route_index + 1] - clock.offsets_minutes[route_index]
+                    )
+                    speed = (
+                        coordinate_distance_km(last_coordinate, coordinate) * 1000 / (duration * 60)
+                        if duration > 0
+                        else 0.0
+                    )
+                    if speed > 0 and (last_speed is None or abs(speed - last_speed) > 1e-7):
+                        commands.append(
+                            AutopilotCommand(
+                                command=MAV_CMD_DO_CHANGE_SPEED,
+                                frame=MAV_FRAME_MISSION,
+                                params=[1, speed, -1, 0, 0, 0, 0],
+                            )
+                        )
+                        last_speed = speed
+                    commands.append(
+                        _position_command(
+                            MAV_CMD_NAV_WAYPOINT, coordinate, commanded_altitude_m, position_frame
+                        )
+                    )
+                    last_coordinate = coordinate
+                    route_index += 1
+                    capture_at(route_index)
+            else:
+                last_coordinate = _append_waypoint_commands(
+                    commands, coordinates, commanded_altitude_m, last_coordinate, position_frame
+                )
             if stage.stage_type is MissionStageType.SURVEY and trigger_spacing_m is not None:
                 commands.append(_camera_trigger_command(0))
+    if clock.phase_timed and last_coordinate != mission.route[-1]:
+        duration = clock.offsets_minutes[route_index + 1] - clock.offsets_minutes[route_index]
+        speed = (
+            coordinate_distance_km(last_coordinate, mission.route[-1]) * 1000 / (duration * 60)
+            if duration > 0
+            else 0.0
+        )
+        if speed > 0 and (last_speed is None or abs(speed - last_speed) > 1e-7):
+            commands.append(
+                AutopilotCommand(
+                    command=MAV_CMD_DO_CHANGE_SPEED,
+                    frame=MAV_FRAME_MISSION,
+                    params=[1, speed, -1, 0, 0, 0, 0],
+                )
+            )
     commands.append(_position_command(MAV_CMD_NAV_LAND, mission.route[-1], 0, position_frame))
     return commands
 
@@ -436,6 +528,7 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
             start_time=mission.start_time,
             end_time=mission.end_time,
             image_count=mission.image_count,
+            photo_capture_route_indices=mission.photo_capture_route_indices,
             computed_gsd_cm=mission.computed_gsd_cm,
             strip_spacing_m=mission.strip_spacing_m,
             stages=mission.stages,
@@ -499,6 +592,8 @@ def _create_kml_route_placemark(mission: Mission) -> str:
         f'<Data name="start_time"><value>{_optional_isoformat(mission.start_time)}</value></Data>'
         f'<Data name="end_time"><value>{_optional_isoformat(mission.end_time)}</value></Data>'
         f'<Data name="image_count"><value>{mission.image_count or 0}</value></Data>'
+        '<Data name="photo_capture_route_indices"><value>'
+        f"{mission.photo_capture_route_indices or []}</value></Data>"
         f'<Data name="computed_gsd_cm"><value>{mission.computed_gsd_cm or 0}</value></Data>'
         f'<Data name="strip_spacing_m"><value>{mission.strip_spacing_m or 0}</value></Data>'
         f'<Data name="altitude_reference"><value>{mission.altitude_reference.value}</value></Data>'

@@ -73,12 +73,12 @@ def _create_metrics(
     drone_plans: list[DronePlan],
     available_drone_count: int,
 ) -> PlanMetrics:
-    durations = [drone_plan.total_duration_minutes for drone_plan in drone_plans]
+    durations = [sum(m.duration_minutes for m in plan.missions) for plan in drone_plans]
     scheduled_ends = [
-        mission.end_offset_minutes
+        mission.start_offset_minutes + mission.duration_minutes
         for drone_plan in drone_plans
         for mission in drone_plan.missions
-        if mission.end_offset_minutes is not None
+        if mission.start_offset_minutes is not None
     ]
     completion_minutes = max(scheduled_ends, default=max(durations))
     total_distance = sum(

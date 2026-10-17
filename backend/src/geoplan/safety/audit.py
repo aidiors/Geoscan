@@ -24,6 +24,7 @@ from geoplan.domain.enums import (
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
+from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import (
     LocalProjection,
     polygon_from_coordinates,
@@ -31,7 +32,7 @@ from geoplan.navigation.geometry import (
 )
 from geoplan.navigation.routing import coordinate_distance_km, route_is_inside_allowed_airspaces
 from geoplan.planning.models import PlanRequest
-from geoplan.scheduling.vertical import horizontal_duration_minutes, vertical_interval_gap_m
+from geoplan.scheduling.vertical import vertical_interval_gap_m
 
 COVERAGE_REQUIRED_PERCENT = 99.0
 COVERAGE_ROUTE_CLEARANCE_M = 0.5
@@ -708,42 +709,28 @@ def _extend_for_start_uncertainty(
 def _timed_legs(mission: Mission, projection: LocalProjection) -> list[_TimedLeg]:
     if mission.start_offset_minutes is None or mission.end_offset_minutes is None:
         return []
-    projected = [projection.project(point) for point in mission.route]
-    leg_data = [
-        (start, end, hypot(end[0] - start[0], end[1] - start[1]))
-        for start, end in pairwise(projected)
-        if start != end
-    ]
-    total_length = sum(length for _, _, length in leg_data)
-    if total_length <= 0:
-        return []
-    legs: list[_TimedLeg] = []
-    leg_start = mission.start_offset_minutes + mission.vertical_climb_duration_minutes
-    horizontal_duration = horizontal_duration_minutes(mission)
+    offsets = mission_route_clock(mission).offsets_minutes
+    base = mission.start_offset_minutes
+    horizontal_start = base + mission.vertical_climb_duration_minutes
+    legs = []
     if mission.vertical_climb_duration_minutes > 0:
-        departure = projected[0]
-        legs.append(
-            _TimedLeg(
-                mission.start_offset_minutes,
-                leg_start,
-                departure,
-                departure,
-            )
+        departure = projection.project(mission.route[0])
+        legs.append(_TimedLeg(base, horizontal_start, departure, departure))
+    legs.extend(
+        _TimedLeg(
+            horizontal_start + offsets[i],
+            horizontal_start + offsets[i + 1],
+            projection.project(a),
+            projection.project(b),
         )
-    for index, (start_xy, end_xy, length) in enumerate(leg_data):
-        leg_end = (
-            mission.end_offset_minutes - mission.vertical_descent_duration_minutes
-            if index == len(leg_data) - 1
-            else leg_start + horizontal_duration * length / total_length
-        )
-        legs.append(_TimedLeg(leg_start, leg_end, start_xy, end_xy))
-        leg_start = leg_end
+        for i, (a, b) in enumerate(pairwise(mission.route))
+    )
     if mission.vertical_descent_duration_minutes > 0:
-        landing = projected[-1]
+        landing = projection.project(mission.route[-1])
         legs.append(
             _TimedLeg(
-                mission.end_offset_minutes - mission.vertical_descent_duration_minutes,
-                mission.end_offset_minutes,
+                base + mission.duration_minutes - mission.vertical_descent_duration_minutes,
+                base + mission.duration_minutes,
                 landing,
                 landing,
             )
@@ -987,6 +974,10 @@ def _coverage_check(
     segments: list[WorkSegment],
     missions: list[Mission],
 ) -> SafetyAuditCheck:
+    if any(segment.coverage_pattern is not None for segment in segments):
+        from geoplan.safety.freeform import freeform_coverage_check
+
+        return freeform_coverage_check(request, segments, missions)
     if not request.coverage_areas:
         return _not_applicable(
             SafetyCheckCode.COVERAGE_COMPLETENESS,
@@ -1077,19 +1068,14 @@ def _coverage_ratio(
         segment = segments[mission.segment_id]
         if segment.strip_spacing_m is None:
             continue
-        survey_points = [
-            point
-            for stage in mission.stages
-            if stage.stage_type is MissionStageType.SURVEY
-            for point in stage.coordinates
-        ]
-        if len(survey_points) >= 2:
-            swaths.append(
-                LineString([projection.project(point) for point in survey_points]).buffer(
-                    footprint_width_m / 2 + 0.5,
-                    cap_style="square",
+        for stage in mission.stages:
+            if stage.stage_type is MissionStageType.SURVEY and len(stage.coordinates) >= 2:
+                swaths.append(
+                    LineString([projection.project(point) for point in stage.coordinates]).buffer(
+                        footprint_width_m / 2 + 0.5, cap_style="square"
+                    )
                 )
-            )
+
     if not swaths or target.area <= 0:
         return 0.0
     covered = unary_union(swaths).intersection(target).area

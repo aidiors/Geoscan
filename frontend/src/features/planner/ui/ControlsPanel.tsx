@@ -175,6 +175,16 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <label className="solver-option">
           <input
             type="checkbox"
+            checked={props.settings.productiveRouting}
+            disabled={props.settings.fastHeuristic}
+            onChange={(event) => props.onUpdateSettings({ productiveRouting: event.target.checked })}
+          />
+          <span><b>Оптимизация вылетов</b><small>Группировать галсы по запасу АКБ и выбирать по итоговому расписанию</small></span>
+        </label>
+        {props.settings.productiveRouting && <p className="hint">{props.settings.fastHeuristic ? "Выключите быстрый расчёт, чтобы сравнивать варианты вылетов." : "«Макс. маршрут» задаёт исходное разбиение для сравнения. Новые вылеты ограничены запасом АКБ, дальностью БВС и условиями задания."}</p>}
+        <label className="solver-option">
+          <input
+            type="checkbox"
             checked={props.settings.fastHeuristic}
             onChange={(event) => props.onUpdateSettings({ fastHeuristic: event.target.checked })}
           />

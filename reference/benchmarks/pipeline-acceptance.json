@@ -1,0 +1,100 @@
+{
+  "protocol": "http-freeform-acceptance-v1",
+  "camera_interval_s": 1,
+  "overlap_side_forward_percent": [
+    60,
+    75
+  ],
+  "results": [
+    {
+      "case_id": "holdout_circle64",
+      "baseline_flight_minutes": 20.89,
+      "selected_flight_minutes": 19.72,
+      "selected_scope": "freeform_coverage_route_pool",
+      "selected_variant": "freeform:contours_inward",
+      "freeform_candidates_checked": 2,
+      "baseline_seconds": 1.9967536000040127,
+      "optimized_seconds": 6.774756600003457,
+      "exports_checked": 4,
+      "safety_audit": "passed",
+      "image_count": 1093
+    },
+    {
+      "case_id": "holdout_ellipse27",
+      "baseline_flight_minutes": 14.96,
+      "selected_flight_minutes": 14.96,
+      "selected_scope": "fixed_track_route_pool",
+      "selected_variant": "catalog",
+      "freeform_candidates_checked": 6,
+      "baseline_seconds": 1.6345794000080787,
+      "optimized_seconds": 5.126867499988293,
+      "exports_checked": 4,
+      "safety_audit": "passed",
+      "image_count": 792
+    },
+    {
+      "case_id": "holdout_circle_cross_sites",
+      "baseline_flight_minutes": 19.8,
+      "selected_flight_minutes": 19.66,
+      "selected_scope": "freeform_coverage_route_pool",
+      "selected_variant": "freeform:split_shell_9_angle_90_seam_0.1_reverse_False",
+      "freeform_candidates_checked": 3,
+      "baseline_seconds": 2.0956027999927755,
+      "optimized_seconds": 7.273342899992713,
+      "exports_checked": 4,
+      "safety_audit": "passed",
+      "image_count": 1115
+    },
+    {
+      "case_id": "holdout_ellipse_cross_sites",
+      "baseline_flight_minutes": 14.08,
+      "selected_flight_minutes": 14.08,
+      "selected_scope": "generated_route_assignment",
+      "selected_variant": "baseline",
+      "freeform_candidates_checked": 6,
+      "baseline_seconds": 1.5622896999993827,
+      "optimized_seconds": 5.000283200002741,
+      "exports_checked": 4,
+      "safety_audit": "passed",
+      "image_count": 824
+    },
+    {
+      "case_id": "holdout_u_shape",
+      "baseline_flight_minutes": 14.68,
+      "selected_flight_minutes": 14.68,
+      "selected_scope": "generated_route_assignment",
+      "selected_variant": "baseline",
+      "freeform_candidates_checked": 6,
+      "baseline_seconds": 1.545831300012651,
+      "optimized_seconds": 3.2066313000104856,
+      "exports_checked": 4,
+      "safety_audit": "passed",
+      "image_count": 887
+    },
+    {
+      "case_id": "holdout_neck_cross_sites",
+      "baseline_flight_minutes": 17.27,
+      "selected_flight_minutes": 14.89,
+      "selected_scope": "fixed_track_route_pool",
+      "selected_variant": "catalog",
+      "freeform_candidates_checked": 6,
+      "baseline_seconds": 2.5338958999927854,
+      "optimized_seconds": 4.432499400005327,
+      "exports_checked": 4,
+      "safety_audit": "passed",
+      "image_count": 822
+    }
+  ],
+  "source_sha256": {
+    "planning/freeform.py": "0aeadacef28035806aec62faf0d39b84db2e4b443b566b5c33202f6b12e020b3",
+    "routing/freeform.py": "d67efc9d14ddcffc5b3d540d4b9df2c241d4f6b5d0e18595552feb99422e7250",
+    "routing/coverage_patterns.py": "65b8239237e518d58414fd31e9dfc01ebdb38cbb9b16159130c0d6475a17c84c",
+    "routing/photography.py": "2a1461e92bc8cb406292bba0d2cfd8d281d4ed4298bc26e5305942a2920d1c2a",
+    "safety/freeform.py": "827a8e4486f70b15ce066e6174c3aa582dc4f42d8b3c93444b676b66f7f7ccf8",
+    "geodata/exporters.py": "e0ba4f087d97a80b4766c31496dea1cf62b2ef67f9c7de7358f1779e7ce6d371"
+  },
+  "projection": {
+    "origin_longitude": 37.62,
+    "origin_latitude": 55.75
+  }
+}

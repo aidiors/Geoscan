@@ -39,6 +39,7 @@ from geoplan.planning.routes import (
     _optimize_route,
     _validate_geometry,
 )
+from geoplan.planning.survey_phases import survey_edge_mask, survey_flight_phases, survey_stages
 
 
 def _create_candidate_groups(
@@ -151,13 +152,35 @@ def _create_candidate(
     )
     _validate_geometry(full_route, optimized.survey_route, constraints, segment, request)
     estimate = optimized.duration_estimate
+    internal_stages = survey_stages(
+        segment,
+        optimized.survey_route,
+        estimate.survey_leg_durations_minutes,
+        sum(estimate.survey_leg_durations_minutes)
+        if estimate.survey_leg_durations_minutes is not None
+        else estimate.survey_duration_minutes,
+    )
+    service_distance = (
+        sum(
+            route_distance_km(stage.coordinates)
+            for stage in internal_stages
+            if stage.stage_type is MissionStageType.SURVEY
+        )
+        if segment.survey_tracks is not None
+        else optimized.survey_distance_km
+    )
+    service_minutes = sum(
+        stage.duration_minutes
+        for stage in internal_stages
+        if stage.stage_type is MissionStageType.SURVEY
+    )
     _validate_route_envelope(drone, optimized, full_route, segment.segment_id)
     vertical_profile = optimized.vertical_profile
     energy_equivalent_minutes = (
         vertical_profile.vertical_energy_equivalent_minutes if vertical_profile is not None else 0
     )
     battery_percent = round(
-        _battery_use_percent(estimate.duration_minutes + energy_equivalent_minutes, drone),
+        _battery_use_percent(estimate.precise_duration_minutes + energy_equivalent_minutes, drone),
         2,
     )
     remaining_battery_percent = round(max(0, drone.initial_charge_percent - battery_percent), 2)
@@ -169,7 +192,7 @@ def _create_candidate(
     mission = Mission(
         drone_id=drone.drone_id,
         segment_id=segment.segment_id,
-        duration_minutes=estimate.duration_minutes,
+        duration_minutes=estimate.precise_duration_minutes,
         distance_km=round(optimized.total_distance_km, 3),
         route=full_route,
         altitude_m=request.mission_altitude_m,
@@ -200,7 +223,7 @@ def _create_candidate(
             request.terrain_vertical_uncertainty_m if vertical_profile is not None else 0
         ),
         cruise_speed_kmh=drone.cruise_speed_kmh,
-        effective_speed_kmh=estimate.effective_speed_kmh,
+        effective_speed_kmh=optimized.total_distance_km / estimate.precise_duration_minutes * 60,
         estimated_battery_percent=battery_percent,
         starting_battery_percent=drone.initial_charge_percent,
         remaining_battery_percent=remaining_battery_percent,
@@ -225,14 +248,11 @@ def _create_candidate(
         alternate_certification_error_minutes=(
             round(emergency.certification_error_minutes, 6) if emergency is not None else None
         ),
-        survey_distance_km=round(optimized.survey_distance_km, 3),
-        transit_distance_km=round(optimized.transit_distance_km, 3),
-        survey_duration_minutes=estimate.survey_duration_minutes,
-        transit_duration_minutes=estimate.transit_duration_minutes,
-        useful_flight_percent=round(
-            optimized.survey_distance_km / optimized.total_distance_km * 100,
-            2,
-        ),
+        survey_distance_km=round(service_distance, 3),
+        transit_distance_km=round(optimized.total_distance_km - service_distance, 3),
+        survey_duration_minutes=service_minutes,
+        transit_duration_minutes=estimate.precise_duration_minutes - service_minutes,
+        useful_flight_percent=round(service_distance / optimized.total_distance_km * 100, 2),
         image_count=segment.image_count,
         computed_gsd_cm=segment.computed_gsd_cm,
         strip_spacing_m=segment.strip_spacing_m,
@@ -247,20 +267,25 @@ def _create_candidate(
             MissionStage(
                 stage_type=MissionStageType.TRANSIT,
                 coordinates=optimized.transit_route,
-                duration_minutes=max(
-                    0,
-                    estimate.transit_duration_minutes - estimate.landing_duration_minutes,
+                duration_minutes=(
+                    sum(estimate.transit_leg_durations_minutes)
+                    if estimate.transit_leg_durations_minutes is not None
+                    else max(
+                        0, estimate.transit_duration_minutes - estimate.landing_duration_minutes
+                    )
                 ),
+                leg_durations_minutes=estimate.transit_leg_durations_minutes,
             ),
-            MissionStage(
-                stage_type=MissionStageType.SURVEY,
-                coordinates=optimized.survey_route,
-                duration_minutes=estimate.survey_duration_minutes,
-            ),
+            *internal_stages,
             MissionStage(
                 stage_type=MissionStageType.LANDING,
                 coordinates=optimized.landing_route,
-                duration_minutes=estimate.landing_duration_minutes,
+                duration_minutes=(
+                    sum(estimate.landing_leg_durations_minutes)
+                    if estimate.landing_leg_durations_minutes is not None
+                    else estimate.landing_duration_minutes
+                ),
+                leg_durations_minutes=estimate.landing_leg_durations_minutes,
             ),
         ],
     )
@@ -356,6 +381,14 @@ def _best_route_and_sites(
                         survey_distance_km=survey_distance,
                         landing_route=landing_route,
                         landing_distance_km=landing_distance,
+                        survey_leg_speed_limits_kmh=(
+                            [
+                                segment.survey_speed_limit_kmh if scan else None
+                                for scan in survey_edge_mask(segment, optimized.route)
+                            ]
+                            if segment.survey_tracks is not None
+                            else None
+                        ),
                     )
                 )
             except PlanningError as error:
@@ -385,11 +418,7 @@ def _best_route_and_sites(
                             distance_km=departure_distance,
                             ground_speed_limit_kmh=None,
                         ),
-                        FlightPhase(
-                            route=optimized.route,
-                            distance_km=survey_distance,
-                            ground_speed_limit_kmh=segment.survey_speed_limit_kmh,
-                        ),
+                        *survey_flight_phases(segment, optimized.route, survey_distance),
                         FlightPhase(
                             route=landing_route,
                             distance_km=landing_distance,
@@ -444,7 +473,11 @@ def _route_choice_key(choice: OptimizedMissionRoute) -> tuple[float, str, str]:
         if choice.vertical_profile is not None
         else 0
     )
-    return choice.duration_estimate.duration_minutes + vertical_minutes, departure_id, landing_id
+    return (
+        choice.duration_estimate.precise_duration_minutes + vertical_minutes,
+        departure_id,
+        landing_id,
+    )
 
 
 def _survey_distance(

@@ -2,6 +2,27 @@ import type { DemoCase } from "@/features/planner/model/types";
 
 export const demoCases: DemoCase[] = [
   {
+    id: "productive-sorties",
+    scenarioId: "urban-rgb",
+    title: "Сокращение холостого налёта",
+    category: "Оптимизация вылетов",
+    description: "Сравнение исходного разбиения и новых вылетов по запасу АКБ на одной рабочей области.",
+    highlights: ["Группировка галсов", "Меньше возвращений на базу", "Выбор после безопасного расписания"],
+    expectedEvidence: ["Сравнение с исходным планом", "Проверен резерв АКБ", "Камера выключена на транзите"],
+    recommendedObjective: "flight",
+    settings: { productiveRouting: true, fastHeuristic: false, turnRadius: 0, maximumActiveDrones: "1" },
+  },
+  {
+    id: "freeform-coverage", scenarioId: "freeform-circle",
+    title: "Свободное покрытие: ближе к посадке", category: "Оптимизация маршрута",
+    description: "Контуры и смешанные проходы сравниваются с исходным планом через аудит и расписание.",
+    highlights: ["Галсы не обязательны", "Учёт запуска и посадки", "Явные точки фотосъёмки"],
+    expectedEvidence: ["Аудит безопасности пройден", "Показано сравнение налёта", "Кадры сохранены в экспорте"],
+    recommendedObjective: "flight",
+    settings: { productiveRouting: true, fastHeuristic: false, turnRadius: 0,
+      maximumActiveDrones: "1", windSpeed: 0 },
+  },
+  {
     id: "safe-urban-survey",
     scenarioId: "urban-rgb",
     title: "Безопасная городская съёмка",

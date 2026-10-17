@@ -43,6 +43,7 @@ export function planningSettings(
     planningEnd: "",
     turnRadius: 0,
     fastHeuristic: false,
+    productiveRouting: true,
     ...overrides,
   };
 }

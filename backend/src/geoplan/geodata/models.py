@@ -197,6 +197,7 @@ class GeoJsonProperties(BaseModel):
     computed_gsd_cm: float | None = Field(default=None, gt=0)
     strip_spacing_m: float | None = Field(default=None, gt=0)
     stages: list[MissionStage] = Field(default_factory=list)
+    photo_capture_route_indices: list[int] | None = None
 
 
 class GeoJsonFeature(BaseModel):
@@ -232,7 +233,7 @@ class QGroundControlSimpleItem(BaseModel):
     altitude: float = Field(default=0, alias="Altitude")
     altitude_mode: Literal[0, 4] = Field(default=0, alias="AltitudeMode")
     auto_continue: bool = Field(default=True, alias="autoContinue")
-    command: Literal[16, 21, 22, 178, 206]
+    command: Literal[16, 21, 22, 178, 206, 2000]
     do_jump_id: int = Field(ge=1, alias="doJumpId")
     frame: Literal[2, 3, 10]
     params: list[float | None] = Field(min_length=7, max_length=7)

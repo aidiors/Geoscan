@@ -125,6 +125,7 @@ export interface Mission {
   start_time?: string | null;
   end_time?: string | null;
   stages: MissionStage[];
+  photo_capture_route_indices?: number[] | null;
 }
 
 export interface FeasibilityRecommendation {
@@ -194,14 +195,15 @@ export interface PlanResponse {
   } | null;
   optimization: {
     algorithm:
+      | "productive_route_pool"
       | "exact_branch_and_bound"
       | "fast_greedy"
       | "multistart_local_search"
       | "minimum_cost"
       | "deadline_aware_local_search";
-    coverage_algorithm: "boustrophedon_sweep" | "adaptive_decomposed_sweep";
+    coverage_algorithm: "boustrophedon_sweep" | "adaptive_decomposed_sweep" | "freeform_pattern_pool";
     route_algorithm: "bidirectional_visibility_graph";
-    scope: "generated_route_assignment";
+    scope: "generated_route_assignment" | "fixed_track_route_pool" | "freeform_coverage_route_pool";
     optimality: "proven_optimal" | "heuristic";
     completion_minutes: number;
     total_flight_minutes: number;
@@ -209,6 +211,15 @@ export interface PlanResponse {
     survey_turn_radius_m: number;
     coverage_angle_cost: "geometric_distance" | "wind_adjusted_duration";
     coverage_reference_airspeed_kmh: number | null;
+    productive_routing?: {
+      selected_variant: string;
+      evaluated_variants: number;
+      freeform_candidates_checked?: number;
+      baseline_makespan_minutes: number | null;
+      baseline_total_flight_minutes: number | null;
+      baseline_transit_minutes: number | null;
+      message: string;
+    } | null;
   } | null;
   schedule: {
     algorithm: "priority_deconfliction";
@@ -386,6 +397,7 @@ export interface PlanRequest {
   planning_end_time: string | null;
   minimum_turn_radius_m: number;
   optimization_mode: "optimized" | "fast_heuristic";
+  productive_routing?: boolean;
 }
 
 export interface TurnRadiusAnalysisRequest {

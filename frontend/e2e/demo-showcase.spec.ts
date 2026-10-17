@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+test("compares productive routes with the reference pipeline through the real UI", async ({ page }, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Демо-кейсы" }).click();
+  await page.getByRole("button", { name: /Сокращение холостого налёта/ }).click();
+  const firstResponse = page.waitForResponse((response) => response.url().endsWith("/v1/plans") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Загрузить и рассчитать" }).click();
+  const productive = await (await firstResponse).json();
+  expect(productive.optimization.productive_routing.selected_variant).not.toBe("baseline");
+  expect(productive.safety_audit.status).toBe("passed");
+  await expect(page.getByText("Сравнение вылетов", { exact: true })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Оптимизация вылетов/ })).toBeChecked();
+  await page.screenshot({ path: testInfo.outputPath("productive-routes.png"), fullPage: true });
+
+  await page.getByRole("checkbox", { name: /Оптимизация вылетов/ }).uncheck();
+  const referenceResponse = page.waitForResponse((response) => response.url().endsWith("/v1/plans") && response.request().method() === "POST");
+  await page.getByRole("button", { name: /Рассчитать/ }).click();
+  const reference = await (await referenceResponse).json();
+  expect(reference.optimization.productive_routing).toBeNull();
+  expect(productive.metrics.total_flight_minutes).toBeLessThan(reference.metrics.total_flight_minutes);
+  expect(productive.metrics.sortie_count).toBeLessThan(reference.metrics.sortie_count);
+});
+
 test("opens the curated case gallery and loads a group mission", async ({ page }) => {
   await page.goto("/");
 

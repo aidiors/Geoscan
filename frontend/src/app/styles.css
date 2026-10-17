@@ -278,7 +278,8 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
   .app-header { position: sticky; top: 0; }
   .workspace { min-height: calc(100vh - 72px); overflow: visible; grid-template-columns: 290px minmax(0, 1fr); }
   .panel { overflow: visible; }
-  .map-zone { min-height: 600px; }
+  .map-zone { height: calc(100vh - 72px); min-height: 600px; }
+  .controls-panel { max-height: calc(100vh - 72px); overflow-y: auto; }
   .results-panel { grid-column: 1 / -1; border-top: 1px solid var(--line); border-left: 0; }
   .mission-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .export-group { max-width: 520px; }
@@ -292,7 +293,8 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
   .calculate-button { min-width: 0; padding: 10px; font-size: 11px; }
   .workspace { display: block; }
   .controls-panel, .results-panel { border: 0; border-bottom: 1px solid var(--line); }
-  .map-zone { min-height: 520px; padding: 15px; }
+  .map-zone { height: 65vh; min-height: 520px; padding: 15px; }
+  .controls-panel { max-height: none; overflow: visible; }
   .map-title { align-items: flex-start; flex-direction: column; }
   .legend { white-space: normal; }
   .mission-list { grid-template-columns: 1fr; }

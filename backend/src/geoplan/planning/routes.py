@@ -214,7 +214,14 @@ def _validate_geometry(
     if (
         coverage_area is not None
         and request.minimum_turn_radius_m == 0
-        and not route_is_inside_coverage_area(survey_route, coverage_area)
+        and not all(
+            route_is_inside_coverage_area(track, coverage_area)
+            for track in (
+                [list(t) for t in segment.survey_tracks]
+                if segment.survey_tracks is not None
+                else [survey_route]
+            )
+        )
     ):
         raise PlanningError(
             code=ErrorCode.COVERAGE_GENERATION_FAILED,
