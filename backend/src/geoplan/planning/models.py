@@ -73,13 +73,20 @@ class PlanRequest(BaseModel):
     turnaround_minutes: float = Field(default=0, ge=0, le=1_440)
     minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
     optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
-    assignment_strategy: AssignmentStrategy = AssignmentStrategy.HYBRID
+    assignment_strategy: AssignmentStrategy = AssignmentStrategy.AUTOMATIC
     productive_routing: bool = False
     planning_start_time: datetime | None = None
     planning_end_time: datetime | None = None
 
     @model_validator(mode="after")
     def has_route_source(self) -> PlanRequest:
+        for label, identifiers in (
+            ("БВС", [drone.drone_id for drone in self.drones]),
+            ("областей", [area.area_id for area in self.coverage_areas]),
+            ("участков", [segment.segment_id for segment in self.segments]),
+        ):
+            if len(identifiers) != len(set(identifiers)):
+                raise ValueError(f"Идентификаторы {label} должны быть уникальными.")
         if not self.segments and not self.coverage_areas:
             raise ValueError("Нужен хотя бы один участок или целевая зона покрытия.")
         if self.coverage_areas and self.survey_parameters is None:

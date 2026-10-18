@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from geoplan.domain.airspace import NoFlyZone
-from geoplan.domain.enums import SweepAngleAlgorithm, SweepDirectionMode
+from geoplan.domain.enums import OptimizationMode, SweepAngleAlgorithm, SweepDirectionMode
 from geoplan.domain.environment import WindCondition
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.survey import SensorProfile as SensorProfile
@@ -64,6 +64,8 @@ class CoveragePlanRequest(BaseModel):
     landing_candidates: list[Coordinate] = Field(default_factory=list, max_length=100)
     wind: WindCondition | None = None
     reference_airspeed_kmh: float | None = Field(default=None, gt=0, le=300)
+    planning_area_count: int = Field(default=1, ge=1, le=1_000)
+    optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
 
 
 class CoveragePlanResult(BaseModel):

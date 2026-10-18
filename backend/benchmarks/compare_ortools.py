@@ -17,27 +17,26 @@ from time import perf_counter
 
 import ortools
 
-from benchmarks.ortools_assignment import (
-    CpSatAssignmentBenchmark,
+from geoplan.assignment.cp_sat import (
+    CpSatAssignmentSolver,
     evaluate_assignment,
     objective_score,
 )
-from geoplan.airspace.windows import _schedule_time_windows, _vertical_layers_by_segment_id
 from geoplan.assignment.models import (
     AssignmentOptimizationRequest,
     AssignmentOptimizationResult,
     MissionAssignmentCandidate,
 )
 from geoplan.assignment.solver import HybridAssignmentOptimizer
-from geoplan.composition import AppDependencies, create_default_dependencies
+from geoplan.composition import create_default_dependencies
 from geoplan.domain.enums import OptimizationCriterion
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
 from geoplan.navigation.geometry import LocalProjection
 from geoplan.planning.engine import build_plan
+from geoplan.planning.execution import AuditedMissionEvaluator
 from geoplan.planning.models import PlanRequest, PlanResponse
 from geoplan.planning.segments import _resolve_segments
-from geoplan.scheduling.models import MissionScheduleRequest, MissionScheduleResult
 from scenarios.planning import productive_survey_request
 
 
@@ -111,7 +110,7 @@ def synthetic_request(seed: int, tasks: int, drones: int) -> AssignmentOptimizat
 
 def compare_assignment(
     request: AssignmentOptimizationRequest,
-    solver: CpSatAssignmentBenchmark,
+    solver: CpSatAssignmentSolver,
     baseline: AssignmentOptimizationResult | None = None,
     baseline_seconds: float | None = None,
     warm_start: bool = False,
@@ -218,7 +217,7 @@ def physical_requests() -> list[tuple[str, PlanRequest]]:
 
 def physical_comparison(
     request: PlanRequest,
-    solver: CpSatAssignmentBenchmark,
+    solver: CpSatAssignmentSolver,
     warm_start: bool = False,
 ) -> dict:
     dependencies = create_default_dependencies()
@@ -250,17 +249,17 @@ def physical_comparison(
         for group, index in zip(problem.candidate_groups, result["choices"], strict=True)
     ]
     missions = [candidate.mission for candidate in assignments]
-    baseline_schedule = schedule_assignment(
-        request, [a.mission for a in recorder.results[0].assignments], dependencies
+    segments = _resolve_segments(request, dependencies.coverage_planner, None, request.drones)
+    evaluator = AuditedMissionEvaluator(dependencies.mission_scheduler, dependencies.safety_auditor)
+    baseline_selection = evaluator.evaluate(
+        request, segments, [a.mission for a in recorder.results[0].assignments]
     )
+    baseline_schedule = baseline_selection.schedule
     if abs(baseline_schedule.makespan_minutes - plan.schedule.makespan_minutes) > 1e-9:
         raise AssertionError("Benchmark scheduling differs from the production baseline")
-    schedule = schedule_assignment(request, missions, dependencies)
-    segments = _resolve_segments(request, dependencies.coverage_planner, None, request.drones)
-    audit = dependencies.safety_auditor.audit(request, segments, schedule.missions)
-    baseline_audit = dependencies.safety_auditor.audit(
-        request, segments, baseline_schedule.missions
-    )
+    selected = evaluator.evaluate(request, segments, missions)
+    schedule, audit = selected.schedule, selected.audit
+    baseline_audit = baseline_selection.audit
     if baseline_audit != plan.safety_audit:
         raise AssertionError("Benchmark audit differs from the production baseline")
     failed = [check for check in audit.checks if check.status.value == "failed"]
@@ -306,33 +305,8 @@ def physical_comparison(
     return comparison
 
 
-def schedule_assignment(
-    request: PlanRequest, missions: list[Mission], dependencies: AppDependencies
-) -> MissionScheduleResult:
-    # Same scheduler inputs as planning.engine._finish_plan, without presenting
-    # a solver choice as the winner before independently auditing its schedule.
-    return dependencies.mission_scheduler.schedule(
-        MissionScheduleRequest(
-            missions=missions,
-            minimum_separation_m=request.minimum_separation_m,
-            minimum_vertical_separation_m=request.minimum_vertical_separation_m,
-            position_uncertainty_m=request.position_uncertainty_m,
-            start_time_uncertainty_seconds=request.start_time_uncertainty_seconds,
-            speed_uncertainty_percent=request.speed_uncertainty_percent,
-            flight_site_occupancy_seconds=request.flight_site_occupancy_seconds,
-            turnaround_minutes=request.turnaround_minutes,
-            turnaround_minutes_by_drone={
-                d.drone_id: d.minimum_turnaround_minutes for d in request.drones
-            },
-            planning_start_time=request.planning_start_time,
-            time_windows_by_segment_id=_schedule_time_windows(request, missions),
-            vertical_layers_by_segment_id=_vertical_layers_by_segment_id(missions, request),
-        )
-    )
-
-
 def run(seconds: float, seeds: list[int], include_physical: bool, warm_start: bool = False) -> dict:
-    solver = CpSatAssignmentBenchmark(time_limit_seconds=seconds)
+    solver = CpSatAssignmentSolver(time_limit_seconds=seconds)
     measurements = []
     for seed in seeds:
         for size, tasks, drones in (("small", 7, 3), ("medium", 24, 8), ("large", 60, 10)):
@@ -372,25 +346,20 @@ def run(seconds: float, seeds: list[int], include_physical: bool, warm_start: bo
         "seeds": seeds,
         "source_sha256": {
             path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
-            for path in (
+            for path in [
                 "benchmarks/compare_ortools.py",
-                "benchmarks/ortools_assignment.py",
-                "src/geoplan/assignment/solver.py",
-                "src/geoplan/assignment/cp_sat.py",
-                "src/geoplan/assignment/alternatives.py",
-                "src/geoplan/planning/assignment_portfolio.py",
-                "src/geoplan/assignment/neighborhood.py",
-                "src/geoplan/coverage/resolution.py",
-                "src/geoplan/airspace/windows.py",
-                "src/geoplan/planning/engine.py",
-                "src/geoplan/scheduling/scheduler.py",
-                "src/geoplan/safety/audit.py",
-            )
+                "scenarios/planning.py",
+                *(p.as_posix() for p in sorted(Path("src/geoplan").rglob("*.py"))),
+            ]
         },
         "measurements": measurements,
-        "summary": {
+        "assignment_summary": {
             verdict: sum(row["verdict"] == verdict for row in measurements)
             for verdict in ("tie", "ortools_better", "current_better", "no_solution")
+        },
+        "scheduled_summary": {
+            verdict: sum(row.get("scheduled", {}).get("verdict") == verdict for row in measurements)
+            for verdict in ("tie", "ortools_better", "current_better", "audit_failed")
         },
     }
 
@@ -406,7 +375,7 @@ def main() -> None:
     report = run(args.seconds, args.seeds, not args.skip_physical, args.warm_start)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps(report["summary"]))
+    print(json.dumps({key: report[key] for key in ("assignment_summary", "scheduled_summary")}))
 
 
 if __name__ == "__main__":

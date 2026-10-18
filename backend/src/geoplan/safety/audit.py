@@ -10,6 +10,7 @@ from shapely.geometry import LineString, MultiPoint
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from geoplan.budget import check_planning_budget
 from geoplan.coverage.models import WorkSegment
 from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone
@@ -25,7 +26,9 @@ from geoplan.domain.enums import (
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
+from geoplan.flight.camera import DistanceCameraPolicy
 from geoplan.flight.envelope import HorizontalAirspeedEnvelope
+from geoplan.flight.photography import ExplicitFrameInspector
 from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import (
     LocalProjection,
@@ -85,6 +88,7 @@ class IndependentPlanSafetyAuditor:
             _vertical_profile_check(request, missions),
             _coverage_check(request, segments, missions),
             _survey_resolution_check(request, missions),
+            _camera_timing_check(request, missions),
             _export_consistency_check(self.export_verifier.verify(missions)),
         ]
         status = (
@@ -98,6 +102,42 @@ class IndependentPlanSafetyAuditor:
             checks=checks,
             assumptions=_audit_assumptions(request),
         )
+
+
+def _camera_timing_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
+    survey = request.survey_parameters
+    if survey is None:
+        return _not_applicable(SafetyCheckCode.CAMERA_TIMING, "Параметры камеры не заданы.")
+    cameras = {d.drone_id: d.installed_sensor or survey.sensor for d in request.drones}
+    failed, margins = [], []
+    for mission in missions:
+        try:
+            times = DistanceCameraPolicy().capture_times_minutes(mission)
+        except ValueError:
+            failed.append(_mission_id(mission))
+            continue
+        if not times:
+            if mission.image_count is not None:
+                failed.append(_mission_id(mission))
+            continue
+        required = cameras[mission.drone_id].minimum_trigger_interval_s
+        margin = min(((b - a) * 60 - required for a, b in pairwise(times)), default=0)
+        margins.append(margin)
+        if margin < -1e-6 or (
+            mission.image_count is not None and len(times) != mission.image_count
+        ):
+            failed.append(_mission_id(mission))
+    return SafetyAuditCheck(
+        code=SafetyCheckCode.CAMERA_TIMING,
+        status=SafetyAuditStatus.FAILED if failed else SafetyAuditStatus.PASSED,
+        measured_value=min(margins, default=0),
+        required_value=0,
+        unit="seconds_margin",
+        affected_ids=failed,
+        message="Проверены интервалы и число команд камеры, включая стыки галсов."
+        if not failed
+        else "Команды камеры нарушают минимальный интервал или число кадров.",
+    )
 
 
 def _survey_resolution_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
@@ -457,6 +497,7 @@ def _schedule_integrity_check(
         ):
             affected.add(_mission_id(mission))
     for first, second in combinations(missions, 2):
+        check_planning_budget()
         if first.drone_id != second.drone_id:
             continue
         earlier, later = sorted(
@@ -521,6 +562,7 @@ def _drone_separation_check(
     affected: set[str] = set()
     compared = False
     for first, second in combinations(missions, 2):
+        check_planning_budget()
         if first.drone_id == second.drone_id or not _missions_overlap(
             first,
             second,
@@ -1083,6 +1125,7 @@ def _coverage_ratio(
     footprint_width_m: float,
     exclusions: list[NoFlyZone],
 ) -> float:
+    check_planning_budget()
     relevant = [
         mission
         for mission in missions
@@ -1113,6 +1156,20 @@ def _coverage_ratio(
     for mission in relevant:
         segment = segments[mission.segment_id]
         if segment.strip_spacing_m is None:
+            continue
+        if mission.photo_capture_route_indices is not None and mission.sensor is not None:
+            height = min(
+                (point.target_agl_m for point in mission.vertical_profile),
+                default=mission.altitude_m,
+            )
+            width = min(
+                height * mission.sensor.sensor_width_mm / mission.sensor.focal_length_mm,
+                footprint_width_m,
+            )
+            length = height * mission.sensor.sensor_height_mm / mission.sensor.focal_length_mm
+            swaths.extend(
+                ExplicitFrameInspector().inspect(mission, projection, width, length).footprints
+            )
             continue
         for stage in mission.stages:
             if stage.stage_type is MissionStageType.SURVEY and len(stage.coordinates) >= 2:

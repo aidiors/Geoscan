@@ -173,14 +173,14 @@ def test_production_baselines_preserve_all_original_tracks() -> None:
 def test_path_geometry_is_shared_across_aircraft_but_not_directions(monkeypatch) -> None:
     import geoplan.routing.model as implementation
 
-    original = implementation.build_safe_route
+    original = implementation.PreparedSafeRoutes.build
     calls = []
 
-    def counted(route, exclusions):
+    def counted(context, route):
         calls.append(route)
-        return original(route, exclusions)
+        return original(context, route)
 
-    monkeypatch.setattr(implementation, "build_safe_route", counted)
+    monkeypatch.setattr(implementation.PreparedSafeRoutes, "build", counted)
     problem = tiny_problems()[3]
     model = CostModel(problem)
     a, b = problem.tracks[0].start, problem.tracks[0].end

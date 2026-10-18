@@ -47,14 +47,26 @@ const settings: PlanningSettings = {
 };
 
 describe("plan request", () => {
+  it("selects an imported batch without substituting demo geometry or demo segments", () => {
+    const scenario = scenarios[0];
+    const first = { ...scenario.workAreas[0], zone_id: "first" };
+    const second = { ...first, zone_id: "second", enabled: false };
+    expect(activeWorkAreas([first, second], scenario)).toEqual([first]);
+    expect(activeWorkAreas([{ ...first, enabled: false }], scenario)).toEqual([]);
+    const build = (zones: typeof first[]) => buildPlanRequest("flight", scenario.task,
+      { ...scenario, segments: [{ segment_id: "demo", distance_km: 1, route: first.coordinates.slice(0, 2) }] },
+      cloneFleet(), cloneSites(scenario), zones, survey, settings);
+    expect(build([first]).segments).toEqual([]);
+    expect(() => build([{ ...first, enabled: false }])).toThrow("Выберите хотя бы одну");
+  });
   it("allows comparison with the reference pipeline and keeps fast mode fast", () => {
     const scenario = scenarios[0];
     const build = (overrides: Partial<PlanningSettings>) => buildPlanRequest(
       "flight", scenario.task, scenario, cloneFleet(), cloneSites(scenario), [], survey,
       { ...settings, ...overrides },
     );
-    expect(build({ compareAssignmentSolver: true }).assignment_strategy).toBe("cp_sat_portfolio");
-    expect(build({ compareAssignmentSolver: true, fastHeuristic: true }).assignment_strategy).toBe("hybrid");
+    expect(build({ fastHeuristic: false }).assignment_strategy).toBe("automatic");
+    expect(build({ fastHeuristic: true }).assignment_strategy).toBe("hybrid");
     expect(build({ productiveRouting: false }).productive_routing).toBe(false);
     expect(build({ productiveRouting: true, fastHeuristic: true }).productive_routing).toBe(false);
     expect(build({ productiveRouting: true, fastHeuristic: false }).productive_routing).toBe(true);

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from geoplan.assignment.models import AssignmentOptimizationRequest
+from geoplan.budget import check_planning_budget
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,7 @@ class AssignmentNeighborhoodSearch:
         for _ in range(self.maximum_rounds):
             improved = False
             for task, group in enumerate(request.candidate_groups):
+                check_planning_budget()
                 for option, candidate in enumerate(group):
                     if option == current[task] or candidate.drone_id not in allowed_drones:
                         continue

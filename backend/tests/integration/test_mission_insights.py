@@ -91,6 +91,7 @@ def test_quality_uses_exported_trigger_spacing_and_detects_missing_forward_overl
     report = response.json()
     assert report["frame_count"] > 100
     assert report["frame_count"] == sum(m.image_count for d in plan.drone_plans for m in d.missions)
+
     assert report["covered_percent"] > 99
     assert report["minimum_forward_overlap_percent"] >= 75 - 0.1
     assert report["minimum_side_overlap_percent"] >= 60 - 0.1
@@ -109,6 +110,39 @@ def test_quality_uses_exported_trigger_spacing_and_detects_missing_forward_overl
     assert bad.status_code == 200, bad.text
     assert bad.json()["status"] == "issues"
     assert bad.json()["minimum_forward_overlap_percent"] < 75
+
+
+def test_camera_clock_survives_short_connections_between_survey_strips(client):
+    from geoplan.navigation.geometry import LocalProjection
+
+    request = productive_survey_request()
+    projection = LocalProjection(37, 55)
+    area = request.coverage_areas[0].model_copy(
+        update={
+            "coordinates": [
+                projection.unproject(x, y) for x, y in ((0, 0), (1205, 0), (1205, 600), (0, 600))
+            ]
+        }
+    )
+    request = request.model_copy(update={"coverage_areas": [area]})
+    plan = plan_for(client, request)
+    assert plan.safety_audit.status == "passed"
+    report = client.post(
+        "/v1/survey-quality",
+        json={"request": request.model_dump(mode="json"), "plan": plan.model_dump(mode="json")},
+    ).json()
+    assert report["minimum_capture_interval_s"] >= 4 - 1e-6
+    assert report["covered_percent"] > 99.99
+    assert not report["issues"], report
+    assert report["frame_count"] == sum(m.image_count for d in plan.drone_plans for m in d.missions)
+
+    # Audit the actual commands again after stripping the repaired clock.
+    from geoplan.safety.audit import _camera_timing_check
+
+    missions = [m for d in plan.drone_plans for m in d.missions]
+    assert _camera_timing_check(request, missions).status == "passed"
+    broken = [m.model_copy(update={"photo_capture_route_indices": None}) for m in missions]
+    assert _camera_timing_check(request, broken).status == "failed"
 
 
 def test_advisor_replans_deadline_variant_without_relaxing_safety_or_overlap(client):

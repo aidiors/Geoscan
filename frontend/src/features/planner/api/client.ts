@@ -16,12 +16,17 @@ export function inspectSurveyQuality(request: PlanRequest, plan: PlanResponse): 
   });
 }
 
-export function createPlan(request: PlanRequest): Promise<PlanResponse> {
-  return requestJson<PlanResponse>("/v1/plans", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
+export async function createPlan(request: PlanRequest): Promise<PlanResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 300_000);
+  try {
+    return await requestJson<PlanResponse>("/v1/plans", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request), signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function analyzeTurnRadii(

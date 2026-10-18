@@ -10,6 +10,39 @@ from geoplan.routing.pool import ProductiveRoutePool
 from geoplan.routing.split import route_catalog
 
 
+@pytest.mark.parametrize("criterion", list(OptimizationCriterion))
+@pytest.mark.parametrize("fleet_limit", [1, 2])
+def test_incremental_assignment_matches_full_physical_prefix_scores(criterion, fleet_limit):
+    from geoplan.routing.allocation import assign_trips
+    from geoplan.routing.model import RoutingSearchObjective, Trip, variants
+
+    costs = CostModel(replace(model().problem, criterion=criterion, deadline_minutes=25))
+    source = (Trip(0, (0, 2)), Trip(0, (4,)), Trip(0, (6,)))
+    guidance = RoutingSearchObjective(criterion, 25)
+    result = assign_trips(costs, source, float("inf"), fleet_limit, search_objective=guidance)
+    assert costs.validate_geometry(result)
+    prefix = ()
+    for chosen in result:
+        group = next(
+            t for t in source if {v // 2 for v in t.visits} == {v // 2 for v in chosen.visits}
+        )
+        active = {t.aircraft for t in prefix}
+        feasible = [
+            Trip(plane, visits)
+            for plane in range(len(costs.problem.aircraft))
+            for visits in variants(group.visits)
+            if (len(active) < fleet_limit or plane in active)
+            and costs.trip(Trip(plane, visits)) is not None
+        ]
+        prefix = (*prefix, chosen)
+        actual = costs.score(prefix, complete=False, search_objective=guidance)
+        candidates = [
+            costs.score((*prefix[:-1], t), complete=False, search_objective=guidance)
+            for t in feasible
+        ]
+        assert actual == min(candidates)
+
+
 def model(criterion=OptimizationCriterion.COMPLETION_TIME):
     projection = LocalProjection(37, 55)
     return CostModel(

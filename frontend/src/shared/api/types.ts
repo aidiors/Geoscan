@@ -80,6 +80,8 @@ export interface AutopilotProfile {
 }
 
 export interface ImportedZone {
+  enabled?: boolean;
+  metadata?: Record<string, string>;
   zone_id: string;
   name: string;
   zone_type: ZoneType;
@@ -246,7 +248,7 @@ export interface PlanResponse {
       | "multistart_local_search"
       | "minimum_cost"
       | "deadline_aware_local_search";
-    coverage_algorithm: "boustrophedon_sweep" | "adaptive_decomposed_sweep" | "freeform_pattern_pool";
+    coverage_algorithm: "automatic_portfolio" | "boustrophedon_sweep" | "adaptive_decomposed_sweep" | "freeform_pattern_pool";
     route_algorithm: "bidirectional_visibility_graph";
     scope: "generated_route_assignment" | "fixed_track_route_pool" | "freeform_coverage_route_pool";
     optimality: "proven_optimal" | "heuristic";
@@ -328,6 +330,7 @@ export interface PlanResponse {
         | "obstacle_clearance"
         | "schedule_integrity"
         | "survey_resolution"
+        | "camera_timing"
         | "vertical_profile";
       status: "passed" | "failed" | "not_applicable";
       measured_value: number | null;
@@ -465,7 +468,7 @@ export interface PlanRequest {
   planning_end_time: string | null;
   minimum_turn_radius_m: number;
   optimization_mode: "optimized" | "fast_heuristic";
-  assignment_strategy?: "hybrid" | "cp_sat_portfolio";
+  assignment_strategy?: "automatic" | "hybrid" | "cp_sat_portfolio";
   productive_routing?: boolean;
 }
 

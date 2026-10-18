@@ -6,6 +6,7 @@ from itertools import pairwise
 from math import ceil, hypot
 from typing import Protocol
 
+from geoplan.budget import check_planning_budget
 from geoplan.domain.enums import ScheduleAlgorithm, ScheduleConflictType
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
@@ -93,6 +94,7 @@ class ConflictAwareMissionScheduler:
         resolved_conflicts: list[ResolvedScheduleConflict] = []
         delay_step_minutes = request.delay_step_seconds / 60
         while any(queues.values()):
+            check_planning_budget()
             drone_id = min(
                 (candidate for candidate, queue in queues.items() if queue),
                 key=lambda candidate: _dispatch_key(candidate, queues, ready_at, request),
@@ -297,6 +299,7 @@ def _safe_start_time(
     baseline_start_minutes: float | None = None
     conflicting_missions: dict[tuple[str, str, ScheduleConflictType], ConflictDetection] = {}
     for _ in range(maximum_iterations):
+        check_planning_budget()
         allowed_start = _next_allowed_start(
             mission,
             start_minutes,

@@ -26,28 +26,49 @@ def assign_trips(
                 candidate = Trip(plane, visits)
                 cost = model.trip(candidate)
                 if cost is not None:
-                    options.append((cost.total, candidate))
+                    options.append((cost, candidate))
         if not options:
             return ()
-        groups.append((min(value for value, _ in options), options))
+        groups.append((min(cost.total for cost, _ in options), options))
     current: Solution = ()
+    loads: dict[int, float] = {}
+    total = deadhead = completion = 0.0
     for _, options in sorted(groups, key=lambda group: group[0], reverse=True):
         if perf_counter() >= deadline:
             return ()
-        active = {trip.aircraft for trip in current}
         allowed = [
-            candidate
-            for _, candidate in options
+            (cost, candidate)
+            for cost, candidate in options
             if maximum_active_drones is None
-            or len(active) < maximum_active_drones
-            or candidate.aircraft in active
+            or len(loads) < maximum_active_drones
+            or candidate.aircraft in loads
         ]
         if not allowed:
             return ()
-        current = min(
-            ((*current, candidate) for candidate in allowed),
-            key=lambda solution: model.score(
-                solution, complete=False, criterion=criterion, search_objective=search_objective
+
+        def added_load(option):
+            cost, candidate = option
+            plane = candidate.aircraft
+            turn = model.problem.aircraft[plane].turnaround_minutes if plane in loads else 0.0
+            return loads.get(plane, 0.0) + (cost.total + turn)
+
+        # Every option has already passed the canonical trip feasibility check.
+        # Only one aircraft load and the two sums change; rescoring the entire
+        # prefix here used to dominate the destroy/repair search budget.
+        cost, chosen = min(
+            allowed,
+            key=lambda option: model.objective(
+                total + option[0].total,
+                deadhead + option[0].deadhead,
+                max(completion, added_load(option)),
+                len(loads) + int(option[1].aircraft not in loads),
+                criterion,
+                search_objective,
             ),
         )
+        loads[chosen.aircraft] = added_load((cost, chosen))
+        completion = max(completion, loads[chosen.aircraft])
+        total += cost.total
+        deadhead += cost.deadhead
+        current = (*current, chosen)
     return current

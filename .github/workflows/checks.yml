@@ -53,6 +53,6 @@ jobs:
         with:
           python-version: "3.14"
       - run: npm ci
-      - run: uv sync --directory backend --locked
+      - run: uv sync --directory backend --locked --extra optimization
       - run: npx playwright install --with-deps chrome
       - run: npm run test:e2e

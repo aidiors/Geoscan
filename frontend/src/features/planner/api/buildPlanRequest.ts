@@ -5,7 +5,7 @@ export function activeWorkAreas(importedZones: ImportedZone[], scenario: Scenari
   const imported = importedZones.filter(
     (zone) => zone.zone_type === "work_area" && zone.geometry_type === "polygon",
   );
-  return imported.length > 0 ? imported : scenario.workAreas;
+  return imported.length > 0 ? imported.filter((zone) => zone.enabled !== false) : scenario.workAreas;
 }
 
 export function activeNoFlyZones(importedZones: ImportedZone[], scenario: Scenario): ImportedZone[] {
@@ -66,6 +66,8 @@ export function buildPlanRequest(
     throw new Error("Радиус разворота поддерживается для генерируемых галсов.");
   }
   const workAreas = activeWorkAreas(importedZones, scenario);
+  const hasImportedWork = importedZones.some((zone) => zone.zone_type === "work_area" && zone.geometry_type === "polygon");
+  if (hasImportedWork && workAreas.length === 0) throw new Error("Выберите хотя бы одну рабочую область из импортированных данных.");
   const noFlyZones = activeNoFlyZones(importedZones, scenario);
   const allowedAirspaces = importedZones.filter(
     (zone) => zone.zone_type === "allowed_airspace" && zone.geometry_type === "polygon",
@@ -135,7 +137,7 @@ export function buildPlanRequest(
       installed_sensor: drone.installedSensor ?? null,
       minimum_turn_radius_m: drone.minimumTurnRadius ?? 0,
     })),
-    segments: scenario.segments,
+    segments: hasImportedWork ? [] : scenario.segments,
     coverage_areas: workAreas.map((zone) => ({
       area_id: zone.zone_id,
       name: zone.name,
@@ -216,7 +218,7 @@ export function buildPlanRequest(
     planning_end_time: planningEndTime,
     minimum_turn_radius_m: settings.turnRadius,
     optimization_mode: settings.fastHeuristic ? "fast_heuristic" : "optimized",
-    assignment_strategy: settings.compareAssignmentSolver && !settings.fastHeuristic ? "cp_sat_portfolio" : "hybrid",
+    assignment_strategy: settings.fastHeuristic ? "hybrid" : "automatic",
     productive_routing: (settings.productiveRouting ?? true) && !settings.fastHeuristic,
   };
 }

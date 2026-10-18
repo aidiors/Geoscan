@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { analyzeTurnRadii, createPlan } from "@/features/planner/api/client";
 import { exportMission } from "@/features/mission-export/api/exportMission";
 import { importGeodata } from "@/features/geodata/api/importGeodata";
+import { mergeZones } from "@/features/geodata/model/mergeZones";
 import { defaultDemoCaseForScenario, demoCaseById, demoCases } from "@/features/demos/data/demoCases";
 import { cloneFleet, cloneSites, scenarios } from "@/features/demos/data/scenarios";
 import { activeNoFlyZones, activeWorkAreas, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
@@ -219,8 +220,9 @@ export function usePlanner() {
     }
     try {
       const result = await importGeodata(file.name, zoneType, content);
-      setImportedZones((current) => [...current, ...result.zones]);
-      invalidate(`Импортировано зон: ${result.zones.length}`);
+      setImportedZones((current) => mergeZones(current, result.zones));
+      const invalidCount = result.zones.filter((zone) => zone.metadata?.geometry_issue).length;
+      invalidate(`Импортировано зон: ${result.zones.length}${invalidCount ? `. Без площади: ${invalidCount}; проверьте список геоданных` : ""}`);
     } catch (error: unknown) {
       setStatus(errorMessage(error));
     } finally {
@@ -237,7 +239,7 @@ export function usePlanner() {
     setPlan(null);
     try {
       setCalculating(true);
-      setStatus("Выполняется оптимизация маршрутов…");
+      setStatus("Расчёт маршрутов и проверка расписания… Ожидание — до 5 минут.");
       const result = await createPlan(request);
       if (version !== planRevision.current) return;
       setPlan(result);

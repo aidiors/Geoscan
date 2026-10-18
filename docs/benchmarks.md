@@ -1,9 +1,44 @@
 # Воспроизведение вычислительных экспериментов
 
+Текущий стенд реальных полигонов: `benchmarks.production_portfolio` и
+`scenarios.customer`. [Передача разработки](production-handoff-2026-10-18.md)
+содержит команды, варианты сравнения и очередность проверки.
+В [частичной серии](../reference/benchmarks/production-portfolio-progress-2026-10-18.json)
+сохранены 11 из 45 расчётов с хешами исходников; серия прервана пользователем
+для передачи и не является финальной приёмкой production-политики.
+
 Бенчмарки находятся в `backend/benchmarks/`, общие фабрики геометрии —
 в `backend/scenarios/`. Они используют рабочий пакет `geoplan` и не входят
 в серверный контейнер. Небольшие проверки их корректности находятся
 в `backend/tests/benchmarks/` и выполняются обычным `pytest`.
+
+## Назначения, расписания и физическая приёмка
+
+Из `backend/`, с `uv sync --locked --extra optimization`:
+
+```powershell
+uv run --extra optimization python -m benchmarks.optimization_scale --output ../work/scale.json --criteria completion_time total_flight_time balanced --modes reference portfolio cross
+uv run --extra optimization python -m benchmarks.compare_ortools --seconds 2 --seeds 17 42 109 --warm-start --output ../work/ortools.json
+uv run --extra optimization python -m benchmarks.final_readiness --repeats 3 --output ../work/readiness
+```
+
+`optimization_scale` содержит шесть синтетических территорий, разные парки и
+три цели. `reference` выключает productive_routing в текущей версии; это
+не запуск старого коммита. Стенд сравнивает также сохранённый результат
+до cross-objective в том же запуске, отдельно от межзапусковой вариации.
+
+`compare_ortools` сначала сравнивает назначения готовых вылетов, затем
+применяет общий `AuditedMissionEvaluator` к физическим вариантам. Вывод
+решателя до расписания не считается улучшением готового полётного плана.
+`--skip-physical` ограничивает эксперимент матрицами назначений.
+`--warm-start` использует основной результат как подсказку и отдельно
+показывает время его подготовки. Хешируются все рабочие Python-исходники.
+
+`final_readiness` сохраняет запросы, планы, отпечатки, экспорты, отказ камеры
+и советник. KML организаторов используется только для одной явно выбранной
+области; площадки, аппараты и погода демонстрационные.
+Лимиты поиска не являются пределом полного времени построения и аудита.
+Повторные измерения 18 октября — в [отчёте](review-2026-10-18.md).
 
 ## Запуск
 

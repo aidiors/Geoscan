@@ -4,6 +4,7 @@ from statistics import median
 
 from pydantic import ValidationError
 
+from geoplan.budget import check_planning_budget
 from geoplan.coverage.models import CoverageArea, CoveragePlanRequest, WorkSegment
 from geoplan.coverage.sweep import CoveragePlanner, CoveragePlanningError
 from geoplan.domain.diagnostics import FeasibilityRecommendation
@@ -22,6 +23,7 @@ from geoplan.navigation.curvature import (
     SweepTransitionPlanner,
     build_curvature_aware_sweep_route_with_planner,
 )
+from geoplan.navigation.geometry import polygon_from_coordinates, projection_for_coordinates
 from geoplan.navigation.models import SweepRouteCurvatureRequest
 from geoplan.navigation.routing import RouteGeometryError, route_distance_km
 from geoplan.planning.constraints import _constraints_for_segment
@@ -43,10 +45,40 @@ def _resolve_segments(
             code=ErrorCode.COVERAGE_GENERATION_FAILED,
             message="Для построения галсов отсутствуют параметры съёмки.",
         )
+    invalid = []
+    for area in request.coverage_areas:
+        check_planning_budget()
+        try:
+            geometry = polygon_from_coordinates(
+                area.coordinates, area.interior_rings, projection_for_coordinates(area.coordinates)
+            )
+            if geometry.area <= 0:
+                invalid.append(area.area_id)
+        except ValueError:
+            invalid.append(area.area_id)
+    if invalid:
+        raise PlanningError(
+            code=ErrorCode.COVERAGE_GENERATION_FAILED,
+            message=f"Областей без допустимой площади: {len(invalid)}. "
+            f"Исправьте или удалите их: {', '.join(invalid[:8])}.",
+            recommendations=[
+                FeasibilityRecommendation(
+                    code=RecommendationCode.REVISE_GEOSPATIAL_CONSTRAINTS,
+                    message=(
+                        "Исправьте вырожденные рабочие области; "
+                        "они не исключаются из задания автоматически."
+                    ),
+                    confidence=RecommendationConfidence.EXACT,
+                    parameter="coverage_areas",
+                    affected_ids=invalid,
+                )
+            ],
+        )
     generated: list[WorkSegment] = []
     if drones:
         parameters = FleetSurveyPolicy().grid_parameters(request, drones)
     for area in request.coverage_areas:
+        check_planning_budget()
         plan_request = CoveragePlanRequest(
             area=area,
             mission_altitude_m=request.mission_altitude_m,
@@ -58,9 +90,17 @@ def _resolve_segments(
             ],
             wind=request.wind,
             reference_airspeed_kmh=coverage_reference_airspeed_kmh,
+            planning_area_count=len(request.coverage_areas),
+            optimization_mode=request.optimization_mode,
         )
         try:
             result = coverage_planner.plan(plan_request)
+        except ValidationError as error:
+            raise PlanningError(
+                code=ErrorCode.COVERAGE_GENERATION_FAILED,
+                message=f"Для области {area.name} не удалось сформировать маршрут. "
+                "Проверьте масштаб и геометрию исходного полигона.",
+            ) from error
         except CoveragePlanningError as error:
             raise PlanningError(
                 code=error.code,

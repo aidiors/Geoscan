@@ -16,29 +16,16 @@ from geoplan.domain.enums import MissionStageType
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.survey import SensorProfile
 from geoplan.flight.camera import DistanceCameraPolicy
+from geoplan.flight.photography import ExplicitFrameInspector
 from geoplan.navigation.geometry import (
     LocalProjection,
     polygon_from_coordinates,
     projection_for_coordinates,
 )
 from geoplan.navigation.routing import route_distance_km
-from geoplan.planning.explicit_frames import ExplicitFrameInspector
+from geoplan.planning.lateral_overlap import SurveyStrip, lateral_overlaps
 from geoplan.planning.models import PlanRequest, PlanResponse
 from geoplan.planning.quality_models import SurveyQualityReport
-
-
-@dataclass(frozen=True)
-class SurveyStrip:
-    mission_id: tuple[str, str]
-    start: tuple[float, float]
-    end: tuple[float, float]
-    width: float
-    length: float
-
-    @property
-    def direction(self) -> tuple[float, float]:
-        distance = hypot(self.end[0] - self.start[0], self.end[1] - self.start[1])
-        return ((self.end[0] - self.start[0]) / distance, (self.end[1] - self.start[1]) / distance)
 
 
 @dataclass(frozen=True)
@@ -132,7 +119,7 @@ class SurveyQualityAnalyzer:
                     intervals.extend(actual.intervals_s)
                     forward.extend(actual.forward_overlap_percent)
                     strips.extend(
-                        SurveyStrip((mission.drone_id, mission.segment_id), a, b, width, length)
+                        SurveyStrip((mission.drone_id, mission.segment_id), a, b, width)
                         for a, b in actual.straight_runs
                     )
                     incomplete |= actual.partial
@@ -172,7 +159,6 @@ class SurveyQualityAnalyzer:
                                 coords[0],
                                 coords[-1],
                                 width,
-                                length,
                             )
                         )
                     else:
@@ -221,7 +207,7 @@ class SurveyQualityAnalyzer:
         covered = unary_union(footprints)
         gaps = targets.difference(covered)
         percent = max(0, min(100, 100 * (1 - gaps.area / targets.area)))
-        side, cross, side_problems = self._side_overlaps(strips, survey.side_overlap_percent)
+        side, cross, side_problems = lateral_overlaps(strips, survey.side_overlap_percent)
         if percent < 99:
             issues.append("Отпечатки кадров покрывают менее 99% доступной целевой области.")
         if max(frame_gsd) > survey.maximum_gsd_cm + 1e-7:
@@ -321,63 +307,6 @@ class SurveyQualityAnalyzer:
             remaining -= length
             elapsed += minutes * 60
         return elapsed
-
-    @staticmethod
-    def _side_overlaps(
-        strips: list[SurveyStrip], required: float
-    ) -> tuple[list[float], int, list[Polygon]]:
-        overlaps, cross = [], 0
-        problems = []
-        # Bound pair analysis independently of frame count.
-        if len(strips) > 1000:
-            return overlaps, cross, problems
-        checked = set()
-        for i, source in enumerate(strips):
-            ux, uy = source.direction
-            neighbors = {}
-            for j, target in enumerate(strips):
-                if i == j:
-                    continue
-                vx, vy = target.direction
-                if abs(ux * vx + uy * vy) < 0.99985:
-                    continue
-                delta = [
-                    (p[0] - source.start[0], p[1] - source.start[1])
-                    for p in (target.start, target.end)
-                ]
-                along = sorted(x * ux + y * uy for x, y in delta)
-                length = hypot(source.end[0] - source.start[0], source.end[1] - source.start[1])
-                if min(length, along[1]) - max(0, along[0]) < 0.1:
-                    continue
-                offset = sum(-x * uy + y * ux for x, y in delta) / 2
-                if abs(offset) < 0.1:
-                    continue
-                key = offset > 0
-                if key not in neighbors or abs(offset) < neighbors[key][0]:
-                    neighbors[key] = (abs(offset), j)
-            for distance, j in neighbors.values():
-                key = tuple(sorted((i, j)))
-                if key in checked:
-                    continue
-                checked.add(key)
-                target = strips[j]
-                percent = max(
-                    0,
-                    min(
-                        100,
-                        ((source.width + target.width) / 2 - distance)
-                        / min(source.width, target.width)
-                        * 100,
-                    ),
-                )
-                overlaps.append(percent)
-                cross += int(source.mission_id != target.mission_id)
-                if percent < required - 0.1:
-                    a, b = target.start, target.end
-                    if (b[0] - a[0]) * ux + (b[1] - a[1]) * uy < 0:
-                        a, b = b, a
-                    problems.append(Polygon([source.start, source.end, b, a]))
-        return overlaps, cross, problems
 
     @staticmethod
     def _feature(geometry: BaseGeometry, projection: LocalProjection, kind: str) -> dict:

@@ -6,6 +6,7 @@ from geoplan.coverage.models import CoverageArea, WorkSegment
 from geoplan.domain.airspace import FlightObstacle, NoFlyZone
 from geoplan.domain.enums import AltitudeReference, ValidityMode
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.identifiers import derived_id
 from geoplan.planning.models import PlanRequest
 
 GEOMETRY_CLEARANCE_M = 0.5
@@ -61,7 +62,7 @@ def _coverage_hole_zones(
         return []
     return [
         NoFlyZone(
-            zone_id=f"coverage-hole-{area.area_id}-{index + 1}"[:64],
+            zone_id=derived_id(area.area_id, f"-hole-{index + 1}"),
             coordinates=ring,
             safety_margin_m=GEOMETRY_CLEARANCE_M,
         )

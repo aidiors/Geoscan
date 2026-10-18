@@ -13,8 +13,10 @@ from geoplan.domain.enums import (
     ImportedGeometryType,
     ImportFormat,
     ValidityMode,
+    ZoneType,
 )
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.identifiers import derived_id
 from geoplan.errors import PlanningError
 from geoplan.geodata.models import (
     GeoJsonImportRequest,
@@ -26,6 +28,7 @@ from geoplan.geodata.models import (
     ImportResponse,
     KmlImportRequest,
 )
+from geoplan.navigation.geometry import polygon_from_coordinates, projection_for_coordinates
 
 
 @dataclass(frozen=True)
@@ -51,7 +54,7 @@ def import_geojson(request: GeoJsonImportRequest) -> ImportResponse:
     return ImportResponse(
         source_file_name=request.source_file_name,
         source_format=ImportFormat.GEOJSON,
-        zones=zones,
+        zones=_prepare_zones(zones),
     )
 
 
@@ -71,8 +74,50 @@ def import_kml(request: KmlImportRequest) -> ImportResponse:
     return ImportResponse(
         source_file_name=request.source_file_name,
         source_format=ImportFormat.KML,
-        zones=zones,
+        zones=_prepare_zones(zones),
     )
+
+
+def _prepare_zones(zones: list[ImportedZone]) -> list[ImportedZone]:
+    """Preserve every object, diagnose unusable work geometry and disambiguate source IDs."""
+    reserved = {zone.zone_id for zone in zones}
+    used: set[str] = set()
+    result = []
+    for index, zone in enumerate(zones):
+        metadata = dict(zone.metadata)
+        identifier = zone.zone_id
+        if identifier in used:
+            metadata["source_zone_id"] = identifier
+            suffix = index + 1
+            identifier = derived_id(zone.zone_id, f"-object-{suffix}")
+            while identifier in reserved or identifier in used:
+                suffix += 1
+                identifier = derived_id(zone.zone_id, f"-object-{suffix}")
+        if (
+            zone.zone_type is ZoneType.WORK_AREA
+            and zone.geometry_type is ImportedGeometryType.POLYGON
+        ):
+            try:
+                geometry = polygon_from_coordinates(
+                    zone.coordinates,
+                    zone.interior_rings,
+                    projection_for_coordinates(zone.coordinates),
+                )
+                if geometry.area <= 0:
+                    metadata["geometry_issue"] = (
+                        "Область не имеет площади; исправьте или удалите её."
+                    )
+                elif geometry.area < 1:
+                    metadata["geometry_warning"] = (
+                        "Площадь меньше 1 м²; проверьте исходную геометрию."
+                    )
+            except ValueError:
+                metadata["geometry_issue"] = (
+                    "Область не образует полигон; исправьте или удалите её."
+                )
+        used.add(identifier)
+        result.append(zone.model_copy(update={"zone_id": identifier, "metadata": metadata}))
+    return result
 
 
 def _zones_from_geojson_feature(
@@ -121,7 +166,7 @@ def _zone_from_geojson_polygon(
     suffix = "" if polygon_index == 0 else f"-{polygon_index + 1}"
     name_suffix = "" if polygon_index == 0 else f" — контур {polygon_index + 1}"
     return ImportedZone(
-        zone_id=f"{zone_id}{suffix}",
+        zone_id=derived_id(zone_id, suffix),
         name=f"{zone_name}{name_suffix}",
         zone_type=request.zone_type,
         geometry_type=ImportedGeometryType.POLYGON,
@@ -375,9 +420,9 @@ def _altitude_reference(
 
 def _geometry_id(base_id: str, geometry_index: int) -> str:
     if geometry_index == 0:
-        return base_id[:64]
+        return derived_id(base_id, "")
     suffix = f"-{geometry_index + 1}"
-    return f"{base_id[: 64 - len(suffix)]}{suffix}"
+    return derived_id(base_id, suffix)
 
 
 def _geometry_name(name: str, geometry_index: int, geometry_count: int) -> str:

@@ -23,6 +23,9 @@ export async function requestJson<T>(url: string, init: RequestInit): Promise<T>
   try {
     response = await fetch(url, init);
   } catch {
+    if (init.signal?.aborted) {
+      throw new ApiError("Время ожидания расчёта истекло. Разделите задание на меньшие пакеты и повторите расчёт.");
+    }
     throw new ApiError("Сервер планирования недоступен.");
   }
   const text = await response.text();

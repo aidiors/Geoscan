@@ -11,7 +11,9 @@ from geoplan.navigation.routing import coordinate_distance_km
 from geoplan.routing.freeform import GeometryCase, GeometryModel, Leg, evaluate_flights
 
 
-def with_capture_waypoints(mission: Mission, interval_s: float) -> Mission:
+def with_capture_waypoints(
+    mission: Mission, interval_s: float, *, maximum_captures: int = 4_000
+) -> Mission:
     """Insert camera positions without changing geometry, phase times or speed.
 
     One clock survives vertices and short camera-off connections. Captures at
@@ -63,8 +65,8 @@ def with_capture_waypoints(mission: Mission, interval_s: float) -> Mission:
                     previous = fraction
                 if capture:
                     captures.append(len(points) - 1)
-                    if len(captures) > 4_000:
-                        raise ValueError("Explicit camera plan exceeds 4000 captures")
+                    if len(captures) > maximum_captures:
+                        raise ValueError("Explicit camera plan exceeds the capture limit")
             elapsed += duration
         stages.append(
             stage.model_copy(

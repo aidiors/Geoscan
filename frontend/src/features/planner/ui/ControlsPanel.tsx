@@ -32,6 +32,9 @@ interface ControlsPanelProps {
   onRemoveSite: (siteId: string) => void;
   onImport: (file: File, zoneType: ZoneType) => Promise<void>;
   onRemoveZone: (zoneId: string) => void;
+  onRemoveInvalidZones: () => void;
+  onSelectZone: (zoneId: string, enabled: boolean) => void;
+  onSelectAllWorkAreas: (enabled: boolean) => void;
   onSave: () => void;
   onLoad: () => void;
 }
@@ -69,6 +72,7 @@ const airframeLabels: Record<AirframeType, string> = {
 
 export function ControlsPanel(props: ControlsPanelProps) {
   const [zoneType, setZoneType] = useState<ZoneType>("work_area");
+  const [zoneSearch, setZoneSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const selectedDrone = props.drones.find((drone) => drone.id === props.selectedDroneId) ?? props.drones[0];
@@ -183,15 +187,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <span><b>Оптимизация вылетов</b><small>Сравнивать порядок галсов и разбиения между аппаратами по итоговому расписанию</small></span>
         </label>
         {props.settings.productiveRouting && <p className="hint">{props.settings.fastHeuristic ? "Выключите быстрый расчёт, чтобы сравнивать варианты вылетов." : "«Макс. маршрут» задаёт исходное разбиение для сравнения. Новые вылеты ограничены запасом АКБ, дальностью БВС и условиями задания."}</p>}
-        <label className="solver-option">
-          <input
-            type="checkbox"
-            checked={props.settings.compareAssignmentSolver ?? false}
-            disabled={props.settings.fastHeuristic}
-            onChange={(event) => props.onUpdateSettings({ compareAssignmentSolver: event.target.checked })}
-          />
-          <span><b>Дополнительный поиск распределения</b><small>Сравнить с CP-SAT (до 2 с поиска), сохранить лучшее проверенное расписание</small></span>
-        </label>
+        <p className="hint">Сервис автоматически выбирает поиск распределения и сравнивает проверенные расписания. Для нескольких областей оптимизируется общий план.</p>
         <label className="solver-option">
           <input
             type="checkbox"
@@ -326,8 +322,16 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <input ref={fileInput} type="file" accept=".geojson,.json,.kml" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
         </label>
         <button className="secondary-button import-button" type="button" disabled={props.importing} onClick={() => void handleImport()}>{props.importing ? "Импортируем…" : selectedFile ? "Импортировать зону" : "Выбрать геоданные"}</button>
+        {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
+          <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
+        )}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && (
+          <><p className="hint">Выбрано рабочих областей: {props.importedZones.filter((zone) => zone.zone_type === "work_area" && zone.enabled !== false).length}. Расчёт выполняется для выбранного пакета.</p>
+            <div className="mini-actions"><button type="button" onClick={() => props.onSelectAllWorkAreas(true)}>Выбрать все</button><button type="button" onClick={() => props.onSelectAllWorkAreas(false)}>Снять выбор</button></div>
+            <label className="field"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
+        )}
         <div className="zone-list">
-          {props.importedZones.map((zone) => <div className="zone-item" key={zone.zone_id}><span><b>{zone.name}</b><small>{zoneTypeLabels[zone.zone_type]}</small></span><button type="button" aria-label={`Удалить ${zone.name}`} onClick={() => props.onRemoveZone(zone.zone_id)}>×</button></div>)}
+          {props.importedZones.filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase())).map((zone) => <div className="zone-item" key={zone.zone_id}><span className="zone-selection">{zone.zone_type === "work_area" && <input type="checkbox" aria-label={`Включить область ${zone.name}`} checked={zone.enabled !== false} onChange={(event) => props.onSelectZone(zone.zone_id, event.target.checked)} />}<span><b>{zone.name}</b><small>{zone.metadata?.geometry_issue ?? zone.metadata?.geometry_warning ?? zoneTypeLabels[zone.zone_type]}</small></span></span><button type="button" aria-label={`Удалить ${zone.name}`} onClick={() => props.onRemoveZone(zone.zone_id)}>×</button></div>)}
         </div>
       </PanelSection>
 

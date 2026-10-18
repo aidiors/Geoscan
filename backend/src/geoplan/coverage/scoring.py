@@ -8,6 +8,7 @@ from geoplan.domain.airspace import NoFlyZone
 from geoplan.domain.geo import Coordinate
 from geoplan.flight.performance import WindPerformanceError, route_duration_minutes
 from geoplan.navigation.routing import (
+    PreparedSafeRoutes,
     RouteGeometryError,
     build_safe_route,
     route_bearing_degrees,
@@ -30,8 +31,9 @@ def _route_choice_score(
     request: CoveragePlanRequest,
     exclusions: list[NoFlyZone],
     survey_speed_limit_kmh: float,
+    safe_routes: PreparedSafeRoutes | None = None,
 ) -> CoverageRouteScore | None:
-    safe_route = _safe_route_or_none(route, exclusions)
+    safe_route = _safe_route_or_none(route, exclusions, safe_routes)
     if safe_route is None:
         return None
     if not route_is_inside_coverage_area(safe_route, request.area):
@@ -40,6 +42,7 @@ def _route_choice_score(
         [[site, safe_route[0]] for site in request.departure_candidates],
         request,
         exclusions,
+        safe_routes,
     )
     if departure_score is None:
         return None
@@ -47,6 +50,7 @@ def _route_choice_score(
         [[safe_route[-1], site] for site in request.landing_candidates],
         request,
         exclusions,
+        safe_routes,
     )
     if landing_score is None:
         return None
@@ -68,9 +72,14 @@ def _route_choice_score(
 def _safe_route_or_none(
     route: list[Coordinate],
     exclusions: list[NoFlyZone],
+    safe_routes: PreparedSafeRoutes | None = None,
 ) -> list[Coordinate] | None:
     try:
-        return build_safe_route(route, exclusions)
+        return (
+            safe_routes.build(route)
+            if safe_routes is not None
+            else build_safe_route(route, exclusions)
+        )
     except RouteGeometryError:
         return None
 
@@ -79,12 +88,13 @@ def _best_connection_score(
     routes: list[list[Coordinate]],
     request: CoveragePlanRequest,
     exclusions: list[NoFlyZone],
+    safe_routes: PreparedSafeRoutes | None = None,
 ) -> CoverageRouteScore | None:
     if not routes:
         return CoverageRouteScore(0, 0, 0)
     scores: list[CoverageRouteScore] = []
     for route in routes:
-        safe_route = _safe_route_or_none(route, exclusions)
+        safe_route = _safe_route_or_none(route, exclusions, safe_routes)
         if safe_route is None:
             continue
         score = _route_performance_score(safe_route, request, None, 0)

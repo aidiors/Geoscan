@@ -45,6 +45,7 @@ class SafetyCheckCode(StrEnum):
     AIRSPACE_COMPLIANCE = "airspace_compliance"
     ALTERNATE_RESERVE = "alternate_reserve"
     BATTERY_RESERVE = "battery_reserve"
+    CAMERA_TIMING = "camera_timing"
     COVERAGE_COMPLETENESS = "coverage_completeness"
     DRONE_SEPARATION = "drone_separation"
     EXPORT_CONSISTENCY = "export_consistency"
@@ -58,6 +59,7 @@ class SafetyCheckCode(StrEnum):
 
 
 class AssignmentStrategy(StrEnum):
+    AUTOMATIC = "automatic"
     HYBRID = "hybrid"
     CP_SAT_PORTFOLIO = "cp_sat_portfolio"
 
@@ -83,6 +85,7 @@ class ScheduleConflictType(StrEnum):
 
 
 class CoverageAlgorithm(StrEnum):
+    AUTOMATIC_PORTFOLIO = "automatic_portfolio"
     BOUSTROPHEDON_SWEEP = "boustrophedon_sweep"
     ADAPTIVE_DECOMPOSED_SWEEP = "adaptive_decomposed_sweep"
     FREEFORM_PATTERN_POOL = "freeform_pattern_pool"
@@ -118,6 +121,7 @@ class SweepAngleAlgorithm(StrEnum):
     ADAPTIVE_TURN_AWARE = "adaptive_turn_aware"
     PRODUCTION_ADAPTIVE = "production_adaptive"
     GEOMETRY_AWARE = "geometry_aware"
+    BOUNDED_PORTFOLIO = "bounded_portfolio"
 
 
 class RouteAlgorithm(StrEnum):
@@ -187,6 +191,7 @@ class ErrorCode(StrEnum):
     FLIGHT_ENVELOPE_EXCEEDED = "flight_envelope_exceeded"
     INVALID_IMPORT = "invalid_import"
     INVALID_REQUEST = "invalid_request"
+    PLANNING_TIME_LIMIT = "planning_time_limit"
     NO_CAPABLE_DRONE = "no_capable_drone"
     NO_ELIGIBLE_FLIGHT_SITE = "no_eligible_flight_site"
     NO_EXPORTABLE_MISSIONS = "no_exportable_missions"

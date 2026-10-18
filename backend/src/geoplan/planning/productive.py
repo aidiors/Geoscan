@@ -4,10 +4,12 @@ from collections.abc import Callable
 from math import ceil
 
 from geoplan.assignment.models import MissionAssignmentCandidate
+from geoplan.budget import PlanningTimeExceeded, improvement_allowed
 from geoplan.coverage.models import WorkSegment
 from geoplan.domain.enums import OptimizationMode
 from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.identifiers import derived_id
 from geoplan.domain.mission import Mission
 from geoplan.errors import PlanningError
 from geoplan.flight.energy import _effective_endurance_minutes
@@ -69,6 +71,8 @@ def improve_productive_routes(
                 if is_cross and candidates:
                     pre_cross = best
                 for name, solution in candidates:
+                    if best is not None and not improvement_allowed():
+                        break
                     if (
                         request.maximum_active_drones is not None
                         and len({trip.aircraft for trip in solution})
@@ -85,6 +89,10 @@ def improve_productive_routes(
                     grouped, assignments = mission_candidates
                     try:
                         candidate = evaluate(grouped, assignments)
+                    except PlanningTimeExceeded:
+                        if best is None:
+                            raise
+                        break
                     except PlanningError:
                         continue
                     checked += 1
@@ -264,10 +272,11 @@ def _mission_candidates(
     for index, trip in enumerate(solution):
         tracks = [model.endpoints(token) for token in trip.visits]
         route = [coordinate for track in tracks for coordinate in track]
-        prefix = (template.coverage_area_id or "area")[:40]
         segment = template.model_copy(
             update={
-                "segment_id": f"{prefix}-productive-{index + 1}",
+                "segment_id": derived_id(
+                    template.coverage_area_id or "area", f"-productive-{index + 1}"
+                ),
                 "distance_km": route_distance_km(route),
                 "route": route,
                 "alternative_routes": [],

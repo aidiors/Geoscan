@@ -102,6 +102,9 @@ export default function App() {
           onRemoveSite={(siteId) => { setSites((current) => current.filter((flightSite) => flightSite.site_id !== siteId)); invalidate("Площадка удалена"); }}
           onImport={handleImport}
           onRemoveZone={(zoneId) => { setImportedZones((current) => current.filter((zone) => zone.zone_id !== zoneId)); invalidate("Зона удалена"); }}
+          onRemoveInvalidZones={() => { setImportedZones((current) => current.filter((zone) => !zone.metadata?.geometry_issue && !zone.metadata?.geometry_warning)); invalidate("Области без площади и меньше 1 м² удалены из задания"); }}
+          onSelectZone={(zoneId, enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_id === zoneId && zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
+          onSelectAllWorkAreas={(enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
           onSave={saveScenario}
           onLoad={loadScenario}
         />

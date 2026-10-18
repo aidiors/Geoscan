@@ -1,4 +1,4 @@
-"""Inspect explicit point-trigger photographs without replacing them by distance triggers."""
+"""Physical footprints and timing of explicit point-trigger photographs."""
 
 from dataclasses import dataclass
 from itertools import pairwise
@@ -10,6 +10,7 @@ from geoplan.domain.enums import MissionStageType
 from geoplan.domain.mission import Mission
 from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import LocalProjection
+from geoplan.navigation.routing import coordinate_distance_km
 from geoplan.routing.freeform import image_footprint
 
 
@@ -52,7 +53,9 @@ class ExplicitFrameInspector:
             ux, uy = headings[position]
             vx, vy = headings[position + 1]
             if ux * vx + uy * vy > 0.99985 and all(scan[a:b]):
-                step = abs((points[b][0] - points[a][0]) * ux + (points[b][1] - points[a][1]) * uy)
+                # Camera spacing and stage clocks use physical ground distance;
+                # local projection distortion must not manufacture an overlap violation.
+                step = coordinate_distance_km(mission.route[a], mission.route[b]) * 1000
                 forward.append(max(0, 1 - step / height) * 100)
             else:
                 partial = True

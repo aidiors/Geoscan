@@ -8,7 +8,7 @@ from geoplan.assignment.alternatives import (
     CpSatAssignmentAlternative,
 )
 from geoplan.assignment.solver import AssignmentOptimizer, HybridAssignmentOptimizer
-from geoplan.coverage.adaptive import AdaptiveCoveragePlanner
+from geoplan.coverage.production import ProductionCoveragePlanner
 from geoplan.coverage.sweep import BoustrophedonCoveragePlanner, CoveragePlanner
 from geoplan.flight.duration import CruiseMissionDurationCalculator, MissionDurationCalculator
 from geoplan.flight.terrain import (
@@ -74,7 +74,7 @@ def create_default_dependencies() -> AppDependencies:
     return AppDependencies(
         duration_calculator=CruiseMissionDurationCalculator(),
         route_optimizer=BidirectionalRouteOptimizer(),
-        coverage_planner=AdaptiveCoveragePlanner(),
+        coverage_planner=ProductionCoveragePlanner(),
         assignment_optimizer=HybridAssignmentOptimizer(),
         mission_scheduler=ConflictAwareMissionScheduler(),
         safety_auditor=IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),

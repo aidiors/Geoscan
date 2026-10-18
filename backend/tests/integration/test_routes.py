@@ -54,6 +54,7 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "/v1/plans",
         json={
             "criterion": "completion_time",
+            "assignment_strategy": "hybrid",
             "drones": [
                 {
                     "drone_id": "201",

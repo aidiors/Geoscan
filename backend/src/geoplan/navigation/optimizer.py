@@ -4,7 +4,7 @@ from typing import Protocol
 
 from geoplan.domain.geo import Coordinate
 from geoplan.navigation.models import RouteOptimizationRequest, RouteOptimizationResult
-from geoplan.navigation.routing import RouteGeometryError, build_safe_route, route_distance_km
+from geoplan.navigation.routing import PreparedSafeRoutes, RouteGeometryError, route_distance_km
 
 
 class RouteOptimizer(Protocol):
@@ -27,6 +27,14 @@ class EvaluatedRoute:
 @dataclass(frozen=True)
 class BidirectionalRouteOptimizer:
     def optimize(self, request: RouteOptimizationRequest) -> RouteOptimizationResult:
+        routes = PreparedSafeRoutes.create(
+            [
+                request.departure,
+                *request.landings,
+                *(p for route in [request.route, *request.alternative_routes] for p in route),
+            ],
+            request.no_fly_zones,
+        )
         evaluations: list[EvaluatedRoute] = []
         errors: list[RouteGeometryError] = []
         for route_index, source_route in enumerate([request.route, *request.alternative_routes]):
@@ -42,6 +50,7 @@ class BidirectionalRouteOptimizer:
                         oriented_route,
                         route_index,
                         orientation,
+                        routes,
                     )
                 except RouteGeometryError as error:
                     errors.append(error)
@@ -71,16 +80,14 @@ def _evaluate_route(
     route: list[Coordinate],
     route_index: int,
     orientation: RouteOrientation,
+    routes: PreparedSafeRoutes,
 ) -> EvaluatedRoute:
-    safe_route = build_safe_route(route, request.no_fly_zones)
-    transit = build_safe_route(
-        [request.departure, safe_route[0]],
-        request.no_fly_zones,
-    )
+    safe_route = routes.build(route)
+    transit = routes.build([request.departure, safe_route[0]])
     score = (
         route_distance_km(transit)
         + route_distance_km(safe_route)
-        + _minimum_landing_distance(request, safe_route)
+        + _minimum_landing_distance(request, safe_route, routes)
     )
     return EvaluatedRoute(
         route=safe_route,
@@ -93,16 +100,14 @@ def _evaluate_route(
 def _minimum_landing_distance(
     request: RouteOptimizationRequest,
     route: list[Coordinate],
+    routes: PreparedSafeRoutes,
 ) -> float:
     if not request.landings:
         return 0.0
     distances: list[float] = []
     for landing in request.landings:
         try:
-            landing_route = build_safe_route(
-                [route[-1], landing],
-                request.no_fly_zones,
-            )
+            landing_route = routes.build([route[-1], landing])
         except RouteGeometryError:
             continue
         distances.append(route_distance_km(landing_route))

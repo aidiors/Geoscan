@@ -9,6 +9,7 @@ from geoplan.coverage.sweep import (
 )
 from geoplan.domain.enums import CoverageAlgorithm, SweepAngleAlgorithm, SweepDirectionMode
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.identifiers import derived_id
 
 SECTION_ANGLE_ALGORITHMS = (
     SweepAngleAlgorithm.GEOMETRY_AWARE,
@@ -135,7 +136,7 @@ def _mission_segment_or_none(
     ordered_routes = [route for _, route in sorted(valid_routes, key=lambda item: item[0])]
     return segment.model_copy(
         update={
-            "segment_id": f"{request.area.area_id}-adaptive-{index + 1}"[:64],
+            "segment_id": derived_id(request.area.area_id, f"-adaptive-{index + 1}"),
             "coverage_area_id": request.area.area_id,
             "route": ordered_routes[0],
             "alternative_routes": ordered_routes[1:],

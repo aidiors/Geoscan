@@ -1,11 +1,18 @@
 # Итог сессии и передача разработки
 
-Дата: 17 октября 2026 года. Репозиторий: `git@github.com:aidiors/Geoscan.git`.
-Рабочая ветка: `dev/architecture-refactor`, исходный HEAD: `1308766`.
+Обновлено: 18 октября 2026 года. Репозиторий: `git@github.com:aidiors/Geoscan.git`.
+Рабочая ветка: `dev/architecture-refactor`, опубликованная база: `5f0ea4b`.
+Последующие исправления и незавершённое сравнение продакшен-профилей включены
+в эту передачу. Начинать с [актуального состояния многополигонного pipeline](production-handoff-2026-10-18.md):
+там ограничения, частичные измерения и порядок продолжения.
 Для продолжения разработки клонировать ветку `dev/architecture-refactor`
 по инструкции ниже.
 Автор Git настроен как `aidiors <78207095+aidiors@users.noreply.github.com>`;
 при создании коммита использовать эту конфигурацию автора.
+
+Текущие исправления и повторные измерения 18 октября — в
+[отчёте проверки](review-2026-10-18.md). Настройка OR-Tools включена в команды
+установки ниже; результаты от 17 октября сохранены как предыдущая приёмка.
 
 ## Принятые решения
 
@@ -56,9 +63,10 @@
 
 Свободный кандидат снимает всю область одним вылетом: одна RGB-область MSL
 без рельефа, радиус 0, площадь до 5 км², не более 128 вершин и шаг от 10 м.
-Не более трёх сочетаний аппарат/площадки, шести дешёво ранжированных путей
-на сочетание и двух допустимых альтернатив до расписания. Мягкий бюджет
-проверяется между сочетаниями; жёсткого ограничения полной задержки нет.
+Четыре прохода поиска сохраняют префикс из шести путей и расширяют пул
+до 18 на сочетание. В каждом проходе — до трёх сочетаний аппарат/площадки
+и двух допустимых альтернатив до расписания, с отдельным мягким бюджетом
+12 с между сочетаниями. Жёсткого ограничения полной задержки нет.
 
 Другие нагрузки, AGL, крупные/несколько областей, ручные маршруты и радиус >0
 используют обычное покрытие и проверенные группы вылетов. Это действующие
@@ -113,14 +121,14 @@ git clone --branch dev/architecture-refactor git@github.com:aidiors/Geoscan.git
 cd Geoscan
 npm ci
 npm run build
-uv sync --directory backend --locked
-uv run --directory backend uvicorn geoplan.bootstrap:app --host 127.0.0.1 --port 8001
+uv sync --directory backend --locked --extra optimization
+uv run --directory backend --extra optimization uvicorn geoplan.bootstrap:app --host 127.0.0.1 --port 8001
 ```
 
 Открыть `http://127.0.0.1:8001/`. Требуются Python 3.14 и `uv`, Node.js ≥22.20.
 Python закреплён в `backend/.python-version` и `pyproject.toml`; оба lock-файла
 включены в Git. Локально используется Node 24.15, CI/сборка Docker — Node 22.20.
-Для разработки установите обычный `uv sync`, без `--no-dev`.
+Для разработки используйте `uv sync --extra optimization`, без `--no-dev`.
 Секретов, внешней БД или локальных данных предыдущего разработчика не требуется.
 Интернет нужен при установке зависимостей и загрузке фоновых OSM-тайлов.
 
@@ -145,12 +153,12 @@ docker compose up --build -d
 Из корня:
 
 ```powershell
-uv run --directory backend ruff format --check src tests benchmarks scenarios ../scripts
-uv run --directory backend ruff check src tests benchmarks scenarios ../scripts
-uv run --directory backend ty check src tests benchmarks scenarios ../scripts
-uv run --directory backend python ../scripts/check_architecture.py
-uv run --directory backend python ../scripts/check_docs.py
-uv run --directory backend pytest -q
+uv run --directory backend --extra optimization ruff format --check src tests benchmarks scenarios ../scripts
+uv run --directory backend --extra optimization ruff check src tests benchmarks scenarios ../scripts
+uv run --directory backend --extra optimization ty check src tests benchmarks scenarios ../scripts
+uv run --directory backend --extra optimization python ../scripts/check_architecture.py
+uv run --directory backend --extra optimization python ../scripts/check_docs.py
+uv run --directory backend --extra optimization pytest -q
 npm run typecheck
 npm run lint
 npm run check:architecture
@@ -161,9 +169,9 @@ npm run build
 Геометрия, снимок исходников и проверка маршрутов:
 
 ```powershell
-uv run --directory backend python -m benchmarks.run_frame_coverage --suite holdout --profile 60:75 --output ../docs/benchmark-results/coverage-new
-uv run --directory backend python benchmarks/verify_free_coverage.py ../docs/benchmark-results/coverage-new
-uv run --directory backend python -m benchmarks.verify_freeform_pipeline --output ../docs/benchmark-results/pipeline-new.json
+uv run --directory backend --extra optimization python -m benchmarks.run_frame_coverage --suite holdout --profile 60:75 --output ../docs/benchmark-results/coverage-new
+uv run --directory backend --extra optimization python benchmarks/verify_free_coverage.py ../docs/benchmark-results/coverage-new
+uv run --directory backend --extra optimization python -m benchmarks.verify_freeform_pipeline --output ../docs/benchmark-results/pipeline-new.json
 ```
 
 Выходные каталоги/файлы должны отсутствовать. Драйверы не затирают доказательства.
@@ -216,10 +224,11 @@ Chrome E2E не объявляется пройденным из-за ранее
 [архитектура](architecture/README.md#свободное-покрытие) и
 [актуальный план](productive-routing-plan.md).
 
-## Коммит сессии
+## Состояние Git
 
-`feat: integrate audited UAV routing and coverage optimization`
+Предыдущая интеграция опубликована коммитом `f564beb`:
+`feat: integrate audited UAV routing and coverage optimization`.
 
-Название охватывает общий routing, точные часы/экспорт, свободную геометрию,
-сквозные проверки и передачу разработки. Владелец разрешил создание
-коммита и публикацию ветки от своего имени.
+Затем получены три коммита до `5f0ea4b`. Последующие исправления камеры,
+диагностики, стенда и ускорение назначения ещё не закоммичены и не отправлены.
+После их публикации сокоманднику достаточно получить указанную рабочую ветку.

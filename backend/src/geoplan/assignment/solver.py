@@ -11,6 +11,7 @@ from geoplan.assignment.models import (
     MissionAssignmentCandidate,
 )
 from geoplan.assignment.neighborhood import AssignmentNeighborhoodSearch
+from geoplan.budget import check_planning_budget
 from geoplan.domain.enums import (
     AssignmentAlgorithm,
     OptimalityStatus,
@@ -168,6 +169,7 @@ def _greedy_assignment(
     counts = {drone_id: 0 for drone_id in request.drone_ids}
     total_flight_minutes = 0.0
     for task_index in order:
+        check_planning_budget()
         group = request.candidate_groups[task_index]
         choices = [
             (candidate_index, candidate)
@@ -247,6 +249,7 @@ def _exact_branch_and_bound(request: AssignmentOptimizationRequest) -> Assignmen
     minimum_remaining = _minimum_remaining_costs(request, order)
 
     def search(position: int) -> None:
+        check_planning_budget()
         nonlocal best, best_score, total_flight_minutes
         if _branch_cannot_improve(
             request,

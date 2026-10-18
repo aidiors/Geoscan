@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from itertools import pairwise
 from math import atan2, ceil, degrees, hypot
+from time import perf_counter
 from typing import Protocol
 
 from shapely.affinity import rotate
@@ -11,6 +12,7 @@ from shapely.geometry import GeometryCollection, LineString, MultiLineString
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from geoplan.budget import check_planning_budget
 from geoplan.coverage.models import CoveragePlanRequest, CoveragePlanResult, WorkSegment
 from geoplan.coverage.scoring import (
     ROUTE_CLEARANCE_M,
@@ -27,12 +29,14 @@ from geoplan.domain.enums import (
     SweepDirectionMode,
 )
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.identifiers import derived_id
 from geoplan.navigation.geometry import (
     LocalProjection,
     polygon_from_coordinates,
     projection_for_coordinates,
 )
 from geoplan.navigation.routing import (
+    PreparedSafeRoutes,
     coordinate_distance_km,
 )
 
@@ -166,6 +170,32 @@ def _select_angle_plan(
             selected_algorithm,
         )
         return selected, automatic_algorithm
+    if automatic_algorithm is SweepAngleAlgorithm.BOUNDED_PORTFOLIO:
+        search_deadline = perf_counter() + 1.5
+        geometry, _ = _flyable_geometry(request)
+        # Include cheap geometric directions and a uniform grid. Refine the winner
+        # without evaluating the coarse angles twice or decomposing every polygon.
+        angles = [float(angle) for angle in range(0, 180, 15)]
+        angles.append(_minimum_rectangle_angle(geometry))
+        angles.extend(_convex_hull_edge_angles(geometry))
+        coarse = _best_angle_plan(
+            request,
+            strip_spacing_m,
+            maximum_distance_km,
+            survey_speed_limit_kmh,
+            angles,
+            search_deadline=search_deadline,
+            preferred_angle=_minimum_rectangle_angle(geometry),
+        )
+        return _best_angle_plan(
+            request,
+            strip_spacing_m,
+            maximum_distance_km,
+            survey_speed_limit_kmh,
+            [coarse.angle_degrees + offset for offset in (-2, -1, 1, 2)],
+            incumbent=coarse,
+            search_deadline=search_deadline,
+        ), automatic_algorithm
     if automatic_algorithm is SweepAngleAlgorithm.COARSE_TO_FINE:
         coarse_angles = _candidate_angles(request, SweepAngleAlgorithm.GRID_10_DEGREES)
         coarse_angles.extend(_candidate_angles(request, SweepAngleAlgorithm.CONVEX_HULL_EDGES))
@@ -203,9 +233,23 @@ def _best_angle_plan(
     maximum_distance_km: float,
     survey_speed_limit_kmh: float,
     angles: list[float],
+    incumbent: AnglePlan | None = None,
+    search_deadline: float | None = None,
+    preferred_angle: float | None = None,
 ) -> AnglePlan:
-    best: AnglePlan | None = None
-    for angle in _unique_angles(angles):
+    best = incumbent
+    exclusions = _scoring_exclusions(request)
+    safe_routes = PreparedSafeRoutes.create(
+        [*request.area.coordinates, *request.departure_candidates, *request.landing_candidates],
+        exclusions,
+    )
+    ordered_angles = _unique_angles(angles)
+    if preferred_angle is not None:
+        ordered_angles.sort(key=lambda angle: (abs(angle - preferred_angle % 180) > 1e-5, angle))
+    for angle in ordered_angles:
+        check_planning_budget()
+        if search_deadline is not None and perf_counter() >= search_deadline:
+            break
         try:
             route_sets = _coverage_route_sets(
                 request,
@@ -218,8 +262,9 @@ def _best_angle_plan(
         score = _route_sets_score(
             route_sets,
             request,
-            _scoring_exclusions(request),
+            exclusions,
             survey_speed_limit_kmh,
+            safe_routes,
         )
         if score is None:
             continue
@@ -234,7 +279,10 @@ def _best_angle_plan(
             best = candidate
     if best is not None:
         return best
-    for angle in _unique_angles(angles):
+    for angle in ordered_angles:
+        check_planning_budget()
+        if best is not None and search_deadline is not None and perf_counter() >= search_deadline:
+            break
         try:
             route_sets = _coverage_route_sets(
                 request,
@@ -248,8 +296,9 @@ def _best_angle_plan(
         score = _route_sets_score(
             route_sets,
             request,
-            _scoring_exclusions(request),
+            exclusions,
             survey_speed_limit_kmh,
+            safe_routes,
         )
         if score is None:
             continue
@@ -367,6 +416,7 @@ def _route_sets_score(
     request: CoveragePlanRequest,
     exclusions: list[NoFlyZone],
     survey_speed_limit_kmh: float,
+    safe_routes: PreparedSafeRoutes | None = None,
 ) -> CoverageRouteScore | None:
     total_objective_cost = 0.0
     total_distance_km = 0.0
@@ -380,6 +430,7 @@ def _route_sets_score(
                     request,
                     exclusions,
                     survey_speed_limit_kmh,
+                    safe_routes,
                 )
                 if choice is not None:
                     choices.append(choice)
@@ -531,6 +582,11 @@ def _flyable_geometry(request: CoveragePlanRequest) -> tuple[BaseGeometry, Local
         request.area.interior_rings,
         projection,
     )
+    if target.area <= 0:
+        raise CoveragePlanningError(
+            code=ErrorCode.COVERAGE_GENERATION_FAILED,
+            message=f"Область {request.area.name} не имеет площади. Исправьте геометрию полигона.",
+        )
     exclusion_geometries = [
         polygon_from_coordinates(zone.coordinates, zone.interior_rings, projection).buffer(
             zone.safety_margin_m + ROUTE_CLEARANCE_M,
@@ -540,7 +596,7 @@ def _flyable_geometry(request: CoveragePlanRequest) -> tuple[BaseGeometry, Local
     ]
     hole_geometries = [
         polygon_from_coordinates(ring, [], projection).buffer(
-            ROUTE_CLEARANCE_M,
+            ROUTE_CLEARANCE_M + 0.05,
             join_style="mitre",
         )
         for ring in request.area.interior_rings
@@ -681,7 +737,7 @@ def _work_segment(
     distance_km = sum(coordinate_distance_km(start, end) for start, end in pairwise(route))
     image_count = ceil(distance_km * 1_000 / trigger_spacing_m) + 1
     return WorkSegment(
-        segment_id=f"{request.area.area_id}-{index + 1}",
+        segment_id=derived_id(request.area.area_id, f"-{index + 1}"),
         distance_km=round(distance_km, 6),
         route=route,
         alternative_routes=alternative_routes,

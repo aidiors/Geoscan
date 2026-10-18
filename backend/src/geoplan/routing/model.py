@@ -14,6 +14,7 @@ from geoplan.domain.environment import WindCondition
 from geoplan.domain.geo import Coordinate
 from geoplan.flight.performance import ground_speed_kmh, route_duration_minutes
 from geoplan.navigation.routing import (
+    PreparedSafeRoutes,
     RouteGeometryError,
     build_safe_route,
     route_distance_km,
@@ -156,6 +157,17 @@ class CostModel[P: RoutingData]:
         self._legs: dict[tuple[int, Coordinate, Coordinate], tuple[float, float]] = {}
         self._trips: dict[Trip, Cost | None] = {}
         self._services: dict[tuple[int, int], tuple[float, float]] = {}
+        self._safe_routes = (
+            PreparedSafeRoutes.create(
+                [
+                    *(p for t in problem.tracks for p in (t.start, t.end)),
+                    *(p for a in problem.aircraft for p in (a.home, a.landing_coordinate)),
+                ],
+                list(problem.exclusions),
+            )
+            if shared_geometry
+            else None
+        )
         self.track_distances = tuple(route_distance_km([t.start, t.end]) for t in problem.tracks)
         self._blocked_tracks = {
             i
@@ -171,7 +183,11 @@ class CostModel[P: RoutingData]:
             return self._paths[key]
         self.geometry_builds += 1
         try:
-            route = build_safe_route([start, end], list(self.problem.exclusions))
+            route = (
+                self._safe_routes.build([start, end])
+                if self._safe_routes is not None
+                else build_safe_route([start, end], list(self.problem.exclusions))
+            )
             result = route, route_distance_km(route)
         except RouteGeometryError:
             result = None
@@ -248,12 +264,12 @@ class CostModel[P: RoutingData]:
         )
 
     def trip(self, trip: Trip) -> Cost | None:
+        if trip in self._trips:
+            return self._trips[trip]
         if not 0 <= trip.aircraft < len(self.problem.aircraft) or any(
             token < 0 or token >= 2 * len(self.problem.tracks) for token in trip.visits
         ):
             return None
-        if trip in self._trips:
-            return self._trips[trip]
         plane = self.problem.aircraft[trip.aircraft]
         if not trip.visits or any(
             token // 2 in self._blocked_tracks
@@ -388,13 +404,31 @@ class CostModel[P: RoutingData]:
         """Reconstruct paths independently of cached trip costs; never bridge survey phases."""
         if self.metrics(solution) is None:
             return False
+        # Rebuild the query context without the model's geometry or cost caches.
+        # Use its fixed projection, so tiny projection changes cannot masquerade
+        # as a stale accumulated flight cost.
+        safe_routes = (
+            PreparedSafeRoutes.create(
+                [
+                    *(p for t in self.problem.tracks for p in (t.start, t.end)),
+                    *(p for a in self.problem.aircraft for p in (a.home, a.landing_coordinate)),
+                ],
+                list(self.problem.exclusions),
+            )
+            if self.shared_geometry
+            else None
+        )
         for trip in solution:
             plane = self.problem.aircraft[trip.aircraft]
             previous = plane.home
             elapsed = internal_distance = 0.0
             for index, token in enumerate(trip.visits):
                 start, end = self.endpoints(token)
-                connector = build_safe_route([previous, start], list(self.problem.exclusions))
+                connector = (
+                    safe_routes.build([previous, start])
+                    if safe_routes is not None
+                    else build_safe_route([previous, start], list(self.problem.exclusions))
+                )
                 if not route_is_clear_of_no_fly_zones(
                     [start, end], list(self.problem.exclusions)
                 ) or not route_is_clear_of_no_fly_zones(connector, list(self.problem.exclusions)):
@@ -416,9 +450,12 @@ class CostModel[P: RoutingData]:
                 )
                 internal_distance += route_distance_km([start, end])
                 previous = end
-            tail = build_safe_route(
-                [previous, plane.landing_coordinate],
-                list(self.problem.exclusions),
+            tail = (
+                safe_routes.build([previous, plane.landing_coordinate])
+                if safe_routes is not None
+                else build_safe_route(
+                    [previous, plane.landing_coordinate], list(self.problem.exclusions)
+                )
             )
             if not route_is_clear_of_no_fly_zones(tail, list(self.problem.exclusions)):
                 return False

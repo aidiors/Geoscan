@@ -117,6 +117,5 @@ export interface PlanningSettings {
   planningEnd: string;
   turnRadius: number;
   fastHeuristic: boolean;
-  compareAssignmentSolver?: boolean;
   productiveRouting: boolean;
 }

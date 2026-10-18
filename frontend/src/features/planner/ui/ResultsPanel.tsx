@@ -42,6 +42,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
   obstacle_clearance: "Препятствия",
   schedule_integrity: "Расписание",
   survey_resolution: "Разрешение съёмки (GSD)",
+  camera_timing: "Интервалы и команды камеры",
   vertical_profile: "Рельеф и AGL",
 };
 

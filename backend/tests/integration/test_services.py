@@ -1564,7 +1564,14 @@ def test_build_plan_generates_coverage_route_from_target_polygon() -> None:
     assert missions
     assert missions[0].image_count is not None
     assert missions[0].computed_gsd_cm == pytest.approx(2.741, abs=0.001)
-    assert len(missions[0].stages[2].coordinates) > 2
+    survey_stages = [
+        stage for stage in missions[0].stages if stage.stage_type is MissionStageType.SURVEY
+    ]
+    assert len(survey_stages) > 1
+    assert all(len(stage.coordinates) == 2 for stage in survey_stages)
+    assert sum(stage.duration_minutes for stage in missions[0].stages) == pytest.approx(
+        missions[0].duration_minutes
+    )
 
 
 def test_build_plan_routes_coverage_around_target_area_hole() -> None:

@@ -131,26 +131,7 @@ def run(output: Path, selected: list[str] | None = None, candidate_limit: int = 
     if not rows:
         raise ValueError("No matching cases")
     root = Path(__file__).resolve().parents[1]
-    source = [
-        "planning/freeform.py",
-        "planning/freeform_ports.py",
-        "planning/freeform_missions.py",
-        "planning/freeform_costs.py",
-        "planning/plan_quality.py",
-        "routing/pattern_pool.py",
-        "routing/freeform.py",
-        "routing/coverage_patterns.py",
-        "routing/photography.py",
-        "safety/freeform.py",
-        "safety/audit.py",
-        "coverage/resolution.py",
-        "routing/pool.py",
-        "routing/allocation.py",
-        "assignment/neighborhood.py",
-        "planning/productive.py",
-        "planning/engine.py",
-        "geodata/exporters.py",
-    ]
+    source = sorted((root / "src/geoplan").rglob("*.py"))
     report = {
         "protocol": "http-freeform-acceptance-v1",
         "camera_interval_s": 1,
@@ -158,8 +139,10 @@ def run(output: Path, selected: list[str] | None = None, candidate_limit: int = 
         "overlap_side_forward_percent": [60, 75],
         "results": rows,
         "source_sha256": {
-            name: hashlib.sha256((root / "src/geoplan" / name).read_bytes()).hexdigest()
-            for name in source
+            path.relative_to(root / "src/geoplan").as_posix(): hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+            for path in source
         },
         "projection": asdict(GeometryModel(dataset("holdout", 1)[0]).projection),
     }

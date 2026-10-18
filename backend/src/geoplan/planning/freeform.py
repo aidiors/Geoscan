@@ -5,6 +5,7 @@ from itertools import product
 from time import perf_counter
 
 from geoplan.assignment.models import MissionAssignmentCandidate
+from geoplan.budget import improvement_allowed
 from geoplan.coverage.models import CoveragePlanRequest, WorkSegment
 from geoplan.domain.enums import (
     AltitudeReference,
@@ -76,6 +77,8 @@ class AuditedFreeformRouteOptimizer:
         best = baseline
         for expansion in (False, True):
             for additional_only in (False, True):
+                if not improvement_allowed():
+                    return best
                 best = self._improve_pass(
                     request,
                     source,
