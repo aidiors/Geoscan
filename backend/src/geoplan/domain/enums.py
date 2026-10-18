@@ -52,11 +52,18 @@ class SafetyCheckCode(StrEnum):
     NO_FLY_CLEARANCE = "no_fly_clearance"
     OBSTACLE_CLEARANCE = "obstacle_clearance"
     SCHEDULE_INTEGRITY = "schedule_integrity"
+    SURVEY_RESOLUTION = "survey_resolution"
     VERTICAL_PROFILE = "vertical_profile"
     VERTICAL_SEPARATION = "vertical_separation"
 
 
+class AssignmentStrategy(StrEnum):
+    HYBRID = "hybrid"
+    CP_SAT_PORTFOLIO = "cp_sat_portfolio"
+
+
 class AssignmentAlgorithm(StrEnum):
+    CP_SAT = "cp_sat"
     PRODUCTIVE_ROUTE_POOL = "productive_route_pool"
     EXACT_BRANCH_AND_BOUND = "exact_branch_and_bound"
     FAST_GREEDY = "fast_greedy"

@@ -2,11 +2,10 @@
 
 from collections.abc import Callable
 from math import ceil
-from time import perf_counter
 
 from geoplan.assignment.models import MissionAssignmentCandidate
 from geoplan.coverage.models import WorkSegment
-from geoplan.domain.enums import OptimizationCriterion, OptimizationMode, SafetyAuditStatus
+from geoplan.domain.enums import OptimizationMode
 from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.mission import Mission
 from geoplan.errors import PlanningError
@@ -15,17 +14,15 @@ from geoplan.flight.sites import _eligible_departure_sites, _eligible_landing_si
 from geoplan.navigation.routing import route_distance_km
 from geoplan.planning.constraints import _constraints_for_segment
 from geoplan.planning.models import PlanRequest, PlanResponse, ProductiveRoutingSummary
-from geoplan.routing.allocation import assign_trips
+from geoplan.planning.plan_quality import plan_is_audited, scheduled_plan_objective
 from geoplan.routing.model import (
     Aircraft,
     CostModel,
     RoutingProblem,
     Solution,
     Track,
-    routing_objective,
 )
-from geoplan.routing.ordering import cell_orders, order_cost
-from geoplan.routing.split import decode, route_catalog
+from geoplan.routing.pool import ProductiveRoutePool, RoutePoolGenerator
 
 CandidateBuilder = Callable[[WorkSegment, DroneSpec], Mission | None]
 PlanEvaluator = Callable[[list[WorkSegment], list[MissionAssignmentCandidate]], PlanResponse]
@@ -38,8 +35,9 @@ def improve_productive_routes(
     baseline: PlanResponse | None,
     build_candidate: CandidateBuilder,
     evaluate: PlanEvaluator,
+    route_pool: RoutePoolGenerator | None = None,
 ) -> PlanResponse | None:
-    """Retain the baseline and at most three distinct alternatives for real scheduling.
+    """Retain the baseline and a bounded diverse pool for real scheduling.
 
     The segment size controls the reference split; productive groups are bounded
     by physical battery resources. Mission construction rechecks actual sites,
@@ -49,38 +47,54 @@ def improve_productive_routes(
     checked = 0
     selected_name = "baseline"
     best = baseline
+    pre_cross = None
+    cross_checked = 0
     if reason is None:
         model = _routing_model(request, segments, drones)
         if model is None:
             reason = "Отсутствуют площадки или запас энергии для дополнительных вариантов."
         else:
-            for name, solution in _route_pool(model):
-                if (
-                    request.maximum_active_drones is not None
-                    and len({trip.aircraft for trip in solution}) > request.maximum_active_drones
-                ):
-                    continue
-                if not model.validate_geometry(solution):
-                    continue
-                candidates = _mission_candidates(
-                    request, segments[0], drones, model, solution, build_candidate
-                )
-                if candidates is None:
-                    continue
-                grouped, assignments = candidates
-                try:
-                    candidate = evaluate(grouped, assignments)
-                except PlanningError:
-                    continue
-                checked += 1
-                if not _audited(candidate):
-                    continue
-                if (
-                    best is None
-                    or not _audited(best)
-                    or _objective(request, candidate) < _objective(request, best)
-                ):
-                    best, selected_name = candidate, name
+            alternatives = (
+                route_pool.generate(model, request.maximum_active_drones)
+                if route_pool is not None
+                else ProductiveRoutePool().generate(model, request.maximum_active_drones)
+            )
+            for is_cross, candidates in (
+                (False, alternatives.primary),
+                (True, alternatives.cross_objective),
+            ):
+                if is_cross and candidates:
+                    pre_cross = best
+                for name, solution in candidates:
+                    if (
+                        request.maximum_active_drones is not None
+                        and len({trip.aircraft for trip in solution})
+                        > request.maximum_active_drones
+                    ):
+                        continue
+                    if not model.validate_geometry(solution):
+                        continue
+                    mission_candidates = _mission_candidates(
+                        request, segments[0], drones, model, solution, build_candidate
+                    )
+                    if mission_candidates is None:
+                        continue
+                    grouped, assignments = mission_candidates
+                    try:
+                        candidate = evaluate(grouped, assignments)
+                    except PlanningError:
+                        continue
+                    checked += 1
+                    cross_checked += int(is_cross)
+                    if not plan_is_audited(candidate):
+                        continue
+                    if (
+                        best is None
+                        or not plan_is_audited(best)
+                        or scheduled_plan_objective(request, candidate)
+                        < scheduled_plan_objective(request, best)
+                    ):
+                        best, selected_name = candidate, name
     if best is None:
         return None
     if selected_name != "baseline":
@@ -91,11 +105,21 @@ def improve_productive_routes(
             if checked
             else "Сохранён исходный план: дополнительные варианты недоступны."
         )
-    if not _audited(best):
+    if not plan_is_audited(best):
         message = "Новые варианты не прошли аудит. Исходный план требует исправлений."
     summary = ProductiveRoutingSummary(
         selected_variant=selected_name,
         evaluated_variants=checked,
+        pre_cross_objective=list(scheduled_plan_objective(request, pre_cross))
+        if pre_cross is not None and plan_is_audited(pre_cross)
+        else None,
+        pre_cross_makespan_minutes=pre_cross.metrics.completion_minutes
+        if pre_cross is not None
+        else None,
+        pre_cross_total_flight_minutes=pre_cross.metrics.total_flight_minutes
+        if pre_cross is not None
+        else None,
+        cross_objective_variants_evaluated=cross_checked,
         baseline_makespan_minutes=baseline.schedule.makespan_minutes
         if baseline is not None and baseline.schedule is not None
         else None,
@@ -187,29 +211,10 @@ def _routing_model(
     )
 
 
-def _route_pool(model: CostModel[RoutingProblem]) -> list[tuple[str, Solution]]:
-    order = min(cell_orders(model), key=lambda value: (order_cost(model, value), value))
-    catalog = route_catalog(model, order, perf_counter() + 2)
-    physical = max(plane.available_minutes for plane in model.problem.aircraft)
-    targets = [physical]
-    if model.problem.criterion is not OptimizationCriterion.TOTAL_FLIGHT_TIME and physical > 60:
-        targets.append(45)
-    pool, seen = [], set()
-    for index, target in enumerate(targets):
-        solution = decode(catalog, target, perf_counter() + 1)
-        if not solution:
-            continue
-        allocated = assign_trips(model, solution, perf_counter() + 1)
-        variants = (
-            [("catalog", solution), ("allocated", allocated)]
-            if index == 0
-            else [("short_sorties", allocated)]
-        )
-        for name, candidate in variants:
-            if candidate and candidate not in seen:
-                pool.append((name, candidate))
-                seen.add(candidate)
-    return pool
+def _route_pool(
+    model: CostModel[RoutingProblem], maximum_active_drones: int | None = None
+) -> list[tuple[str, Solution]]:
+    return ProductiveRoutePool().generate(model, maximum_active_drones).all
 
 
 def _mission_candidates(
@@ -257,25 +262,3 @@ def _mission_candidates(
             )
         )
     return segments, candidates
-
-
-def _audited(plan: PlanResponse) -> bool:
-    return plan.safety_audit is not None and plan.safety_audit.status is SafetyAuditStatus.PASSED
-
-
-def _objective(request: PlanRequest, plan: PlanResponse) -> tuple[float, ...]:
-    missions = [mission for drone in plan.drone_plans for mission in drone.missions]
-    total = sum(mission.duration_minutes for mission in missions)
-    transit = sum(mission.transit_duration_minutes or 0 for mission in missions)
-    completion = (
-        plan.schedule.makespan_minutes if plan.schedule else plan.metrics.completion_minutes
-    )
-    active = float(plan.metrics.active_drone_count)
-    return routing_objective(
-        request.criterion,
-        request.completion_deadline_minutes,
-        total,
-        transit,
-        completion,
-        int(active),
-    )

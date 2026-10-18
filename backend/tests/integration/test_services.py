@@ -36,6 +36,7 @@ from geoplan.navigation.routing import (
     route_is_inside_coverage_area,
 )
 from geoplan.planning.engine import build_plan
+from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
 from geoplan.planning.models import PlanRequest, PlanResponse
 from geoplan.safety.audit import IndependentPlanSafetyAuditor
 from geoplan.scheduling.scheduler import ConflictAwareMissionScheduler
@@ -158,6 +159,7 @@ def create_plan(request: PlanRequest) -> PlanResponse:
         DubinsSweepTransitionPlanner(ExactDubinsPlanner()),
         IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),
         TerrainFollowingProfilePlanner(InverseDistanceTerrainProvider()),
+        AuditedFreeformRouteOptimizer(),
     )
 
 
@@ -196,6 +198,7 @@ def test_positive_turn_radius_changes_survey_route_and_distance() -> None:
         RejectingTransitionPlanner(),
         IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),
         TerrainFollowingProfilePlanner(InverseDistanceTerrainProvider()),
+        AuditedFreeformRouteOptimizer(),
     )
     curved = create_plan(baseline_request.model_copy(update={"minimum_turn_radius_m": 10}))
 
@@ -339,6 +342,7 @@ def test_positive_turn_radius_reports_stable_failure_without_polyline_fallback()
             RejectingTransitionPlanner(),
             IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),
             TerrainFollowingProfilePlanner(InverseDistanceTerrainProvider()),
+            AuditedFreeformRouteOptimizer(),
         )
 
     assert error.value.code is ErrorCode.TURN_RADIUS_UNSATISFIED

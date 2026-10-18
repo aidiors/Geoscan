@@ -3,7 +3,7 @@
 import argparse
 import hashlib
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from time import perf_counter
 
@@ -14,16 +14,24 @@ from geoplan.composition import create_default_dependencies
 from geoplan.domain.enums import MissionTask, OptimizationCriterion, SafetyAuditStatus
 from geoplan.domain.fleet import DroneSpec, FlightSite
 from geoplan.flight.trajectory import mission_route_clock
+from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
 from geoplan.planning.models import PlanRequest, PlanResponse
 from geoplan.routing.freeform import GeometryModel
+from geoplan.routing.pattern_pool import CoverageCandidatePool, DiverseCoverageCandidateSelector
 from scenarios.freeform import dataset
 
 
-def run(output: Path, selected: list[str] | None = None) -> dict:
+def run(output: Path, selected: list[str] | None = None, candidate_limit: int = 18) -> dict:
     if output.exists():
         raise ValueError("Choose a new output file; previous evidence is never overwritten")
     rows = []
-    with TestClient(create_app(create_default_dependencies(), serve_frontend=False)) as client:
+    optimizer = AuditedFreeformRouteOptimizer(
+        pool=CoverageCandidatePool(
+            selector=DiverseCoverageCandidateSelector(maximum_candidates=candidate_limit)
+        )
+    )
+    dependencies = replace(create_default_dependencies(), freeform_optimizer=optimizer)
+    with TestClient(create_app(dependencies, serve_frontend=False)) as client:
         for case in dataset("holdout", 1):
             if selected and case.case_id not in selected:
                 continue
@@ -125,15 +133,28 @@ def run(output: Path, selected: list[str] | None = None) -> dict:
     root = Path(__file__).resolve().parents[1]
     source = [
         "planning/freeform.py",
+        "planning/freeform_ports.py",
+        "planning/freeform_missions.py",
+        "planning/freeform_costs.py",
+        "planning/plan_quality.py",
+        "routing/pattern_pool.py",
         "routing/freeform.py",
         "routing/coverage_patterns.py",
         "routing/photography.py",
         "safety/freeform.py",
+        "safety/audit.py",
+        "coverage/resolution.py",
+        "routing/pool.py",
+        "routing/allocation.py",
+        "assignment/neighborhood.py",
+        "planning/productive.py",
+        "planning/engine.py",
         "geodata/exporters.py",
     ]
     report = {
         "protocol": "http-freeform-acceptance-v1",
         "camera_interval_s": 1,
+        "candidate_limit_per_context": candidate_limit,
         "overlap_side_forward_percent": [60, 75],
         "results": rows,
         "source_sha256": {
@@ -151,5 +172,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--case", action="append")
+    parser.add_argument("--candidate-limit", type=int, default=18)
     args = parser.parse_args()
-    run(args.output, args.case)
+    run(args.output, args.case, args.candidate_limit)

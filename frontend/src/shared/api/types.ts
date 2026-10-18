@@ -195,6 +195,7 @@ export interface PlanResponse {
   } | null;
   optimization: {
     algorithm:
+      | "cp_sat"
       | "productive_route_pool"
       | "exact_branch_and_bound"
       | "fast_greedy"
@@ -211,9 +212,22 @@ export interface PlanResponse {
     survey_turn_radius_m: number;
     coverage_angle_cost: "geometric_distance" | "wind_adjusted_duration";
     coverage_reference_airspeed_kmh: number | null;
+    assignment_search?: {
+      status: string;
+      solver_statuses: string[];
+      runtime_seconds: number;
+      integer_assignment_proven: boolean;
+      candidate_audited: boolean;
+      candidate_accepted: boolean;
+      message: string;
+    } | null;
     productive_routing?: {
       selected_variant: string;
       evaluated_variants: number;
+      pre_cross_objective?: number[] | null;
+      pre_cross_makespan_minutes?: number | null;
+      pre_cross_total_flight_minutes?: number | null;
+      cross_objective_variants_evaluated?: number;
       freeform_candidates_checked?: number;
       baseline_makespan_minutes: number | null;
       baseline_total_flight_minutes: number | null;
@@ -223,6 +237,12 @@ export interface PlanResponse {
   } | null;
   schedule: {
     algorithm: "priority_deconfliction";
+    variants_evaluated?: number;
+    dispatch_priority?: "ready_first" | "longest_remaining" | "tightest_window";
+    layer_preference?: "earliest_finish" | "minimum_flight";
+    reference_makespan_minutes?: number | null;
+    reference_total_flight_minutes?: number | null;
+    reference_audited?: boolean | null;
     makespan_minutes: number;
     minimum_separation_m: number;
     minimum_vertical_separation_m?: number;
@@ -262,6 +282,7 @@ export interface PlanResponse {
         | "no_fly_clearance"
         | "obstacle_clearance"
         | "schedule_integrity"
+        | "survey_resolution"
         | "vertical_profile";
       status: "passed" | "failed" | "not_applicable";
       measured_value: number | null;
@@ -397,6 +418,7 @@ export interface PlanRequest {
   planning_end_time: string | null;
   minimum_turn_radius_m: number;
   optimization_mode: "optimized" | "fast_heuristic";
+  assignment_strategy?: "hybrid" | "cp_sat_portfolio";
   productive_routing?: boolean;
 }
 

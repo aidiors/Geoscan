@@ -24,10 +24,10 @@ RUN apt-get update \
 COPY --from=uv /uv /uvx /bin/
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./backend/
-RUN uv sync --project backend --locked --no-dev --no-install-project
+RUN uv sync --project backend --locked --extra optimization --no-dev --no-install-project
 
 COPY backend/src ./backend/src
-RUN uv sync --project backend --locked --no-dev
+RUN uv sync --project backend --locked --extra optimization --no-dev
 COPY --from=frontend-builder /app/dist ./dist
 
 RUN useradd --create-home --uid 10001 geoplan \

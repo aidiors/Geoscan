@@ -11,6 +11,7 @@ from geoplan.domain.diagnostics import FeasibilityReport, SafetyAuditReport
 from geoplan.domain.enums import (
     AltitudeReference,
     AssignmentAlgorithm,
+    AssignmentStrategy,
     CoverageAlgorithm,
     CoverageAngleCost,
     MissionTask,
@@ -72,6 +73,7 @@ class PlanRequest(BaseModel):
     turnaround_minutes: float = Field(default=0, ge=0, le=1_440)
     minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
     optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
+    assignment_strategy: AssignmentStrategy = AssignmentStrategy.HYBRID
     productive_routing: bool = False
     planning_start_time: datetime | None = None
     planning_end_time: datetime | None = None
@@ -184,6 +186,22 @@ class ProductiveRoutingSummary(BaseModel):
     baseline_makespan_minutes: float | None = None
     baseline_total_flight_minutes: float | None = None
     baseline_transit_minutes: float | None = None
+    pre_cross_objective: list[float] | None = None
+    pre_cross_makespan_minutes: float | None = None
+    pre_cross_total_flight_minutes: float | None = None
+    cross_objective_variants_evaluated: int = Field(default=0, ge=0)
+    message: str
+
+
+class AssignmentSearchSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    status: str
+    solver_statuses: list[str] = Field(default_factory=list)
+    runtime_seconds: float = Field(default=0, ge=0)
+    integer_assignment_proven: bool = False
+    candidate_audited: bool = False
+    candidate_accepted: bool = False
     message: str
 
 
@@ -202,6 +220,7 @@ class OptimizationSummary(BaseModel):
     coverage_angle_cost: CoverageAngleCost = CoverageAngleCost.GEOMETRIC_DISTANCE
     coverage_reference_airspeed_kmh: float | None = Field(default=None, gt=0, le=300)
     productive_routing: ProductiveRoutingSummary | None = None
+    assignment_search: AssignmentSearchSummary | None = None
 
 
 class PlanResponse(BaseModel):

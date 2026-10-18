@@ -53,6 +53,8 @@ describe("plan request", () => {
       "flight", scenario.task, scenario, cloneFleet(), cloneSites(scenario), [], survey,
       { ...settings, ...overrides },
     );
+    expect(build({ compareAssignmentSolver: true }).assignment_strategy).toBe("cp_sat_portfolio");
+    expect(build({ compareAssignmentSolver: true, fastHeuristic: true }).assignment_strategy).toBe("hybrid");
     expect(build({ productiveRouting: false }).productive_routing).toBe(false);
     expect(build({ productiveRouting: true, fastHeuristic: true }).productive_routing).toBe(false);
     expect(build({ productiveRouting: true, fastHeuristic: false }).productive_routing).toBe(true);

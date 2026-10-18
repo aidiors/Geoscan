@@ -21,7 +21,7 @@ export function usePlanner() {
   const [demoCaseId, setDemoCaseId] = useState(initialDemoCase.id);
   const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [task, setTask] = useState<MissionTask>(initialScenario.task);
-  const [objective, setObjective] = useState<Objective>("time");
+  const [objective, setObjective] = useState<Objective>("flight");
   const [drones, setDrones] = useState<DroneProfile[]>(cloneFleet);
   const [selectedDroneId, setSelectedDroneId] = useState("201");
   const [sites, setSites] = useState<FlightSiteState[]>(() => cloneSites(initialScenario));

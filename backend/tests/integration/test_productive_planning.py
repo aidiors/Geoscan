@@ -6,75 +6,122 @@ from fastapi.testclient import TestClient
 
 from geoplan.api.app import create_app
 from geoplan.composition import create_default_dependencies
-from geoplan.coverage.models import CoverageArea, SensorProfile, SurveyParameters, WorkSegment
+from geoplan.coverage.models import WorkSegment
 from geoplan.domain.enums import (
     MissionStageType,
-    MissionTask,
     OptimizationCriterion,
-    SweepDirectionMode,
+    SafetyAuditStatus,
 )
-from geoplan.domain.fleet import DroneSpec, FlightSite
 from geoplan.domain.mission import Mission
 from geoplan.navigation.geometry import LocalProjection
 from geoplan.navigation.routing import route_distance_km
 from geoplan.planning.models import PlanRequest, PlanResponse
+from geoplan.planning.plan_quality import scheduled_plan_objective
 from geoplan.routing.model import Aircraft, CostModel, RoutingProblem, Track, Trip
+from geoplan.routing.pool import RoutePoolBatch
+from scenarios.optimization_scale import scale_scenarios
+from scenarios.planning import parallel_survey_request
+from scenarios.planning import productive_survey_request as survey_request
 
 
-def survey_request(**overrides) -> PlanRequest:
-    projection = LocalProjection(37, 55)
-    home = FlightSite(site_id="base", name="Base", coordinate=projection.unproject(-500, -500))
-    return PlanRequest.model_validate(
-        {
-            "criterion": OptimizationCriterion.TOTAL_FLIGHT_TIME,
-            "productive_routing": True,
-            "drones": [
-                DroneSpec(
-                    drone_id="fast",
-                    name="Survey",
-                    cruise_speed_kmh=90,
-                    maximum_flight_minutes=60,
-                    battery_reserve_percent=20,
-                    supported_tasks=[MissionTask.RGB],
-                )
-            ],
-            "coverage_areas": [
-                CoverageArea(
-                    area_id="field",
-                    name="Field",
-                    coordinates=[
-                        projection.unproject(x, y)
-                        for x, y in ((0, 0), (1200, 0), (1200, 600), (0, 600))
-                    ],
-                )
-            ],
-            "survey_parameters": SurveyParameters(
-                direction_mode=SweepDirectionMode.MANUAL,
-                flight_direction_degrees=90,
-                side_overlap_percent=60,
-                forward_overlap_percent=75,
-                maximum_gsd_cm=5,
-                strip_width_m=200,
-                maximum_segment_distance_km=1.5,
-                sensor=SensorProfile(
-                    sensor_id="camera",
-                    name="Camera",
-                    sensor_width_mm=13.2,
-                    sensor_height_mm=8.8,
-                    focal_length_mm=8.8,
-                    image_width_px=5472,
-                    image_height_px=3648,
-                    minimum_trigger_interval_s=4,
-                ),
-            ),
-            "mission_altitude_m": 120,
-            "task": MissionTask.RGB,
-            "departure_site": home,
-            "landing_site": home,
-            "maximum_active_drones": 1,
-            **overrides,
+class FixedTrackOnly:
+    """Isolate fixed-track acceptance from the separately tested freeform search."""
+
+    def improve(self, request, source, drones, baseline, build, evaluate, reference=None):
+        return baseline
+
+
+def test_route_pool_is_injected_through_http_composition():
+    class EmptyPool:
+        def __init__(self):
+            self.calls = []
+
+        def generate(self, model, maximum_active_drones=None):
+            self.calls.append((len(model.problem.tracks), maximum_active_drones))
+            return RoutePoolBatch()
+
+    pool = EmptyPool()
+    dependencies = replace(
+        create_default_dependencies(),
+        productive_route_pool=pool,
+        freeform_optimizer=FixedTrackOnly(),
+    )
+    plan = post_plan(parallel_survey_request(), dependencies)
+    assert pool.calls and pool.calls[0][0] > 1 and pool.calls[0][1] == 2
+    assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
+
+
+def test_deadline_mode_considers_fast_assignments_of_productive_groups():
+    source = next(
+        case.request for case in scale_scenarios() if case.name == "evaluation_long_windy_100"
+    )
+    request = source.model_copy(
+        update={
+            "criterion": OptimizationCriterion.BALANCED,
+            "completion_deadline_minutes": 170,
         }
     )
+    plan = post_plan(request)
+    assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
+    assert plan.schedule is not None and plan.schedule.makespan_minutes <= 170
+    assert plan.feasibility is not None and plan.feasibility.status == "feasible"
+
+
+def test_completion_mode_uses_economical_groupings_as_search_seeds():
+    source = next(case.request for case in scale_scenarios() if case.name == "flat_100")
+    request = source.model_copy(
+        update={
+            "criterion": OptimizationCriterion.COMPLETION_TIME,
+            "completion_deadline_minutes": 170,
+        }
+    )
+    plan = post_plan(request)
+    assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
+    assert plan.schedule is not None and plan.schedule.makespan_minutes < 140
+    assert plan.criterion is OptimizationCriterion.COMPLETION_TIME
+    assert plan.optimization is not None and plan.optimization.productive_routing is not None
+    exchange = plan.optimization.productive_routing
+    assert exchange.pre_cross_objective is not None
+    assert scheduled_plan_objective(request, plan) <= tuple(exchange.pre_cross_objective)
+    assert exchange.cross_objective_variants_evaluated > 0
+
+
+def test_internal_search_deadline_does_not_leak_into_http_response():
+    plan = post_plan(parallel_survey_request(completion_deadline_minutes=None))
+    assert plan.feasibility is not None
+    assert plan.feasibility.requested_deadline_minutes is None
+
+
+@pytest.mark.parametrize(
+    "criterion", [OptimizationCriterion.COMPLETION_TIME, OptimizationCriterion.BALANCED]
+)
+def test_parallel_sorties_meet_deadline_when_single_sortie_exceeds_it(criterion):
+    request = parallel_survey_request(criterion=criterion, completion_deadline_minutes=25)
+    baseline = post_plan(request.model_copy(update={"productive_routing": False}))
+    plan = post_plan(request)
+    assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
+    assert plan.feasibility is not None and plan.feasibility.status == "feasible"
+    assert plan.metrics.completion_minutes < 20 < baseline.metrics.completion_minutes
+    assert plan.metrics.active_drone_count == 2
+    assert plan.metrics.sortie_count == 2
+    assert plan.optimization is not None and plan.schedule is not None
+    assert plan.optimization.completion_minutes == plan.schedule.makespan_minutes
+
+
+def test_failed_audit_does_not_claim_a_feasible_plan():
+    dependencies = create_default_dependencies()
+
+    class RejectAudit:
+        def audit(self, request, segments, missions):
+            report = dependencies.safety_auditor.audit(request, segments, missions)
+            return report.model_copy(update={"status": SafetyAuditStatus.FAILED})
+
+    plan = post_plan(
+        survey_request(productive_routing=False),
+        replace(dependencies, safety_auditor=RejectAudit()),
+    )
+    assert plan.safety_audit is not None and plan.safety_audit.status == "failed"
+    assert plan.feasibility is not None and plan.feasibility.status == "infeasible"
 
 
 def post_plan(request: PlanRequest, dependencies=None) -> PlanResponse:
@@ -198,7 +245,10 @@ def test_failed_audit_cannot_replace_verified_reference_plan():
                 else audit
             )
 
-    plan = post_plan(survey_request(), replace(deps, safety_auditor=RejectProductiveAudit()))
+    plan = post_plan(
+        survey_request(),
+        replace(deps, safety_auditor=RejectProductiveAudit(), freeform_optimizer=FixedTrackOnly()),
+    )
     assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
     assert plan.optimization is not None and plan.optimization.productive_routing is not None
     assert plan.optimization.productive_routing.selected_variant == "baseline"
@@ -233,7 +283,9 @@ def test_lower_load_cannot_override_worse_actual_scheduled_completion():
 
     plan = post_plan(
         survey_request(criterion=OptimizationCriterion.COMPLETION_TIME),
-        replace(deps, mission_scheduler=DelayProductiveSchedule()),
+        replace(
+            deps, mission_scheduler=DelayProductiveSchedule(), freeform_optimizer=FixedTrackOnly()
+        ),
     )
     assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
     assert plan.optimization is not None and plan.optimization.productive_routing is not None

@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from geoplan.api.models import ErrorResponse, HealthReport
+from geoplan.assignment.alternatives import AssignmentAlternativeProvider
 from geoplan.assignment.solver import AssignmentOptimizer
 from geoplan.coverage.sweep import CoveragePlanner
 from geoplan.domain.enums import ErrorCode, HealthStatus
@@ -29,6 +30,7 @@ from geoplan.geodata.models import (
 from geoplan.navigation.curvature import SweepTransitionPlanner
 from geoplan.navigation.optimizer import RouteOptimizer
 from geoplan.planning.engine import build_plan
+from geoplan.planning.freeform_ports import FreeformRouteOptimizer
 from geoplan.planning.models import (
     PlanRequest,
     PlanResponse,
@@ -36,6 +38,7 @@ from geoplan.planning.models import (
     TurnRadiusAnalysisResult,
 )
 from geoplan.planning.turn_radius import analyze_turn_radii
+from geoplan.routing.pool import RoutePoolGenerator
 from geoplan.safety.audit import PlanSafetyAuditor
 from geoplan.scheduling.scheduler import MissionScheduler
 
@@ -50,6 +53,9 @@ def create_plan(
     sweep_transition_planner: SweepTransitionPlanner,
     safety_auditor: PlanSafetyAuditor,
     vertical_profile_planner: VerticalProfilePlanner,
+    freeform_optimizer: FreeformRouteOptimizer,
+    assignment_alternative: AssignmentAlternativeProvider | None = None,
+    productive_route_pool: RoutePoolGenerator | None = None,
 ) -> PlanResponse:
     return build_plan(
         request,
@@ -61,6 +67,9 @@ def create_plan(
         sweep_transition_planner,
         safety_auditor,
         vertical_profile_planner,
+        freeform_optimizer,
+        assignment_alternative,
+        productive_route_pool,
     )
 
 
@@ -126,6 +135,9 @@ def create_router(
     sweep_transition_planner: SweepTransitionPlanner,
     safety_auditor: PlanSafetyAuditor,
     vertical_profile_planner: VerticalProfilePlanner,
+    freeform_optimizer: FreeformRouteOptimizer,
+    assignment_alternative: AssignmentAlternativeProvider | None = None,
+    productive_route_pool: RoutePoolGenerator | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -149,6 +161,9 @@ def create_router(
             sweep_transition_planner,
             safety_auditor,
             vertical_profile_planner,
+            freeform_optimizer,
+            assignment_alternative,
+            productive_route_pool,
         )
 
     @router.post(

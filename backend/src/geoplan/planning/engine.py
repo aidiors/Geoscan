@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from geoplan.airspace.windows import _schedule_time_windows, _vertical_layers_by_segment_id
+from geoplan.assignment.alternatives import AssignmentAlternativeProvider
 from geoplan.assignment.models import (
     AssignmentOptimizationRequest,
     AssignmentOptimizationResult,
@@ -8,12 +9,15 @@ from geoplan.assignment.models import (
 )
 from geoplan.assignment.solver import AssignmentOptimizer
 from geoplan.coverage.models import WorkSegment
+from geoplan.coverage.resolution import SurveyResolution
 from geoplan.coverage.sweep import CoveragePlanner
 from geoplan.domain.diagnostics import FeasibilityRecommendation
 from geoplan.domain.enums import (
     AssignmentAlgorithm,
+    AssignmentStrategy,
     ErrorCode,
     OptimalityStatus,
+    OptimizationMode,
     OptimizationScope,
     RecommendationCode,
     RecommendationConfidence,
@@ -26,6 +30,7 @@ from geoplan.flight.duration import MissionDurationCalculator
 from geoplan.flight.terrain import VerticalProfilePlanner
 from geoplan.navigation.curvature import SweepTransitionPlanner
 from geoplan.navigation.optimizer import RouteOptimizer
+from geoplan.planning.assignment_portfolio import AuditedAssignmentPortfolio
 from geoplan.planning.candidates import (
     _candidate_evaluation,
     _candidate_is_feasible,
@@ -38,20 +43,27 @@ from geoplan.planning.eligibility import (
     _drones_capable_of_wind,
     _drones_with_eligible_sites,
 )
-from geoplan.planning.freeform import improve_freeform_routes
-from geoplan.planning.models import OptimizationSummary, PlanRequest, PlanResponse
+from geoplan.planning.freeform_ports import FreeformRouteOptimizer
+from geoplan.planning.models import (
+    AssignmentSearchSummary,
+    OptimizationSummary,
+    PlanRequest,
+    PlanResponse,
+)
 from geoplan.planning.productive import improve_productive_routes
 from geoplan.planning.reporting import (
     _create_drone_plans,
     _create_feasibility_report,
     _create_metrics,
 )
+from geoplan.planning.schedule_portfolio import AuditedSchedulePortfolio
 from geoplan.planning.segments import (
     _coverage_angle_cost,
     _coverage_reference_airspeed_kmh,
     _resolve_segments,
 )
 from geoplan.planning.survey_phases import normalize_reference_missions
+from geoplan.routing.pool import RoutePoolGenerator
 from geoplan.safety.audit import PlanSafetyAuditor
 from geoplan.scheduling.models import MissionScheduleRequest, ScheduleSummary
 from geoplan.scheduling.scheduler import MissionScheduler, ScheduleWindowUnavailableError
@@ -67,6 +79,9 @@ def build_plan(
     sweep_transition_planner: SweepTransitionPlanner,
     safety_auditor: PlanSafetyAuditor,
     vertical_profile_planner: VerticalProfilePlanner,
+    freeform_optimizer: FreeformRouteOptimizer,
+    assignment_alternative: AssignmentAlternativeProvider | None = None,
+    productive_route_pool: RoutePoolGenerator | None = None,
 ) -> PlanResponse:
     capable_drones = _drones_capable_of_task(request.drones, request.task)
     envelope_capable_drones = _drones_capable_of_environment(capable_drones, request)
@@ -84,8 +99,21 @@ def build_plan(
     )
     baseline_error: PlanningError | None = None
     baseline = None
+    search_report = None
+
+    def annotate(plan: PlanResponse) -> PlanResponse:
+        if plan.optimization is None or search_report is None:
+            return plan
+        return plan.model_copy(
+            update={
+                "optimization": plan.optimization.model_copy(
+                    update={"assignment_search": search_report}
+                )
+            }
+        )
+
     try:
-        optimized = _assign_segments(
+        optimized, assignment_problem = _assign_segments(
             request,
             segments,
             eligible_drones,
@@ -105,6 +133,35 @@ def build_plan(
             coverage_reference_airspeed_kmh,
             len(eligible_drones),
         )
+        if (
+            request.assignment_strategy is AssignmentStrategy.CP_SAT_PORTFOLIO
+            and request.optimization_mode is not OptimizationMode.FAST_HEURISTIC
+            and assignment_alternative is not None
+        ):
+
+            def evaluate_assignment(result: AssignmentOptimizationResult) -> PlanResponse:
+                return _finish_plan(
+                    request,
+                    segments,
+                    result,
+                    mission_scheduler,
+                    safety_auditor,
+                    coverage_planner,
+                    coverage_reference_airspeed_kmh,
+                    len(eligible_drones),
+                )
+
+            baseline, search_report = AuditedAssignmentPortfolio(assignment_alternative).improve(
+                request, assignment_problem, optimized, baseline, evaluate_assignment
+            )
+        elif (
+            request.assignment_strategy is AssignmentStrategy.CP_SAT_PORTFOLIO
+            and request.optimization_mode is not OptimizationMode.FAST_HEURISTIC
+        ):
+            search_report = AssignmentSearchSummary(
+                status="unavailable",
+                message="Дополнительный решатель не подключён; сохранён исходный план.",
+            )
     except PlanningError as error:
         if not request.productive_routing:
             raise
@@ -163,20 +220,28 @@ def build_plan(
             )
 
         improved = improve_productive_routes(
-            request, segments, eligible_drones, baseline, create_candidate, evaluate
+            request,
+            segments,
+            eligible_drones,
+            baseline,
+            create_candidate,
+            evaluate,
+            productive_route_pool,
         )
         if improved is not None:
-            return improve_freeform_routes(
-                request,
-                segments,
-                eligible_drones,
-                improved,
-                create_candidate,
-                evaluate,
-                reference=baseline,
+            return annotate(
+                freeform_optimizer.improve(
+                    request,
+                    segments,
+                    eligible_drones,
+                    improved,
+                    create_candidate,
+                    evaluate,
+                    reference=baseline,
+                )
             )
     if baseline is not None:
-        return baseline
+        return annotate(baseline)
     assert baseline_error is not None
     raise baseline_error
 
@@ -190,7 +255,7 @@ def _assign_segments(
     sweep_transition_planner: SweepTransitionPlanner,
     vertical_profile_planner: VerticalProfilePlanner,
     assignment_optimizer: AssignmentOptimizer,
-) -> AssignmentOptimizationResult:
+) -> tuple[AssignmentOptimizationResult, AssignmentOptimizationRequest]:
     candidate_groups = _create_candidate_groups(
         segments,
         eligible_drones,
@@ -204,7 +269,11 @@ def _assign_segments(
         criterion=request.criterion,
         drone_ids=[drone.drone_id for drone in eligible_drones],
         candidate_groups=candidate_groups,
-        maximum_active_drones=request.maximum_active_drones,
+        maximum_active_drones=(
+            min(request.maximum_active_drones, len(eligible_drones))
+            if request.maximum_active_drones is not None
+            else None
+        ),
         completion_deadline_minutes=request.completion_deadline_minutes,
         optimization_mode=request.optimization_mode,
         turnaround_minutes_by_drone={
@@ -246,7 +315,7 @@ def _assign_segments(
             message="Ограничение числа БВС не позволяет распределить все участки.",
             recommendations=assignment_recommendations,
         ) from error
-    return optimized
+    return optimized, optimization_request
 
 
 def _finish_plan(
@@ -280,7 +349,10 @@ def _finish_plan(
         vertical_layers_by_segment_id=vertical_layers,
     )
     try:
-        schedule = mission_scheduler.schedule(schedule_request)
+        selection = AuditedSchedulePortfolio(mission_scheduler, safety_auditor).select(
+            request, segments, schedule_request
+        )
+        schedule = selection.schedule
     except ScheduleWindowUnavailableError as error:
         failed_mission = next(
             mission for mission in missions if mission.segment_id == error.segment_id
@@ -341,9 +413,20 @@ def _finish_plan(
         ) from error
     assignments = {drone.drone_id: [] for drone in request.drones}
     for mission in schedule.missions:
+        if request.survey_parameters is not None:
+            mission = mission.model_copy(
+                update={
+                    "computed_gsd_cm": SurveyResolution().gsd_cm(
+                        mission, request.survey_parameters.sensor
+                    )
+                }
+            )
         assignments[mission.drone_id].append(mission)
     drone_plans = _create_drone_plans(request.drones, assignments)
-    metrics = _create_metrics(drone_plans, len(request.drones))
+    metrics = _create_metrics(drone_plans, len(request.drones)).model_copy(
+        update={"completion_minutes": schedule.makespan_minutes}
+    )
+    audit = selection.audit
     return PlanResponse(
         criterion=request.criterion,
         drone_plans=drone_plans,
@@ -352,6 +435,7 @@ def _finish_plan(
             metrics,
             request,
             eligible_drone_count,
+            audit,
         ),
         optimization=OptimizationSummary(
             algorithm=optimized.algorithm,
@@ -363,18 +447,20 @@ def _finish_plan(
                 else OptimizationScope.GENERATED_ROUTE_ASSIGNMENT
             ),
             optimality=optimized.optimality,
-            completion_minutes=(
-                schedule.makespan_minutes
-                if optimized.algorithm is AssignmentAlgorithm.PRODUCTIVE_ROUTE_POOL
-                else optimized.completion_minutes
-            ),
-            total_flight_minutes=optimized.total_flight_minutes,
+            completion_minutes=schedule.makespan_minutes,
+            total_flight_minutes=sum(m.duration_minutes for m in schedule.missions),
             active_drone_count=optimized.active_drone_count,
             survey_turn_radius_m=request.minimum_turn_radius_m,
             coverage_angle_cost=_coverage_angle_cost(request),
             coverage_reference_airspeed_kmh=coverage_reference_airspeed_kmh,
         ),
         schedule=ScheduleSummary(
+            variants_evaluated=selection.variants_evaluated,
+            dispatch_priority=selection.dispatch_priority,
+            layer_preference=selection.layer_preference,
+            reference_makespan_minutes=selection.reference_makespan_minutes,
+            reference_total_flight_minutes=selection.reference_total_flight_minutes,
+            reference_audited=selection.reference_audited,
             algorithm=schedule.algorithm,
             makespan_minutes=schedule.makespan_minutes,
             minimum_separation_m=request.minimum_separation_m,
@@ -390,5 +476,5 @@ def _finish_plan(
             resolved_conflict_count=schedule.resolved_conflict_count,
             resolved_conflicts=schedule.resolved_conflicts,
         ),
-        safety_audit=safety_auditor.audit(request, segments, schedule.missions),
+        safety_audit=audit,
     )

@@ -1,5 +1,6 @@
 from geoplan.assignment.models import AssignmentOptimizationRequest, MissionAssignmentCandidate
-from geoplan.assignment.solver import HybridAssignmentOptimizer
+from geoplan.assignment.neighborhood import AssignmentNeighborhoodSearch
+from geoplan.assignment.solver import HybridAssignmentOptimizer, _score
 from geoplan.domain.enums import (
     AssignmentAlgorithm,
     OptimalityStatus,
@@ -8,6 +9,24 @@ from geoplan.domain.enums import (
 )
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
+
+
+def test_exchange_escapes_a_state_where_each_single_relocation_is_worse():
+    request = AssignmentOptimizationRequest(
+        criterion=OptimizationCriterion.COMPLETION_TIME,
+        drone_ids=["first", "second"],
+        candidate_groups=[
+            [candidate("a", "first", 10), candidate("a", "second", 1)],
+            [candidate("b", "first", 1), candidate("b", "second", 10)],
+        ],
+    )
+    initial = [0, 1]
+    assert _score(request, [1, 1]) > _score(request, initial)
+    assert _score(request, [0, 0]) > _score(request, initial)
+    result = AssignmentNeighborhoodSearch().improve(
+        request, initial, frozenset(request.drone_ids), lambda choices: _score(request, choices)
+    )
+    assert result == [1, 0]
 
 
 def candidate(

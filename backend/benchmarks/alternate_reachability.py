@@ -100,6 +100,7 @@ def _measure_request(
             dependencies.sweep_transition_planner,
             dependencies.safety_auditor,
             dependencies.vertical_profile_planner,
+            dependencies.freeform_optimizer,
         )
     except PlanningError as error:
         return AlternateReachabilityMeasurement(

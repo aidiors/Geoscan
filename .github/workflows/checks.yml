@@ -16,13 +16,13 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.14"
-      - run: uv sync --directory backend --locked
-      - run: uv run --directory backend python ../scripts/check_architecture.py
-      - run: uv run --directory backend python ../scripts/check_docs.py
-      - run: uv run --directory backend ruff format --check src tests benchmarks scenarios ../scripts
-      - run: uv run --directory backend ruff check src tests benchmarks scenarios ../scripts
-      - run: uv run --directory backend ty check src tests benchmarks scenarios ../scripts
-      - run: uv run --directory backend pytest -q
+      - run: uv sync --directory backend --locked --extra optimization
+      - run: uv run --directory backend --extra optimization python ../scripts/check_architecture.py
+      - run: uv run --directory backend --extra optimization python ../scripts/check_docs.py
+      - run: uv run --directory backend --extra optimization ruff format --check src tests benchmarks scenarios ../scripts
+      - run: uv run --directory backend --extra optimization ruff check src tests benchmarks scenarios ../scripts
+      - run: uv run --directory backend --extra optimization ty check src tests benchmarks scenarios ../scripts
+      - run: uv run --directory backend --extra optimization pytest -q
 
   frontend:
     runs-on: ubuntu-latest

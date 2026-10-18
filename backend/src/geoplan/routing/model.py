@@ -88,6 +88,19 @@ class RoutingProblem:
 
 
 @dataclass(frozen=True)
+class RoutingSearchObjective:
+    """Search guidance only; the application always evaluates the user's objective."""
+
+    criterion: OptimizationCriterion
+    deadline_minutes: float | None = None
+
+    def score(self, total: float, deadhead: float, completion: float, active: int):
+        return routing_objective(
+            self.criterion, self.deadline_minutes, total, deadhead, completion, active
+        )
+
+
+@dataclass(frozen=True)
 class Cost:
     survey: float = 0
     departure: float = 0
@@ -114,6 +127,8 @@ class CostModel[P: RoutingData]:
         self.repair_attempts = 0
         self.sortie_destroy_attempts = 0
         self.sortie_repair_completed = 0
+        self.neighborhood_operator_attempts: dict[str, int] = {}
+        self.neighborhood_operator_improvements: dict[str, int] = {}
         self.group_exchange_attempts = 0
         self.catalog_arcs = 0
         self.catalog_complete = False
@@ -279,7 +294,14 @@ class CostModel[P: RoutingData]:
             "useful_time_percent": (total - deadhead) / total * 100 if total else 0,
         }
 
-    def score(self, solution: Solution, *, complete: bool = True) -> tuple[float, ...]:
+    def score(
+        self,
+        solution: Solution,
+        *,
+        complete: bool = True,
+        criterion: OptimizationCriterion | None = None,
+        search_objective: RoutingSearchObjective | None = None,
+    ) -> tuple[float, ...]:
         if not complete:
             if not solution or any(self.trip(trip) is None for trip in solution):
                 return (inf,)
@@ -297,7 +319,9 @@ class CostModel[P: RoutingData]:
                     else 0
                 )
                 counts[trip.aircraft] += 1
-            return self.objective(total, deadhead, max(loads), sum(c > 0 for c in counts))
+            return self.objective(
+                total, deadhead, max(loads), sum(c > 0 for c in counts), criterion, search_objective
+            )
         metrics = self.metrics(solution)
         if metrics is None:
             return (inf,)
@@ -306,13 +330,23 @@ class CostModel[P: RoutingData]:
             metrics["deadhead_minutes"],
             metrics["load_makespan_minutes"],
             int(metrics["active_aircraft"]),
+            criterion,
+            search_objective,
         )
 
     def objective(
-        self, total: float, deadhead: float, completion: float, active: int
+        self,
+        total: float,
+        deadhead: float,
+        completion: float,
+        active: int,
+        criterion: OptimizationCriterion | None = None,
+        search_objective: RoutingSearchObjective | None = None,
     ) -> tuple[float, ...]:
+        if search_objective is not None:
+            return search_objective.score(total, deadhead, completion, active)
         return routing_objective(
-            self.problem.criterion,
+            criterion if criterion is not None else self.problem.criterion,
             self.problem.deadline_minutes,
             total,
             deadhead,

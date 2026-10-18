@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from math import ceil
+from itertools import pairwise
+from math import atan2, ceil, degrees, hypot
 
 from shapely.affinity import rotate
 from shapely.geometry import LineString, Point
@@ -18,6 +19,43 @@ from geoplan.routing.freeform import (
     anchor_contours,
     oriented_order,
 )
+
+
+def coverage_angles(model: GeometryModel) -> tuple[float, ...]:
+    """Bounded Cartesian headings for a shell's swept core; never change overlap.
+
+    Retain the original axes. Add the long axis of the minimum enclosing
+    rectangle and its perpendicular, then wind or distinct-site directions.
+    Near-circular shapes have no meaningful major axis, so do not spend search
+    budget on a polygon-tessellation-dependent orientation for them.
+    """
+    angles = [0.0, 90.0]
+
+    def add_pair(angle: float) -> None:
+        for value in (angle, angle + 90):
+            normalized = round(value % 180, 6) % 180
+            if all(
+                min(abs(normalized - old), 180 - abs(normalized - old)) > 1e-5 for old in angles
+            ):
+                angles.append(normalized)
+
+    rectangle = model.target.minimum_rotated_rectangle
+    if rectangle.geom_type == "Polygon" and rectangle.area > 0:
+        edges = list(pairwise(rectangle.exterior.coords))
+        a, b = max(edges, key=lambda edge: hypot(edge[1][0] - edge[0][0], edge[1][1] - edge[0][1]))
+        lengths = [hypot(end[0] - start[0], end[1] - start[1]) for start, end in edges]
+        if max(lengths) > min(lengths) * 1.05 or model.target.area / rectangle.area > 0.95:
+            add_pair(degrees(atan2(b[1] - a[1], b[0] - a[0])))
+    wind = model.case.request.wind
+    if wind is not None and wind.speed_mps > 0:
+        # Wind bearing is clockwise from north; shell angle is CCW from east.
+        add_pair(90 - wind.direction_degrees)
+    if len(angles) < 6:
+        dx = model.case.landing[0] - model.case.home[0]
+        dy = model.case.landing[1] - model.case.home[1]
+        if hypot(dx, dy) > 1e-6:
+            add_pair(degrees(atan2(dy, dx)))
+    return tuple(angles[:6])
 
 
 def split_ring(ring: Stroke, landing: XY) -> tuple[Stroke, Stroke]:

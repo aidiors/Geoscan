@@ -106,6 +106,12 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
     assert response.json()["feasibility"]["deadline_margin_minutes"] == 0.6
     assert response.json()["schedule"] == {
         "algorithm": "priority_deconfliction",
+        "dispatch_priority": "ready_first",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 14.4,
+        "reference_total_flight_minutes": 26.4,
+        "reference_audited": True,
+        "variants_evaluated": 1,
         "makespan_minutes": 14.4,
         "minimum_separation_m": 50.0,
         "minimum_vertical_separation_m": 30.0,
@@ -119,7 +125,9 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "resolved_conflicts": [],
     }
     assert response.json()["safety_audit"]["status"] == "passed"
-    assert len(response.json()["safety_audit"]["checks"]) == 12
+    assert "survey_resolution" in {
+        check["code"] for check in response.json()["safety_audit"]["checks"]
+    }
     missions = [
         mission
         for drone_plan in response.json()["drone_plans"]
@@ -140,6 +148,7 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "coverage_angle_cost": "geometric_distance",
         "coverage_reference_airspeed_kmh": None,
         "productive_routing": None,
+        "assignment_search": None,
     }
 
 

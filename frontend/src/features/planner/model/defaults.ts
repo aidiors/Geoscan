@@ -44,6 +44,7 @@ export function planningSettings(
     turnRadius: 0,
     fastHeuristic: false,
     productiveRouting: true,
+    compareAssignmentSolver: false,
     ...overrides,
   };
 }

@@ -10,6 +10,7 @@ from geoplan.assignment.models import (
     AssignmentOptimizationResult,
     MissionAssignmentCandidate,
 )
+from geoplan.assignment.neighborhood import AssignmentNeighborhoodSearch
 from geoplan.domain.enums import (
     AssignmentAlgorithm,
     OptimalityStatus,
@@ -227,27 +228,9 @@ def _local_search(
     assignment: Assignment,
     allowed_drones: frozenset[str],
 ) -> Assignment:
-    current = list(assignment)
-    current_score = _score(request, current)
-    for _ in range(5):
-        improved = False
-        for task_index, group in enumerate(request.candidate_groups):
-            original_index = current[task_index]
-            for candidate_index, candidate in enumerate(group):
-                if candidate_index == original_index or candidate.drone_id not in allowed_drones:
-                    continue
-                projected = list(current)
-                projected[task_index] = candidate_index
-                score = _score(request, projected)
-                if score >= current_score:
-                    continue
-                current[task_index] = candidate_index
-                current_score = score
-                improved = True
-                break
-        if not improved:
-            break
-    return current
+    return AssignmentNeighborhoodSearch().improve(
+        request, assignment, allowed_drones, lambda choices: _score(request, choices)
+    )
 
 
 def _exact_branch_and_bound(request: AssignmentOptimizationRequest) -> Assignment:

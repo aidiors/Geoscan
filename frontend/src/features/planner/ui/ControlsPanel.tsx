@@ -167,9 +167,9 @@ export function ControlsPanel(props: ControlsPanelProps) {
 
       <PanelSection title="Критерий оптимизации">
         <div className="criteria">
-          <CriterionButton value="time" current={props.objective} label="Срок работ" onChange={props.onObjectiveChange} />
+          <CriterionButton value="time" current={props.objective} label="Быстрее" onChange={props.onObjectiveChange} />
           <CriterionButton value="flight" current={props.objective} label="Суммарный налёт" onChange={props.onObjectiveChange} />
-          <CriterionButton value="balanced" current={props.objective} label="Баланс" onChange={props.onObjectiveChange} />
+          <CriterionButton value="balanced" current={props.objective} label="К сроку" onChange={props.onObjectiveChange} />
         </div>
         <p className="hint">{objectiveHint(props.objective)}</p>
         <label className="solver-option">
@@ -179,9 +179,18 @@ export function ControlsPanel(props: ControlsPanelProps) {
             disabled={props.settings.fastHeuristic}
             onChange={(event) => props.onUpdateSettings({ productiveRouting: event.target.checked })}
           />
-          <span><b>Оптимизация вылетов</b><small>Группировать галсы по запасу АКБ и выбирать по итоговому расписанию</small></span>
+          <span><b>Оптимизация вылетов</b><small>Сравнивать порядок галсов и разбиения между аппаратами по итоговому расписанию</small></span>
         </label>
         {props.settings.productiveRouting && <p className="hint">{props.settings.fastHeuristic ? "Выключите быстрый расчёт, чтобы сравнивать варианты вылетов." : "«Макс. маршрут» задаёт исходное разбиение для сравнения. Новые вылеты ограничены запасом АКБ, дальностью БВС и условиями задания."}</p>}
+        <label className="solver-option">
+          <input
+            type="checkbox"
+            checked={props.settings.compareAssignmentSolver ?? false}
+            disabled={props.settings.fastHeuristic}
+            onChange={(event) => props.onUpdateSettings({ compareAssignmentSolver: event.target.checked })}
+          />
+          <span><b>Дополнительный поиск распределения</b><small>Сравнить с CP-SAT (до 2 с поиска), сохранить лучшее проверенное расписание</small></span>
+        </label>
         <label className="solver-option">
           <input
             type="checkbox"

@@ -29,6 +29,9 @@ def create_app(dependencies: AppDependencies, *, serve_frontend: bool = True) ->
             dependencies.sweep_transition_planner,
             dependencies.safety_auditor,
             dependencies.vertical_profile_planner,
+            dependencies.freeform_optimizer,
+            dependencies.assignment_alternative,
+            dependencies.productive_route_pool,
         )
     )
 

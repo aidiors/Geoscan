@@ -11,6 +11,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from geoplan.coverage.models import WorkSegment
+from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone
 from geoplan.domain.diagnostics import SafetyAuditCheck, SafetyAuditReport
 from geoplan.domain.enums import (
@@ -82,6 +83,7 @@ class IndependentPlanSafetyAuditor:
             _alternate_reserve_check(request, missions),
             _vertical_profile_check(request, missions),
             _coverage_check(request, segments, missions),
+            _survey_resolution_check(request, missions),
             _export_consistency_check(self.export_verifier.verify(missions)),
         ]
         status = (
@@ -95,6 +97,27 @@ class IndependentPlanSafetyAuditor:
             checks=checks,
             assumptions=_audit_assumptions(request),
         )
+
+
+def _survey_resolution_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
+    survey = request.survey_parameters
+    if survey is None:
+        return _not_applicable(SafetyCheckCode.SURVEY_RESOLUTION, "Параметры съёмки не заданы.")
+    policy = SurveyResolution()
+    failed = [m for m in missions if not policy.allows(m, survey.sensor, survey.maximum_gsd_cm)]
+    return SafetyAuditCheck(
+        code=SafetyCheckCode.SURVEY_RESOLUTION,
+        status=SafetyAuditStatus.FAILED if failed else SafetyAuditStatus.PASSED,
+        measured_value=max((policy.gsd_cm(m, survey.sensor) for m in missions), default=0),
+        required_value=survey.maximum_gsd_cm,
+        unit="cm/pixel",
+        affected_ids=[_mission_id(m) for m in failed],
+        message=(
+            "Разрешение съёмки проверено на итоговой высоте."
+            if not failed
+            else "Итоговая высота нарушает ограничение GSD."
+        ),
+    )
 
 
 def _vertical_profile_check(
@@ -443,7 +466,9 @@ def _schedule_integrity_check(
             request.turnaround_minutes,
             drone.minimum_turnaround_minutes,
         )
-        if earlier.end_offset_minutes + required_turnaround > later.start_offset_minutes:
+        # Only absorb floating-point arithmetic noise, not the much larger
+        # schedule-duration tolerance or a genuinely short turnaround.
+        if earlier.end_offset_minutes + required_turnaround > later.start_offset_minutes + 1e-9:
             affected.update({_mission_id(earlier), _mission_id(later)})
     return SafetyAuditCheck(
         code=SafetyCheckCode.SCHEDULE_INTEGRITY,

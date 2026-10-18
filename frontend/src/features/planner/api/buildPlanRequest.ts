@@ -214,6 +214,7 @@ export function buildPlanRequest(
     planning_end_time: planningEndTime,
     minimum_turn_radius_m: settings.turnRadius,
     optimization_mode: settings.fastHeuristic ? "fast_heuristic" : "optimized",
+    assignment_strategy: settings.compareAssignmentSolver && !settings.fastHeuristic ? "cp_sat_portfolio" : "hybrid",
     productive_routing: (settings.productiveRouting ?? true) && !settings.fastHeuristic,
   };
 }

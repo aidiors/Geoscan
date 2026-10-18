@@ -24,6 +24,7 @@ from geoplan.navigation.curvature import DubinsSweepTransitionPlanner
 from geoplan.navigation.dubins import ExactDubinsPlanner
 from geoplan.navigation.optimizer import BidirectionalRouteOptimizer
 from geoplan.planning.engine import build_plan
+from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
 from geoplan.planning.models import PlanRequest, PlanResponse
 from geoplan.safety.audit import IndependentPlanSafetyAuditor
 from geoplan.scheduling.scheduler import ConflictAwareMissionScheduler
@@ -119,6 +120,7 @@ def _plan(
         DubinsSweepTransitionPlanner(ExactDubinsPlanner()),
         IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),
         TerrainFollowingProfilePlanner(InverseDistanceTerrainProvider()),
+        AuditedFreeformRouteOptimizer(),
     )
 
 

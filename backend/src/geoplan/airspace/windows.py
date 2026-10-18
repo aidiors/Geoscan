@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from itertools import pairwise
 
+from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import AllowedAirspace, NoFlyZone, RestrictionValidity
 from geoplan.domain.enums import AltitudeReference, ValidityMode
 from geoplan.domain.fleet import DroneSpec
@@ -87,6 +88,11 @@ def _vertical_layer_is_feasible(
     option: VerticalLayerOption,
     request: PlanRequest,
 ) -> bool:
+    survey = request.survey_parameters
+    if survey is not None and not SurveyResolution().allows(
+        mission, survey.sensor, survey.maximum_gsd_cm
+    ):
+        return False
     drone = next(drone for drone in request.drones if drone.drone_id == mission.drone_id)
     maximum_altitude = drone.maximum_altitude_for(mission.altitude_reference)
     if maximum_altitude is not None and mission.altitude_m > maximum_altitude:

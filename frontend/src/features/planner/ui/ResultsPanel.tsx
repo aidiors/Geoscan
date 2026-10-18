@@ -19,6 +19,7 @@ interface ResultsPanelProps {
 }
 
 const algorithmLabels: Record<NonNullable<PlanResponse["optimization"]>["algorithm"], string> = {
+  cp_sat: "Распределение CP-SAT",
   productive_route_pool: "Оптимизация галсов и вылетов",
   exact_branch_and_bound: "Точное распределение branch-and-bound",
   fast_greedy: "Быстрая эвристика",
@@ -38,6 +39,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
   no_fly_clearance: "Запретные зоны",
   obstacle_clearance: "Препятствия",
   schedule_integrity: "Расписание",
+  survey_resolution: "Разрешение съёмки (GSD)",
   vertical_profile: "Рельеф и AGL",
 };
 
@@ -77,6 +79,11 @@ export function ResultsPanel({
       <div className="eyebrow"><Route size={15} /> Результат оптимизации</div>
       <h2>{plan ? "План готов" : "Ожидает расчёта"}</h2>
       <p className="lead">{plan?.feasibility?.message ?? "Настройте сценарий и запустите расчёт — демонстрационные цифры не используются."}</p>
+      {plan && <p className="hint">{plan.criterion === "balanced"
+        ? "Приоритет: минимальный налёт в заданный срок. Если срок недостижим — минимальное превышение."
+        : plan.criterion === "completion_time"
+          ? "Приоритет: завершить быстрее; среди равных вариантов — меньше налёта."
+          : "Приоритет: минимальный налёт; среди равных вариантов — завершить быстрее."}</p>}
 
       {plan?.feasibility && plan.feasibility.recommendations.length > 0 && (
         <section className="recommendation-card">
@@ -101,6 +108,10 @@ export function ResultsPanel({
           <Sparkles size={17} />
           <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.algorithm === "productive_route_pool" ? "Сравнение вариантов вылетов после расчёта безопасного расписания" : plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Контуры и прямые проходы; учтены запуск и посадка" : coverageAngleSummary} · обход по графу видимости</small><small>{plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
         </div>
+      )}
+
+      {plan?.optimization?.assignment_search && (
+        <p className="hint">{plan.optimization.assignment_search.message} Поиск назначений: {format(plan.optimization.assignment_search.runtime_seconds)} с. Последующая оптимизация вылетов может дополнительно улучшить план.</p>
       )}
 
       {plan?.optimization?.productive_routing && (

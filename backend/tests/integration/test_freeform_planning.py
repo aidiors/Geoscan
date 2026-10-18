@@ -147,3 +147,80 @@ def test_failed_freeform_audit_cannot_replace_the_existing_plan():
     plan = post(circle_request(), replace(deps, safety_auditor=RejectFreeform()))
     assert plan.safety_audit.status is SafetyAuditStatus.PASSED
     assert plan.optimization.scope != "freeform_coverage_route_pool"
+
+
+def test_cost_dominated_candidates_are_rejected_before_capture_geometry():
+    from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
+    from geoplan.planning.freeform_costs import EndpointCostProtection
+
+    class RejectCosts(EndpointCostProtection):
+        def allows(self, missions, baseline):
+            return False
+
+    class UnexpectedPhotography:
+        def prepare(self, request, mission):
+            raise AssertionError("A cost-dominated candidate must not expand camera waypoints")
+
+    optimizer = AuditedFreeformRouteOptimizer(
+        cost_protection=RejectCosts(), photography=UnexpectedPhotography()
+    )
+    dependencies = replace(create_default_dependencies(), freeform_optimizer=optimizer)
+    plan = post(circle_request(), dependencies)
+    assert plan.safety_audit.status is SafetyAuditStatus.PASSED
+    assert plan.optimization.scope != "freeform_coverage_route_pool"
+
+
+def test_http_uses_the_injected_freeform_optimizer():
+    class RetainReference:
+        def __init__(self):
+            self.calls = 0
+
+        def improve(self, request, source, drones, baseline, build, evaluate, reference=None):
+            self.calls += 1
+            return baseline
+
+    optimizer = RetainReference()
+    dependencies = replace(create_default_dependencies(), freeform_optimizer=optimizer)
+    plan = post(circle_request(), dependencies)
+    assert optimizer.calls == 1
+    assert plan.safety_audit.status is SafetyAuditStatus.PASSED
+    assert plan.optimization.scope != "freeform_coverage_route_pool"
+
+
+def test_diverse_shortlist_recovers_when_fixed_track_alternatives_are_rejected():
+    from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
+    from geoplan.routing.pattern_pool import CoverageCandidatePool, DiverseCoverageCandidateSelector
+    from scenarios.planning import productive_survey_request
+
+    dependencies = create_default_dependencies()
+
+    class RejectFixedTracks:
+        def audit(self, request, segments, missions):
+            audit = dependencies.safety_auditor.audit(request, segments, missions)
+            return (
+                audit.model_copy(update={"status": SafetyAuditStatus.FAILED})
+                if any("-productive-" in mission.segment_id for mission in missions)
+                else audit
+            )
+
+    plans = []
+    for limit in (6, 18):
+        optimizer = AuditedFreeformRouteOptimizer(
+            pool=CoverageCandidatePool(
+                selector=DiverseCoverageCandidateSelector(maximum_candidates=limit)
+            )
+        )
+        plans.append(
+            post(
+                productive_survey_request(),
+                replace(
+                    dependencies, safety_auditor=RejectFixedTracks(), freeform_optimizer=optimizer
+                ),
+            )
+        )
+    old, expanded = plans
+    assert all(plan.safety_audit.status is SafetyAuditStatus.PASSED for plan in plans)
+    assert old.optimization.productive_routing.selected_variant == "baseline"
+    assert expanded.optimization.scope == "freeform_coverage_route_pool"
+    assert expanded.metrics.total_flight_minutes < old.metrics.total_flight_minutes * 0.8
+    assert expanded.metrics.completion_minutes < old.metrics.completion_minutes
