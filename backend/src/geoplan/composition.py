@@ -8,6 +8,7 @@ from geoplan.assignment.alternatives import (
     CpSatAssignmentAlternative,
 )
 from geoplan.assignment.solver import AssignmentOptimizer, HybridAssignmentOptimizer
+from geoplan.coverage.adaptive import AdaptiveCoveragePlanner
 from geoplan.coverage.production import ProductionCoveragePlanner
 from geoplan.coverage.sweep import BoustrophedonCoveragePlanner, CoveragePlanner
 from geoplan.flight.duration import CruiseMissionDurationCalculator, MissionDurationCalculator
@@ -23,6 +24,7 @@ from geoplan.navigation.curvature import HybridAStarSweepTransitionPlanner, Swee
 from geoplan.navigation.dubins import ExactDubinsPlanner
 from geoplan.navigation.hybrid_astar import HybridAStarPlanner
 from geoplan.navigation.optimizer import BidirectionalRouteOptimizer, RouteOptimizer
+from geoplan.planning.cross_area import AuditedCrossAreaPlanner, CrossAreaOptimizer
 from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
 from geoplan.planning.freeform_ports import FreeformRouteOptimizer
 from geoplan.routing.pool import ProductiveRoutePool, RoutePoolGenerator
@@ -38,6 +40,10 @@ class AppDependencies:
     assignment_optimizer: AssignmentOptimizer
     mission_scheduler: MissionScheduler
     frontend_directory: Path
+    cross_area_optimizer: CrossAreaOptimizer = field(default_factory=AuditedCrossAreaPlanner)
+    alternative_coverage_planner: CoveragePlanner | None = field(
+        default_factory=AdaptiveCoveragePlanner
+    )
     productive_route_pool: RoutePoolGenerator = field(default_factory=ProductiveRoutePool)
     assignment_alternative: AssignmentAlternativeProvider | None = field(
         default_factory=CpSatAssignmentAlternative

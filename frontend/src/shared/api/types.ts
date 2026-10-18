@@ -114,6 +114,7 @@ export interface MissionStage {
 }
 
 export interface Mission {
+  coverage_area_ids?: string[];
   sensor?: SensorProfile | null;
   camera_trigger_spacing_m?: number | null;
   minimum_turn_radius_m?: number;
@@ -216,6 +217,17 @@ export interface DronePlan {
 }
 
 export interface PlanResponse {
+  search?: {
+    status: string;
+    elapsed_seconds: number;
+    time_limit_seconds: number;
+    request_fingerprint: string;
+    pipelines_started?: number;
+    checkpoints: Array<{
+      stage: string; elapsed_seconds: number; completion_minutes: number;
+      total_flight_minutes: number; sortie_count: number; objective: number[];
+    }>;
+  } | null;
   criterion: OptimizationCriterion;
   drone_plans: DronePlan[];
   metrics: {
@@ -269,6 +281,8 @@ export interface PlanResponse {
       message: string;
     } | null;
     productive_routing?: {
+      cross_area_variants_evaluated?: number;
+      cross_area_sortie_count?: number;
       selected_variant: string;
       evaluated_variants: number;
       pre_cross_objective?: number[] | null;
@@ -472,6 +486,7 @@ export interface PlanRequest {
   optimization_mode: "optimized" | "fast_heuristic";
   assignment_strategy?: "automatic" | "hybrid" | "cp_sat_portfolio";
   productive_routing?: boolean;
+  planning_time_limit_seconds?: number;
 }
 
 export interface TurnRadiusAnalysisRequest {

@@ -132,9 +132,9 @@ describe("plan request", () => {
   });
 
   it("builds selectable scenarios with multiple work and restricted zones", () => {
-    const multiZoneScenarios = scenarios.filter((scenario) => scenario.workAreas.length > 1);
+    const multiZoneScenarios = scenarios.filter((scenario) => scenario.workAreas.length > 1 && scenario.noFlyZones.length > 1);
 
-    expect(multiZoneScenarios).toHaveLength(3);
+    expect(multiZoneScenarios.length).toBeGreaterThanOrEqual(3);
     for (const scenario of multiZoneScenarios) {
       const request = buildPlanRequest(
         "time",

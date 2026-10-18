@@ -259,6 +259,9 @@ def _mission_candidates(
     model: CostModel[RoutingProblem],
     solution: Solution,
     build: CandidateBuilder,
+    *,
+    track_area_ids: tuple[str, ...] | None = None,
+    group_id: str | None = None,
 ) -> tuple[list[WorkSegment], list[MissionAssignmentCandidate]] | None:
     fleet = {drone.drone_id: drone for drone in drones}
     segments, candidates = [], []
@@ -276,7 +279,7 @@ def _mission_candidates(
         segment = template.model_copy(
             update={
                 "segment_id": derived_id(
-                    template.coverage_area_id or "area", f"-productive-{index + 1}"
+                    group_id or template.coverage_area_id or "area", f"-productive-{index + 1}"
                 ),
                 "distance_km": route_distance_km(route),
                 "route": route,
@@ -287,6 +290,16 @@ def _mission_candidates(
                 ),
             }
         )
+        if track_area_ids is not None:
+            owners = [track_area_ids[token // 2] for token in trip.visits]
+            segment = WorkSegment.model_validate(
+                {
+                    **segment.model_dump(),
+                    "coverage_area_id": owners[0],
+                    "survey_track_area_ids": owners,
+                    "flight_direction_degrees": None,
+                }
+            )
         drone_id = model.problem.aircraft[trip.aircraft].drone_id
         mission = build(segment, fleet[drone_id])
         if mission is None:

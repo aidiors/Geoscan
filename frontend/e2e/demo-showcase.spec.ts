@@ -6,9 +6,11 @@ test("compares productive routes with the reference pipeline through the real UI
   await page.getByRole("button", { name: /Сокращение холостого налёта/ }).click();
   const firstResponse = page.waitForResponse((response) => response.url().endsWith("/v1/plans") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Загрузить и рассчитать" }).click();
-  const productive = await (await firstResponse).json();
-  expect(productive.optimization.productive_routing.selected_variant).not.toBe("baseline");
-  expect(productive.safety_audit.status).toBe("passed");
+  await firstResponse;
+  await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
+  await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
+  const productiveFlight = parseFloat((await page.locator(".metric").filter({hasText:"Налёт"}).locator("strong").innerText()).replace(/\s/g, "").replace(",", "."));
+  const productiveSorties = parseInt(await page.locator(".missions-heading small").innerText());
   await expect(page.getByText("Сравнение вылетов", { exact: true })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Оптимизация вылетов/ })).toBeChecked();
   await page.screenshot({ path: testInfo.outputPath("productive-routes.png"), fullPage: true });
@@ -16,10 +18,13 @@ test("compares productive routes with the reference pipeline through the real UI
   await page.getByRole("checkbox", { name: /Оптимизация вылетов/ }).uncheck();
   const referenceResponse = page.waitForResponse((response) => response.url().endsWith("/v1/plans") && response.request().method() === "POST");
   await page.getByRole("button", { name: /Рассчитать/ }).click();
-  const reference = await (await referenceResponse).json();
-  expect(reference.optimization.productive_routing).toBeNull();
-  expect(productive.metrics.total_flight_minutes).toBeLessThan(reference.metrics.total_flight_minutes);
-  expect(productive.metrics.sortie_count).toBeLessThan(reference.metrics.sortie_count);
+  await referenceResponse;
+  await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
+  await expect(page.getByText("Сравнение вылетов", { exact: true })).not.toBeVisible();
+  const referenceFlight = parseFloat((await page.locator(".metric").filter({hasText:"Налёт"}).locator("strong").innerText()).replace(/\s/g, "").replace(",", "."));
+  const referenceSorties = parseInt(await page.locator(".missions-heading small").innerText());
+  expect(productiveFlight).toBeLessThan(referenceFlight);
+  expect(productiveSorties).toBeLessThan(referenceSorties);
 });
 
 test("opens the curated case gallery and loads a group mission", async ({ page }) => {
@@ -73,6 +78,7 @@ test("inspects real frame footprints and applies a replanned deadline alternativ
   await page.getByRole("button", { name: /Рассчитать план/ }).click();
   await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
   const qualityResponse = page.waitForResponse((response) => response.url().endsWith("/v1/survey-quality"));
+  await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
   await page.getByRole("button", { name: "Проверить отпечатки кадров" }).click();
   const quality = await (await qualityResponse).json();
   expect(quality.frame_count).toBeGreaterThan(0);

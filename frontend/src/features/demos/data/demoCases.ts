@@ -105,6 +105,15 @@ export const demoCases: DemoCase[] = [
     recommendedObjective: "time",
     settings: { windSpeed: 25, windDirection: 315 },
   },
+  {
+    id: "neighbor-fields-joint", scenarioId: "neighbor-fields", title: "Один вылет — несколько участков",
+    category: "Совместные вылеты", description: "Синтетический пример: два поля, удалённая база и заданный радиус 40 м. Поиск сравнивает общие вылеты с отдельными возвращениями.",
+    highlights: ["Съёмка двух областей", "Камера выключена между полями", "История проверенных улучшений"],
+    expectedEvidence: ["Принадлежность галсов сохранена", "Проверены ресурс и камера", "Итог можно экспортировать"],
+    recommendedObjective: "flight", settings: { productiveRouting: true, fastHeuristic: false,
+      turnRadius: 40, maximumActiveDrones: "1", windSpeed: 0, planningTimeLimitSeconds: 60 },
+  },
+
 ];
 
 export function demoCaseById(caseId: string): DemoCase | undefined {

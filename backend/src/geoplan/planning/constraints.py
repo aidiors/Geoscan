@@ -57,15 +57,14 @@ def _coverage_hole_zones(
     segment: WorkSegment,
     coverage_areas: list[CoverageArea],
 ) -> list[NoFlyZone]:
-    area = _coverage_area(coverage_areas, segment.coverage_area_id)
-    if area is None:
-        return []
     return [
         NoFlyZone(
             zone_id=derived_id(area.area_id, f"-hole-{index + 1}"),
             coordinates=ring,
             safety_margin_m=GEOMETRY_CLEARANCE_M,
         )
+        for area in coverage_areas
+        if area.area_id in segment.area_ids
         for index, ring in enumerate(area.interior_rings)
         if len(ring) >= 3
     ]

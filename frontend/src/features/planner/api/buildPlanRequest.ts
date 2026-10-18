@@ -36,6 +36,8 @@ export function buildPlanRequest(
   settings: PlanningSettings,
 ): PlanRequest {
   const enabledDrones = drones.filter((drone) => drone.enabled);
+  const budget = settings.planningTimeLimitSeconds ?? 270;
+  if (!Number.isFinite(budget) || budget < 1 || budget > 270) throw new Error("Задайте бюджет расчёта от 1 до 270 секунд.");
   if (enabledDrones.length === 0) {
     throw new Error("Включите хотя бы один БВС.");
   }
@@ -104,6 +106,7 @@ export function buildPlanRequest(
   }
   return {
     criterion: objectiveToCriterion(objective),
+    planning_time_limit_seconds: settings.planningTimeLimitSeconds ?? 270,
     drones: enabledDrones.map((drone) => ({
       drone_id: drone.id,
       name: drone.name,

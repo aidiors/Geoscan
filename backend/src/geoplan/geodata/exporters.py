@@ -491,6 +491,7 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
     return GeoJsonFeature(
         type="Feature",
         properties=GeoJsonProperties(
+            coverage_area_ids=mission.coverage_area_ids,
             drone_id=mission.drone_id,
             segment_id=mission.segment_id,
             duration_minutes=mission.duration_minutes,

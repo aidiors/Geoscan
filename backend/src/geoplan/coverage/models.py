@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from geoplan.domain.airspace import NoFlyZone
 from geoplan.domain.enums import OptimizationMode, SweepAngleAlgorithm, SweepDirectionMode
@@ -19,6 +19,7 @@ class WorkSegment(BaseModel):
     route: list[Coordinate] = Field(min_length=2, max_length=10_000)
     alternative_routes: list[list[Coordinate]] = Field(default_factory=list, max_length=8)
     coverage_area_id: str | None = Field(default=None, min_length=1, max_length=64)
+    survey_track_area_ids: list[str] | None = Field(default=None, min_length=1, max_length=5_000)
     image_count: int | None = Field(default=None, ge=1)
     computed_gsd_cm: float | None = Field(default=None, gt=0)
     strip_spacing_m: float | None = Field(default=None, gt=0)
@@ -29,6 +30,25 @@ class WorkSegment(BaseModel):
         default=None, min_length=1, max_length=5_000
     )
     coverage_pattern: Literal["contours", "shell", "split_shell"] | None = None
+
+    @property
+    def area_ids(self) -> tuple[str, ...]:
+        if self.survey_track_area_ids is not None:
+            return tuple(dict.fromkeys(self.survey_track_area_ids))
+        return (self.coverage_area_id,) if self.coverage_area_id is not None else ()
+
+    @model_validator(mode="after")
+    def track_ownership_is_complete(self) -> WorkSegment:
+        if self.survey_track_area_ids is not None:
+            if self.survey_tracks is None or len(self.survey_track_area_ids) != len(
+                self.survey_tracks
+            ):
+                raise ValueError("Every owned survey track needs exactly one source area.")
+            if any(not area or len(area) > 64 for area in self.survey_track_area_ids):
+                raise ValueError("Invalid survey track area identifier.")
+            if self.coverage_area_id not in self.survey_track_area_ids:
+                raise ValueError("The primary area must own a survey track.")
+        return self
 
 
 class CoverageArea(BaseModel):

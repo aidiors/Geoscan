@@ -126,6 +126,8 @@ def pipeline_rows(
                     ),
                 )
                 dependencies = create_default_dependencies()
+                if algorithm != "production":
+                    dependencies = replace(dependencies, alternative_coverage_planner=None)
                 if algorithm.startswith("rectangle"):
                     dependencies = replace(
                         dependencies,

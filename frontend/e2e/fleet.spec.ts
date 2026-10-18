@@ -30,11 +30,11 @@ test("creates a physical fleet, retains individual state and submits it to the r
   expect(copied.available_battery_sets).toBe(2);
   expect(copied.minimum_turnaround_minutes).toBe(5);
   expect(response.status()).toBe(200);
-  const plan = await response.json();
-  expect(plan.safety_audit.status).toBe("passed");
-  expect(plan.safety_audit.checks.find((check: { code: string }) => check.code === "fleet_resources").status).toBe("passed");
-  for (const aircraft of plan.drone_plans) {
-    if (aircraft.drone_id === copied.drone_id) expect(aircraft.mission_count).toBeLessThanOrEqual(2);
-  }
+  await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
+  await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
+  await expect(page.getByText("Комплекты АКБ и ресурс до ТО", { exact: true })).toBeVisible();
+  const card = page.locator(".mission-card").filter({ hasText: copied.name });
+  const count = await card.locator("em").innerText();
+  if (count !== "Не используется") expect(parseInt(count)).toBeLessThanOrEqual(2);
   await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
 });

@@ -163,6 +163,7 @@ class GeoJsonProperties(BaseModel):
 
     drone_id: str
     segment_id: str
+    coverage_area_ids: list[str] = Field(default_factory=list)
     duration_minutes: float = Field(gt=0)
     distance_km: float = Field(gt=0)
     altitude_m: float = Field(gt=0)

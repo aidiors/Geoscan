@@ -211,16 +211,19 @@ def _validate_geometry(
             message=f"Маршрут участка {segment.segment_id} пересекает запретную зону.",
         )
     coverage_area = _coverage_area(request.coverage_areas, segment.coverage_area_id)
+    tracks = (
+        [list(t) for t in segment.survey_tracks]
+        if segment.survey_tracks is not None
+        else [survey_route]
+    )
+    owners = segment.survey_track_area_ids or [segment.coverage_area_id] * len(tracks)
     if (
         coverage_area is not None
-        and request.minimum_turn_radius_m == 0
+        and (segment.survey_tracks is not None or request.minimum_turn_radius_m == 0)
         and not all(
-            route_is_inside_coverage_area(track, coverage_area)
-            for track in (
-                [list(t) for t in segment.survey_tracks]
-                if segment.survey_tracks is not None
-                else [survey_route]
-            )
+            (area := _coverage_area(request.coverage_areas, owner)) is not None
+            and route_is_inside_coverage_area(track, area)
+            for track, owner in zip(tracks, owners, strict=True)
         )
     ):
         raise PlanningError(

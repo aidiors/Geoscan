@@ -15,6 +15,7 @@ from geoplan.domain.terrain import VerticalProfilePoint
 
 class Mission(BaseModel):
     model_config = ConfigDict(frozen=True)
+    coverage_area_ids: list[str] = Field(default_factory=list, max_length=1_000)
 
     drone_id: str
     segment_id: str

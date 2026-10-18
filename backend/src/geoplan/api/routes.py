@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from geoplan.api.models import ErrorResponse, HealthReport
+from geoplan.api.planning_transport import PlanningTransport
 from geoplan.assignment.alternatives import AssignmentAlternativeProvider
 from geoplan.assignment.solver import AssignmentOptimizer
+from geoplan.budget import planning_budget
 from geoplan.coverage.sweep import CoveragePlanner
-from geoplan.domain.enums import ErrorCode, HealthStatus
+from geoplan.domain.enums import ErrorCode, HealthStatus, OptimizationMode
 from geoplan.errors import PlanningError
 from geoplan.flight.duration import MissionDurationCalculator
 from geoplan.flight.terrain import VerticalProfilePlanner
@@ -30,6 +32,7 @@ from geoplan.geodata.models import (
 from geoplan.navigation.curvature import SweepTransitionPlanner
 from geoplan.navigation.optimizer import RouteOptimizer
 from geoplan.planning.advisor import AdvisorRequest, AdvisorResponse, FeasibilityAdvisor
+from geoplan.planning.cross_area import CrossAreaOptimizer
 from geoplan.planning.engine import build_plan
 from geoplan.planning.freeform_ports import FreeformRouteOptimizer
 from geoplan.planning.models import (
@@ -38,7 +41,9 @@ from geoplan.planning.models import (
     TurnRadiusAnalysisRequest,
     TurnRadiusAnalysisResult,
 )
+from geoplan.planning.progress import PlanObserver
 from geoplan.planning.quality_models import SurveyQualityReport, SurveyQualityRequest
+from geoplan.planning.service import AuditedPlanningService
 from geoplan.planning.survey_quality import SurveyQualityAnalyzer
 from geoplan.planning.turn_radius import analyze_turn_radii
 from geoplan.routing.pool import RoutePoolGenerator
@@ -59,6 +64,8 @@ def create_plan(
     freeform_optimizer: FreeformRouteOptimizer,
     assignment_alternative: AssignmentAlternativeProvider | None = None,
     productive_route_pool: RoutePoolGenerator | None = None,
+    progress: PlanObserver | None = None,
+    cross_area_optimizer: CrossAreaOptimizer | None = None,
 ) -> PlanResponse:
     return build_plan(
         request,
@@ -73,6 +80,8 @@ def create_plan(
         freeform_optimizer,
         assignment_alternative,
         productive_route_pool,
+        progress,
+        cross_area_optimizer,
     )
 
 
@@ -112,7 +121,10 @@ def planning_error_handler(_: Request, error: Exception) -> JSONResponse:
         message=error.message,
         recommendations=error.recommendations,
     )
-    return JSONResponse(status_code=422, content=response.model_dump(mode="json"))
+    return JSONResponse(
+        status_code=503 if error.code is ErrorCode.PLANNING_BUSY else 422,
+        content=response.model_dump(mode="json"),
+    )
 
 
 def request_validation_error_handler(
@@ -141,24 +153,19 @@ def create_router(
     freeform_optimizer: FreeformRouteOptimizer,
     assignment_alternative: AssignmentAlternativeProvider | None = None,
     productive_route_pool: RoutePoolGenerator | None = None,
+    alternative_coverage_planner: CoveragePlanner | None = None,
+    cross_area_optimizer: CrossAreaOptimizer | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
-    @router.get("/health", response_model=HealthReport)
-    def get_health() -> HealthReport:
-        return health_report()
-
-    @router.post(
-        "/v1/plans",
-        response_model=PlanResponse,
-        responses={422: {"model": ErrorResponse}},
-    )
-    def post_plan(request: PlanRequest) -> PlanResponse:
+    def run(
+        request: PlanRequest, observer: PlanObserver, planner: CoveragePlanner = coverage_planner
+    ) -> PlanResponse:
         return create_plan(
             request,
             duration_calculator,
             route_optimizer,
-            coverage_planner,
+            planner,
             assignment_optimizer,
             mission_scheduler,
             sweep_transition_planner,
@@ -167,7 +174,50 @@ def create_router(
             freeform_optimizer,
             assignment_alternative,
             productive_route_pool,
+            observer,
+            cross_area_optimizer,
         )
+
+    alternative = None
+    if alternative_coverage_planner is not None:
+
+        def alternative(request: PlanRequest, observer: PlanObserver) -> PlanResponse:
+            assert alternative_coverage_planner is not None
+            return run(request, observer, alternative_coverage_planner)
+
+    def initial(request: PlanRequest, observer: PlanObserver) -> PlanResponse:
+        seed = request.model_copy(
+            update={
+                "optimization_mode": OptimizationMode.FAST_HEURISTIC,
+                "productive_routing": False,
+            }
+        )
+        return run(seed, observer)
+
+    transport = PlanningTransport(AuditedPlanningService(run, alternative, initial))
+
+    @router.get("/health", response_model=HealthReport)
+    def get_health() -> HealthReport:
+        return health_report()
+
+    @router.post(
+        "/v1/plans",
+        response_model=PlanResponse,
+        responses={
+            200: {
+                "description": "JSON plan, or NDJSON events when Accept: application/x-ndjson.",
+                "content": {"application/x-ndjson": {"schema": {"type": "string"}}},
+            },
+            422: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    def post_plan(
+        request: PlanRequest, http_request: Request
+    ) -> PlanResponse | StreamingResponse | JSONResponse:
+        if "application/x-ndjson" in http_request.headers.get("accept", ""):
+            return transport.stream(request)
+        return transport.plan(request)
 
     @router.post(
         "/v1/feasibility-advice",
@@ -175,7 +225,8 @@ def create_router(
         responses={422: {"model": ErrorResponse}},
     )
     def post_feasibility_advice(query: AdvisorRequest) -> AdvisorResponse:
-        return FeasibilityAdvisor(post_plan).advise(query)
+        with planning_budget(query.request.planning_time_limit_seconds):
+            return FeasibilityAdvisor(transport.plan).advise(query)
 
     @router.post(
         "/v1/survey-quality",

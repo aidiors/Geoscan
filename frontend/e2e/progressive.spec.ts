@@ -1,0 +1,28 @@
+import { expect, test } from "@playwright/test";
+
+test("can stop after the first audited result and keep its export", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Бюджет расчёта, с", { exact: true }).fill("270");
+  await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Остановить поиск" })).toBeVisible();
+  await page.getByRole("button", { name: "Остановить поиск" }).click();
+  await expect(page.getByRole("status")).toContainText("остановлен");
+  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
+  await expect(page.getByRole("button", { name: "GeoJSON", exact: true })).toBeEnabled();
+  await expect(page.getByRole("region", { name: "История улучшений плана" })).toContainText("Поиск остановлен");
+});
+
+test("demonstrates a joint sortie with a nonzero turn radius", async ({ page }, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Демо-кейсы", exact: true }).click();
+  await page.getByRole("button", { name: /Один вылет — несколько участков/ }).click();
+  await page.getByRole("button", { name: "Загрузить и рассчитать", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
+  await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
+  await expect(page.getByText("Вылетов по нескольким областям: 1", { exact: true })).toBeVisible();
+  await expect(page.locator(".missions-heading small")).toContainText("1 вылетов");
+  await expect(page.getByRole("region", { name: "История улучшений плана" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("joint-fields.png") });
+});

@@ -359,3 +359,18 @@ scenarios.push({
   sites: [site("freeform-start", "Старт", "takeoff", ...circleHome),
     site("freeform-land", "Посадка", "landing", ...circleHome)],
 });
+
+
+// Synthetic operational example, not a flight-validated aircraft configuration.
+function fieldCoordinate(x: number, y: number): [number, number] {
+  return [37 + x / (111320 * Math.cos(55 * Math.PI / 180)), 55 + y / 110574];
+}
+scenarios.push({
+  id: "neighbor-fields", title: "Два поля за один вылет",
+  description: "Синтетический пример: соседние участки и удалённая база. Между полями камера выключена.",
+  task: "rgb", altitude: 120, segments: [], noFlyZones: [],
+  workAreas: [0, 1].map((i) => polygon(`neighbor-field-${i}`, `Поле ${i + 1}`, "work_area",
+    [[0, 0], [400, 0], [400, 240], [0, 240]].map(([x, y]) => fieldCoordinate(x + i * 500, y + i * 40)))),
+  sites: [site("neighbor-start", "Удалённая база", "takeoff", ...fieldCoordinate(-4000, -500)),
+          site("neighbor-land", "Возвращение на базу", "landing", ...fieldCoordinate(-4000, -500))],
+});

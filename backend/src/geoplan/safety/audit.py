@@ -1163,8 +1163,7 @@ def _coverage_ratio(
     relevant = [
         mission
         for mission in missions
-        if mission.segment_id in segments
-        and segments[mission.segment_id].coverage_area_id == area_id
+        if mission.segment_id in segments and area_id in segments[mission.segment_id].area_ids
     ]
     coordinates = [
         *area_coordinates,

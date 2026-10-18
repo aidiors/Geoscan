@@ -75,11 +75,18 @@ class PlanRequest(BaseModel):
     optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
     assignment_strategy: AssignmentStrategy = AssignmentStrategy.AUTOMATIC
     productive_routing: bool = False
+    planning_time_limit_seconds: float = Field(default=270, ge=1, le=270)
     planning_start_time: datetime | None = None
     planning_end_time: datetime | None = None
 
     @model_validator(mode="after")
     def has_route_source(self) -> PlanRequest:
+        known_areas = {area.area_id for area in self.coverage_areas}
+        if any(
+            s.survey_track_area_ids is not None and set(s.area_ids) - known_areas
+            for s in self.segments
+        ):
+            raise ValueError("A survey track refers to an unknown coverage area.")
         for label, identifiers in (
             ("БВС", [drone.drone_id for drone in self.drones]),
             ("областей", [area.area_id for area in self.coverage_areas]),
@@ -192,6 +199,8 @@ class ProductiveRoutingSummary(BaseModel):
     selected_variant: str
     evaluated_variants: int = Field(ge=0)
     freeform_candidates_checked: int = Field(default=0, ge=0)
+    cross_area_variants_evaluated: int = Field(default=0, ge=0)
+    cross_area_sortie_count: int = Field(default=0, ge=0)
     baseline_makespan_minutes: float | None = None
     baseline_total_flight_minutes: float | None = None
     baseline_transit_minutes: float | None = None
@@ -233,6 +242,26 @@ class OptimizationSummary(BaseModel):
     assignment_search: AssignmentSearchSummary | None = None
 
 
+class PlanCheckpoint(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    stage: str
+    elapsed_seconds: float = Field(ge=0)
+    completion_minutes: float = Field(ge=0)
+    total_flight_minutes: float = Field(ge=0)
+    sortie_count: int = Field(ge=0)
+    objective: list[float]
+
+
+class PlanSearchSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    status: str
+    elapsed_seconds: float = Field(ge=0)
+    time_limit_seconds: float = Field(ge=1)
+    request_fingerprint: str
+    checkpoints: list[PlanCheckpoint] = Field(default_factory=list, max_length=64)
+    pipelines_started: int = Field(default=0, ge=0)
+
+
 class PlanResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -243,6 +272,7 @@ class PlanResponse(BaseModel):
     optimization: OptimizationSummary | None = None
     schedule: ScheduleSummary | None = None
     safety_audit: SafetyAuditReport | None = None
+    search: PlanSearchSummary | None = None
 
 
 class TurnRadiusAnalysisRequest(BaseModel):

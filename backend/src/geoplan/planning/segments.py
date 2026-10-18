@@ -192,6 +192,11 @@ def _curvature_constrained_segment(
             curvature_request = SweepRouteCurvatureRequest(
                 route=route,
                 coverage_area=area,
+                additional_coverage_areas=[
+                    a
+                    for a in request.coverage_areas
+                    if a.area_id in segment.area_ids and a.area_id != area.area_id
+                ],
                 no_fly_zones=constraints,
                 minimum_turn_radius_m=request.minimum_turn_radius_m,
                 sampling_step_m=max(3, min(25, request.minimum_turn_radius_m / 4)),

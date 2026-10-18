@@ -20,6 +20,7 @@ from geoplan.flight.photography import ExplicitFrameInspector
 from geoplan.navigation.geometry import (
     LocalProjection,
     polygon_from_coordinates,
+    polygon_parts,
     projection_for_coordinates,
 )
 from geoplan.navigation.routing import route_distance_km
@@ -72,6 +73,12 @@ class SurveyQualityAnalyzer:
                 )
             )
         cameras = {d.drone_id: d.installed_sensor or survey.sensor for d in request.drones}
+        regions = [part.buffer(0.01) for part in polygon_parts(targets)]
+
+        def region(a, b):
+            midpoint = LineString([a, b]).interpolate(0.5, normalized=True)
+            return next((i for i, part in enumerate(regions) if part.covers(midpoint)), None)
+
         footprints: list[Polygon] = []
         frame_gsd: list[float] = []
         strips: list[SurveyStrip] = []
@@ -119,7 +126,9 @@ class SurveyQualityAnalyzer:
                     intervals.extend(actual.intervals_s)
                     forward.extend(actual.forward_overlap_percent)
                     strips.extend(
-                        SurveyStrip((mission.drone_id, mission.segment_id), a, b, width)
+                        SurveyStrip(
+                            (mission.drone_id, mission.segment_id), a, b, width, region(a, b)
+                        )
                         for a, b in actual.straight_runs
                     )
                     incomplete |= actual.partial
@@ -159,6 +168,7 @@ class SurveyQualityAnalyzer:
                                 coords[0],
                                 coords[-1],
                                 width,
+                                region(coords[0], coords[-1]),
                             )
                         )
                     else:
@@ -207,7 +217,10 @@ class SurveyQualityAnalyzer:
         covered = unary_union(footprints)
         gaps = targets.difference(covered)
         percent = max(0, min(100, 100 * (1 - gaps.area / targets.area)))
-        side, cross, side_problems = lateral_overlaps(strips, survey.side_overlap_percent)
+        side, cross, side_problems = lateral_overlaps(
+            strips, survey.side_overlap_percent, survey_target=targets.buffer(0.02)
+        )
+        incomplete |= any(strip.region_id is None for strip in strips)
         if percent < 99:
             issues.append("Отпечатки кадров покрывают менее 99% доступной целевой области.")
         if max(frame_gsd) > survey.maximum_gsd_cm + 1e-7:

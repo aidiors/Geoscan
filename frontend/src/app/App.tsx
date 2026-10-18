@@ -58,6 +58,7 @@ export default function App() {
     handleAddSite,
     handleImport,
     handleCalculate,
+    handleCancelPlanning,
     handleDemoCaseRun,
     handleAnalyzeRadii,
     handleExport,
@@ -66,7 +67,7 @@ export default function App() {
   } = usePlanner();
   return (
     <div className="app-shell">
-      <Header status={status} revision={revision} theme={theme} calculating={calculating} onOpenShowcase={() => setShowcaseOpen(true)} onCalculate={() => void handleCalculate()} onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
+      <Header status={status} revision={revision} theme={theme} calculating={calculating} onCancelPlanning={handleCancelPlanning} onOpenShowcase={() => setShowcaseOpen(true)} onCalculate={() => void handleCalculate()} onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
       <DemoShowcase
         open={showcaseOpen}
         selectedCaseId={demoCaseId}

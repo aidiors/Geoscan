@@ -38,6 +38,7 @@ from geoplan.planning.candidates import (
     _create_candidate_groups,
 )
 from geoplan.planning.constraints import _constraints_for_segment
+from geoplan.planning.cross_area import CrossAreaOptimizer
 from geoplan.planning.eligibility import (
     _drones_capable_of_environment,
     _drones_capable_of_task,
@@ -56,6 +57,7 @@ from geoplan.planning.models import (
 from geoplan.planning.multi_area import improve_multi_area_routes
 from geoplan.planning.plan_quality import plan_is_audited
 from geoplan.planning.productive import improve_productive_routes
+from geoplan.planning.progress import PlanObserver
 from geoplan.planning.reporting import (
     _create_drone_plans,
     _create_feasibility_report,
@@ -86,6 +88,8 @@ def build_plan(
     freeform_optimizer: FreeformRouteOptimizer,
     assignment_alternative: AssignmentAlternativeProvider | None = None,
     productive_route_pool: RoutePoolGenerator | None = None,
+    progress: PlanObserver | None = None,
+    cross_area_optimizer: CrossAreaOptimizer | None = None,
 ) -> PlanResponse:
     capable_drones = _drones_capable_of_task(request.drones, request.task)
     envelope_capable_drones = _drones_capable_of_environment(capable_drones, request)
@@ -143,6 +147,8 @@ def build_plan(
             coverage_reference_airspeed_kmh,
             len(eligible_drones),
         )
+        if progress is not None:
+            progress("baseline", baseline)
         if (
             assignment_search_requested(request, len(eligible_drones), len(segments))
             and assignment_alternative is not None
@@ -164,6 +170,8 @@ def build_plan(
             baseline, search_report = AuditedAssignmentPortfolio(assignment_alternative).improve(
                 request, assignment_problem, optimized, baseline, evaluate_assignment
             )
+            if progress is not None:
+                progress("assignment", annotate(baseline))
         elif (
             assignment_search_requested(request, len(eligible_drones), len(segments))
             and assignment_alternative is None
@@ -218,7 +226,7 @@ def build_plan(
                 total_flight_minutes=sum(a.mission.duration_minutes for a in assignments),
                 active_drone_count=len(loads),
             )
-            return _finish_plan(
+            candidate = _finish_plan(
                 request,
                 grouped,
                 result,
@@ -228,6 +236,9 @@ def build_plan(
                 coverage_reference_airspeed_kmh,
                 len(eligible_drones),
             )
+            if progress is not None:
+                progress("sorties", candidate)
+            return candidate
 
         try:
             if len(request.coverage_areas) > 1:
@@ -240,6 +251,7 @@ def build_plan(
                     evaluate,
                     assignment_optimizer=assignment_optimizer,
                     assignment_alternative=assignment_alternative,
+                    cross_area_optimizer=cross_area_optimizer,
                 )
             else:
                 improved = improve_productive_routes(

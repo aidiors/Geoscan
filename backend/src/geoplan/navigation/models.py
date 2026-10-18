@@ -73,6 +73,7 @@ class SweepRouteCurvatureRequest(BaseModel):
 
     route: list[Coordinate] = Field(min_length=2, max_length=10_000)
     coverage_area: CoverageArea
+    additional_coverage_areas: list[CoverageArea] = Field(default_factory=list, max_length=1_000)
     no_fly_zones: list[NoFlyZone] = Field(default_factory=list, max_length=1_000)
     minimum_turn_radius_m: float = Field(gt=0, le=10_000)
     sampling_step_m: float = Field(default=5, ge=1, le=1_000)

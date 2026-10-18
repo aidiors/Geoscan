@@ -1,5 +1,5 @@
 import { cloneFleet, fleetCatalog } from "./fleetCatalog";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { analyzeTurnRadii, createPlan } from "@/features/planner/api/client";
 import { exportMission } from "@/features/mission-export/api/exportMission";
 import { importGeodata } from "@/features/geodata/api/importGeodata";
@@ -35,6 +35,8 @@ export function usePlanner() {
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [lastRequest, setLastRequest] = useState<PlanRequest | null>(null);
   const planRevision = useRef(0);
+  const planningController = useRef<AbortController | null>(null);
+  useEffect(() => () => planningController.current?.abort(), []);
   const [radiusAnalysis, setRadiusAnalysis] = useState<TurnRadiusAnalysisResult | null>(null);
   const [analyzingRadii, setAnalyzingRadii] = useState(false);
   const radiusAnalysisRevision = useRef(0);
@@ -55,6 +57,8 @@ export function usePlanner() {
 
 
   function invalidate(nextStatus: string): void {
+    planningController.current?.abort();
+    setCalculating(false);
     planRevision.current += 1;
     setLastRequest(null);
     radiusAnalysisRevision.current += 1;
@@ -211,25 +215,41 @@ export function usePlanner() {
     request: ReturnType<typeof buildPlanRequest>,
     preferredDroneId: string,
   ): Promise<void> {
+    planningController.current?.abort();
+    const controller = new AbortController();
+    planningController.current = controller;
     const version = ++planRevision.current;
+    let received = false;
     setLastRequest(request);
     setPlan(null);
     try {
       setCalculating(true);
-      setStatus("Расчёт маршрутов и проверка расписания… Ожидание — до 5 минут.");
-      const result = await createPlan(request);
+      setStatus("Строим первый проверенный план… Поиск можно остановить.");
+      const result = await createPlan(request, (candidate) => {
+        if (version !== planRevision.current) return;
+        setPlan(candidate);
+        setSelectedDroneId((current) => candidate.drone_plans.some((p) => p.drone_id === current && p.mission_count > 0)
+          ? current : candidate.drone_plans.find((p) => p.mission_count > 0)?.drone_id ?? current);
+        if (!received) { setRevision((current) => current + 1); received = true; }
+        setStatus(`Проверенный план: ${candidate.metrics.completion_minutes.toFixed(1)} мин. Продолжаем поиск улучшений…`);
+      }, controller.signal);
       if (version !== planRevision.current) return;
       setPlan(result);
-      setRevision((current) => current + 1);
+      if (!received) setRevision((current) => current + 1);
       const active = result.drone_plans.find((dronePlan) => dronePlan.mission_count > 0);
       if (active && !result.drone_plans.some((dronePlan) => dronePlan.drone_id === preferredDroneId && dronePlan.mission_count > 0)) {
         setSelectedDroneId(active.drone_id);
       }
       setStatus("План рассчитан сервером");
     } catch (error: unknown) {
-      if (version === planRevision.current) setStatus(errorMessage(error));
+      if (version === planRevision.current) {
+        setStatus(errorMessage(error));
+        setPlan((current) => current?.search ? { ...current, search: { ...current.search,
+          status: controller.signal.aborted ? "cancelled" : "retained_after_error" } } : current);
+      }
     } finally {
-      setCalculating(false);
+      if (version === planRevision.current) setCalculating(false);
+      if (planningController.current === controller) planningController.current = null;
     }
   }
 
@@ -468,6 +488,7 @@ export function usePlanner() {
     handleAddSite,
     handleImport,
     handleCalculate,
+    handleCancelPlanning: () => planningController.current?.abort(),
     handleDemoCaseRun,
     handleAnalyzeRadii,
     handleExport,

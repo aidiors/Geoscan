@@ -98,6 +98,7 @@ export interface SurveySettings {
 }
 
 export interface PlanningSettings {
+  planningTimeLimitSeconds?: number;
   altitude: number;
   windSpeed: number;
   windDirection: number;

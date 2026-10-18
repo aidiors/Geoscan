@@ -10,6 +10,7 @@ from geoplan.coverage.models import WorkSegment
 from geoplan.domain.enums import OptimizationMode
 from geoplan.domain.fleet import DroneSpec
 from geoplan.errors import PlanningError
+from geoplan.planning.cross_area import AuditedCrossAreaPlanner, CrossAreaOptimizer
 from geoplan.planning.models import PlanRequest, PlanResponse, ProductiveRoutingSummary
 from geoplan.planning.plan_quality import plan_is_audited, scheduled_plan_objective
 from geoplan.planning.productive import (
@@ -33,11 +34,45 @@ def improve_multi_area_routes(
     route_pool: RoutePoolGenerator | None = None,
     assignment_optimizer: AssignmentOptimizer | None = None,
     assignment_alternative: AssignmentAlternativeProvider | None = None,
+    cross_area_optimizer: CrossAreaOptimizer | None = None,
 ) -> PlanResponse | None:
-    if baseline is None:
-        return baseline
     if request.optimization_mode is OptimizationMode.FAST_HEURISTIC:
         return baseline
+    cross_optimizer = cross_area_optimizer or AuditedCrossAreaPlanner()
+    if baseline is None:
+        recovered = cross_optimizer.improve(
+            request,
+            segments,
+            drones,
+            None,
+            build,
+            evaluate,
+        )
+        plan = recovered.plan
+        if plan is None or plan.optimization is None:
+            return None
+        return plan.model_copy(
+            update={
+                "optimization": plan.optimization.model_copy(
+                    update={
+                        "productive_routing": ProductiveRoutingSummary(
+                            selected_variant="cross-area",
+                            evaluated_variants=recovered.evaluated,
+                            cross_area_variants_evaluated=recovered.evaluated,
+                            cross_area_sortie_count=sum(
+                                len(m.coverage_area_ids) > 1
+                                for p in plan.drone_plans
+                                for m in p.missions
+                            ),
+                            message=(
+                                "Проверенный план найден объединением "
+                                "соседних областей в общие вылеты."
+                            ),
+                        )
+                    }
+                )
+            }
+        )
     by_area: dict[str, list[WorkSegment]] = defaultdict(list)
     missions = {m.segment_id: m for p in baseline.drone_plans for m in p.missions}
     areas = {a.area_id: a for a in request.coverage_areas}
@@ -118,7 +153,8 @@ def improve_multi_area_routes(
     for rank, changes in enumerate(variants):
         if not changes or not improvement_allowed():
             continue
-        grouped = [s for s in segments if s.coverage_area_id not in changes]
+        removed = {s.segment_id for area_id in changes for s in by_area[area_id]}
+        grouped = [s for s in segments if s.segment_id not in removed]
         assignments = [
             MissionAssignmentCandidate(
                 segment_id=s.segment_id,
@@ -155,6 +191,17 @@ def improve_multi_area_routes(
         ):
             best, selected = candidate, f"multi-area-{rank + 1}"
             best_segments = grouped
+    cross = cross_optimizer.improve(
+        request,
+        best_segments,
+        drones,
+        best,
+        build,
+        evaluate,
+    )
+    if cross.plan is not None and cross.plan is not best:
+        best, best_segments, selected = cross.plan, cross.segments, "cross-area"
+    checked += cross.evaluated
     if selected != "baseline" and assignment_optimizer is not None:
         reassigned, evaluated = improve_regrouped_assignment(
             request,
@@ -171,6 +218,10 @@ def improve_multi_area_routes(
             selected += "+global-assignment"
         best = reassigned
     summary = ProductiveRoutingSummary(
+        cross_area_variants_evaluated=cross.evaluated,
+        cross_area_sortie_count=sum(
+            len(m.coverage_area_ids) > 1 for p in best.drone_plans for m in p.missions
+        ),
         selected_variant=selected,
         evaluated_variants=checked,
         baseline_makespan_minutes=baseline.metrics.completion_minutes,

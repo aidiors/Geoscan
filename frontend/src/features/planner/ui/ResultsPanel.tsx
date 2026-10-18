@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { radiusSamples } from "@/features/planner/model/radii";
 import type { DroneProfile } from "@/features/planner/model/types";
+import { PlanSearchProgress } from "./PlanSearchProgress";
 import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/shared/api/types";
 
 interface ResultsPanelProps {
@@ -108,6 +109,7 @@ export function ResultsPanel({
         <Metric label="Маршрут" value={plan ? `${format(plan.metrics.total_distance_km)} км` : "—"} detail={plan ? `${format(plan.metrics.useful_flight_percent)}% полезного пути` : "общая дистанция"} />
       </div>
 
+      <PlanSearchProgress search={plan?.search} />
       {plan?.optimization && (
         <div className="algorithm-card">
           <Sparkles size={17} />
@@ -124,6 +126,7 @@ export function ResultsPanel({
           <Route size={17} />
           <span>
             <b>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Свободное покрытие" : "Сравнение вылетов"}</b>
+            {(plan.optimization.productive_routing.cross_area_sortie_count ?? 0) > 0 && <small>Вылетов по нескольким областям: {plan.optimization.productive_routing.cross_area_sortie_count}</small>}
             <small>{plan.optimization.productive_routing.message}</small>
             {plan.optimization.productive_routing.baseline_makespan_minutes !== null && (
               <small>Исходный план: {format(plan.optimization.productive_routing.baseline_makespan_minutes)} мин до завершения · {format(plan.optimization.productive_routing.baseline_total_flight_minutes ?? 0)} мин налёта</small>

@@ -32,6 +32,8 @@ def create_app(dependencies: AppDependencies, *, serve_frontend: bool = True) ->
             dependencies.freeform_optimizer,
             dependencies.assignment_alternative,
             dependencies.productive_route_pool,
+            dependencies.alternative_coverage_planner,
+            dependencies.cross_area_optimizer,
         )
     )
 

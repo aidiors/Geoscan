@@ -184,6 +184,9 @@ class AltitudeReference(StrEnum):
 
 
 class ErrorCode(StrEnum):
+    PLANNING_CANCELLED = "planning_cancelled"
+    PLANNING_BUSY = "planning_busy"
+    PLANNING_FAILED = "planning_failed"
     ALTERNATE_LANDING_UNREACHABLE = "alternate_landing_unreachable"
     AIRSPACE_WINDOW_UNAVAILABLE = "airspace_window_unavailable"
     COVERAGE_GENERATION_FAILED = "coverage_generation_failed"

@@ -3,6 +3,7 @@ from __future__ import annotations
 from math import floor
 
 from geoplan.assignment.models import MissionAssignmentCandidate
+from geoplan.budget import PlanningCancelled, PlanningTimeExceeded
 from geoplan.coverage.models import WorkSegment
 from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import NoFlyZone
@@ -135,6 +136,8 @@ def _candidate_evaluation(
                 code=ErrorCode.GSD_REQUIREMENT_UNSATISFIED,
                 message=f"Камера БВС {drone.drone_id} не обеспечивает требуемый GSD.",
             )
+    except PlanningTimeExceeded, PlanningCancelled:
+        raise
     except PlanningError as error:
         return None, error
     return candidate, None
@@ -205,6 +208,7 @@ def _create_candidate(
     )
     emergency = optimized.emergency_reachability
     mission = Mission(
+        coverage_area_ids=list(segment.area_ids),
         drone_id=drone.drone_id,
         segment_id=segment.segment_id,
         duration_minutes=estimate.precise_duration_minutes,

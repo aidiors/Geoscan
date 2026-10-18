@@ -202,6 +202,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <div className="field-grid">
           <TextNumberField label="Срок, мин" value={props.settings.deadline} placeholder="Без срока" onChange={(deadline) => props.onUpdateSettings({ deadline })} />
           <TextNumberField label="Макс. БВС" value={props.settings.maximumActiveDrones} placeholder="Весь парк" integer onChange={(maximumActiveDrones) => props.onUpdateSettings({ maximumActiveDrones })} />
+          <NumberField label="Бюджет расчёта, с" value={props.settings.planningTimeLimitSeconds ?? 270} min={1} max={270} onChange={(planningTimeLimitSeconds) => props.onUpdateSettings({ planningTimeLimitSeconds })} />
         </div>
       </PanelSection>
 

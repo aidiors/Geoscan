@@ -322,3 +322,9 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
   .showcase-details { overflow: visible; padding: 18px; }
   .showcase-columns, .showcase-actions { grid-template-columns: 1fr; }
 }
+
+.search-progress { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 11px; background: var(--surface); }
+.search-progress p { margin: 7px 0; }
+.search-progress table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.search-progress th, .search-progress td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--line); }
+.search-progress th:first-child, .search-progress td:first-child { text-align: left; }
