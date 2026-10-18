@@ -1,11 +1,13 @@
 import { Download, Plane, Route, ShieldCheck, ShieldX, Sparkles } from "lucide-react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { radiusSamples } from "@/features/planner/model/radii";
 import type { DroneProfile } from "@/features/planner/model/types";
 import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/shared/api/types";
 
 interface ResultsPanelProps {
+  insights?: ReactNode;
   plan: PlanResponse | null;
   drones: DroneProfile[];
   selectedDroneId: string;
@@ -44,6 +46,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
 };
 
 export function ResultsPanel({
+  insights,
   plan,
   drones,
   selectedDroneId,
@@ -106,7 +109,7 @@ export function ResultsPanel({
       {plan?.optimization && (
         <div className="algorithm-card">
           <Sparkles size={17} />
-          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.algorithm === "productive_route_pool" ? "Сравнение вариантов вылетов после расчёта безопасного расписания" : plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Контуры и прямые проходы; учтены запуск и посадка" : coverageAngleSummary} · обход по графу видимости</small><small>{plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
+          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.algorithm === "productive_route_pool" ? "Сравнение вариантов вылетов после расчёта безопасного расписания" : plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Контуры и прямые проходы; учтены запуск и посадка" : coverageAngleSummary} · обход по графу видимости</small><small>{Object.values(plan.optimization.turn_radii_by_drone ?? {}).some((radius) => radius > 0) ? `Радиусы по бортам: ${Object.entries(plan.optimization.turn_radii_by_drone ?? {}).map(([id, radius]) => `${id}: ${format(radius)} м`).join(", ")}.` : plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
         </div>
       )}
 
@@ -153,6 +156,7 @@ export function ResultsPanel({
         </section>
       )}
 
+      {insights}
       <section className="radius-analysis-card">
         <b>Допущение о радиусе разворота</b>
         <p>Это отдельный анализ диапазона радиусов: он не меняет уже рассчитанный план. Радиус основного плана задаётся слева и учитывается при построении и экспорте маршрута; 0 м отключает ограничение.</p>

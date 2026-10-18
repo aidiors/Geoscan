@@ -7,12 +7,15 @@ from geoplan.assignment.models import MissionAssignmentCandidate
 from geoplan.coverage.models import WorkSegment
 from geoplan.domain.enums import OptimizationMode
 from geoplan.domain.fleet import DroneSpec
+from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
 from geoplan.errors import PlanningError
 from geoplan.flight.energy import _effective_endurance_minutes
 from geoplan.flight.sites import _eligible_departure_sites, _eligible_landing_sites
 from geoplan.navigation.routing import route_distance_km
 from geoplan.planning.constraints import _constraints_for_segment
+from geoplan.planning.curved_costs import CurvedConnectionCost
+from geoplan.planning.fleet_survey import FleetSurveyPolicy
 from geoplan.planning.models import PlanRequest, PlanResponse, ProductiveRoutingSummary
 from geoplan.planning.plan_quality import plan_is_audited, scheduled_plan_objective
 from geoplan.routing.model import (
@@ -146,16 +149,24 @@ def improve_productive_routes(
 def _unsupported_reason(request: PlanRequest, segments: list[WorkSegment]) -> str | None:
     if request.optimization_mode is OptimizationMode.FAST_HEURISTIC:
         return "Быстрый режим: сохранено исходное планирование."
-    if request.minimum_turn_radius_m > 0:
-        return "Сохранён исходный план: заданный радиус разворота."
     if len(request.coverage_areas) != 1 or request.segments:
         return "Группировка вылетов применяется к одной области без ручных маршрутов."
-    if not segments or any(len(s.route) % 2 or s.survey_speed_limit_kmh is None for s in segments):
+    if not segments or any(
+        (s.survey_tracks is None and len(s.route) % 2) or s.survey_speed_limit_kmh is None
+        for s in segments
+    ):
         return "Исходная геометрия не содержит отдельных прямых съёмочных галсов."
-    count = sum(len(s.route) // 2 for s in segments)
+    count = sum(len(_survey_tracks(s)) for s in segments)
     if not 2 <= count <= 400:
         return "Для этого числа галсов сохранено исходное планирование."
     return None
+
+
+def _survey_tracks(segment: WorkSegment) -> list[tuple[Coordinate, Coordinate]]:
+    return segment.survey_tracks or [
+        (segment.route[index], segment.route[index + 1])
+        for index in range(0, len(segment.route), 2)
+    ]
 
 
 def _routing_model(
@@ -164,15 +175,27 @@ def _routing_model(
     tracks = tuple(
         Track(
             f"track-{index}-{offset}",
-            segment.route[offset],
-            segment.route[offset + 1],
+            track[0],
+            track[1],
             segment.survey_speed_limit_kmh or 1,
         )
         for index, segment in enumerate(segments)
-        for offset in range(0, len(segment.route), 2)
+        for offset, track in enumerate(_survey_tracks(segment))
     )
     aircraft = []
     for drone in drones:
+        physical = FleetSurveyPolicy().for_drone(request, drone)
+        survey = physical.survey_parameters
+        camera_speed = (
+            physical.mission_altitude_m
+            * survey.sensor.sensor_height_mm
+            / survey.sensor.focal_length_mm
+            * (1 - survey.forward_overlap_percent / 100)
+            / survey.sensor.minimum_trigger_interval_s
+            * 3.6
+            if survey is not None
+            else None
+        )
         departure = next((s for s in _eligible_departure_sites(request, drone.drone_id) if s), None)
         landing = next((s for s in _eligible_landing_sites(request, drone.drone_id) if s), None)
         available = (
@@ -189,6 +212,8 @@ def _routing_model(
                     departure.coordinate,
                     max(request.turnaround_minutes, drone.minimum_turnaround_minutes),
                     landing=landing.coordinate,
+                    survey_speed_kmh=camera_speed,
+                    minimum_turn_radius_m=physical.minimum_turn_radius_m,
                 )
             )
     if not aircraft:
@@ -207,7 +232,8 @@ def _routing_model(
             tuple(exclusions.values()),
             request.criterion,
             request.completion_deadline_minutes,
-        )
+        ),
+        connection_cost=CurvedConnectionCost(request, tuple(exclusions.values())),
     )
 
 

@@ -25,6 +25,7 @@ from geoplan.domain.enums import (
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
+from geoplan.flight.envelope import HorizontalAirspeedEnvelope
 from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import (
     LocalProjection,
@@ -104,11 +105,14 @@ def _survey_resolution_check(request: PlanRequest, missions: list[Mission]) -> S
     if survey is None:
         return _not_applicable(SafetyCheckCode.SURVEY_RESOLUTION, "Параметры съёмки не заданы.")
     policy = SurveyResolution()
-    failed = [m for m in missions if not policy.allows(m, survey.sensor, survey.maximum_gsd_cm)]
+    cameras = {d.drone_id: d.installed_sensor or survey.sensor for d in request.drones}
+    failed = [
+        m for m in missions if not policy.allows(m, cameras[m.drone_id], survey.maximum_gsd_cm)
+    ]
     return SafetyAuditCheck(
         code=SafetyCheckCode.SURVEY_RESOLUTION,
         status=SafetyAuditStatus.FAILED if failed else SafetyAuditStatus.PASSED,
-        measured_value=max((policy.gsd_cm(m, survey.sensor) for m in missions), default=0),
+        measured_value=max((policy.gsd_cm(m, cameras[m.drone_id]) for m in missions), default=0),
         required_value=survey.maximum_gsd_cm,
         unit="cm/pixel",
         affected_ids=[_mission_id(m) for m in failed],
@@ -908,6 +912,15 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
         if drone.maximum_cruise_speed_kmh is not None:
             applicable = True
             margins.append(drone.maximum_cruise_speed_kmh - mission.cruise_speed_kmh)
+        if drone.minimum_cruise_speed_kmh is not None or drone.maximum_cruise_speed_kmh is not None:
+            actual = HorizontalAirspeedEnvelope().range_kmh(mission, request.wind)
+            if actual is None:
+                margins.append(-1)
+            else:
+                if drone.minimum_cruise_speed_kmh is not None:
+                    margins.append(actual[0] - drone.minimum_cruise_speed_kmh + 0.05)
+                if drone.maximum_cruise_speed_kmh is not None:
+                    margins.append(drone.maximum_cruise_speed_kmh - actual[1] + 0.05)
         if drone.maximum_route_distance_km is not None:
             applicable = True
             margins.append(drone.maximum_route_distance_km - mission.distance_km)
@@ -929,6 +942,10 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
                     drone.maximum_operating_temperature_c - request.ambient_temperature_c
                 )
         applicable = True
+        if request.survey_parameters is not None and mission.sensor is not None:
+            expected_sensor = drone.installed_sensor or request.survey_parameters.sensor
+            if mission.sensor != expected_sensor:
+                margins.append(-1)
         if mission.starting_battery_percent > drone.initial_charge_percent + 1e-9:
             margins.append(drone.initial_charge_percent - mission.starting_battery_percent)
         if any(margin < 0 for margin in margins):
@@ -1019,6 +1036,10 @@ def _coverage_check(
         request.mission_altitude_m * sensor.sensor_width_mm / sensor.focal_length_mm,
         request.survey_parameters.strip_width_m,
     )
+    if any(drone.installed_sensor is not None for drone in request.drones):
+        # Each mission below applies its actual camera footprint. The global
+        # fallback camera must not artificially narrow every installed camera.
+        footprint_width_m = request.survey_parameters.strip_width_m
     segment_by_id = {segment.segment_id: segment for segment in segments}
     ratios = [
         _coverage_ratio(
@@ -1095,9 +1116,19 @@ def _coverage_ratio(
             continue
         for stage in mission.stages:
             if stage.stage_type is MissionStageType.SURVEY and len(stage.coordinates) >= 2:
+                width = footprint_width_m
+                if mission.sensor is not None:
+                    height = min(
+                        (point.target_agl_m for point in mission.vertical_profile),
+                        default=mission.altitude_m,
+                    )
+                    width = min(
+                        height * mission.sensor.sensor_width_mm / mission.sensor.focal_length_mm,
+                        footprint_width_m,
+                    )
                 swaths.append(
                     LineString([projection.project(point) for point in stage.coordinates]).buffer(
-                        footprint_width_m / 2 + 0.5, cap_style="square"
+                        width / 2 + 0.5, cap_style="square"
                     )
                 )
 

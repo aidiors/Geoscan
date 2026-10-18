@@ -6,6 +6,7 @@ import { MissionMap } from "@/widgets/mission-map/MissionMap";
 import { ResultsPanel } from "@/features/planner/ui/ResultsPanel";
 import { activeWorkAreas } from "@/features/planner/api/buildPlanRequest";
 import { usePlanner } from "@/features/planner/model/usePlanner";
+import { MissionInsights } from "@/features/planner/ui/MissionInsights";
 
 export default function App() {
   const [theme, setTheme] = useTheme();
@@ -29,6 +30,10 @@ export default function App() {
     settings,
     setSettings,
     plan,
+    insights,
+    handleAdvise,
+    handleApplyAdvice,
+    canInspectQuality,
     radiusAnalysis,
     analyzingRadii,
     revision,
@@ -107,12 +112,13 @@ export default function App() {
           drones={drones}
           plan={plan}
           radiusAnalysis={radiusAnalysis}
+          quality={insights.quality}
           selectedDroneId={selectedDroneId}
           pendingSiteRole={pendingSiteRole}
           onAddSite={handleAddSite}
           onClearZones={() => { setImportedZones([]); invalidate("Импортированные зоны очищены"); }}
         />
-        <ResultsPanel plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
+        <ResultsPanel insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
       </main>
     </div>
   );

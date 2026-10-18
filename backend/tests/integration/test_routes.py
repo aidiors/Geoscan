@@ -145,6 +145,7 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "total_flight_minutes": 26.4,
         "active_drone_count": 2,
         "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {"201": 0.0, "801": 0.0},
         "coverage_angle_cost": "geometric_distance",
         "coverage_reference_airspeed_kmh": None,
         "productive_routing": None,
@@ -181,7 +182,11 @@ def test_plan_route_applies_positive_survey_turn_radius() -> None:
     assert response.status_code == 200
     assert response.json()["optimization"]["survey_turn_radius_m"] == 10
     assert response.json()["safety_audit"]["status"] == "passed"
-    assert len(response.json()["drone_plans"][0]["missions"][0]["stages"][2]["coordinates"]) > 2
+    mission = response.json()["drone_plans"][0]["missions"][0]
+    assert len(mission["route"]) > 20
+    assert any(
+        s["stage_type"] == "transit" and s["duration_minutes"] > 0 for s in mission["stages"][2:-1]
+    )
 
 
 def test_plan_route_returns_stable_error_for_unplannable_segment() -> None:

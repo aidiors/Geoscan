@@ -1,11 +1,14 @@
 import type { MissionTask, SweepDirectionMode, AutopilotFirmware, AirframeType, ImportedZone, WorkSegment, PayloadCapability } from "@/shared/api/types";
 import type { Coordinate } from "@/shared/geo/types";
+import type { SensorProfile } from "@/shared/api/types";
 
 export type Objective = "time" | "flight" | "balanced";
 
 export type SiteRole = "takeoff" | "landing" | "alternate";
 
 export interface DroneProfile {
+  installedSensor?: SensorProfile | null;
+  minimumTurnRadius?: number;
   id: string;
   name: string;
   color: string;

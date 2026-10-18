@@ -25,14 +25,15 @@ from geoplan.navigation.curvature import (
 from geoplan.navigation.models import SweepRouteCurvatureRequest
 from geoplan.navigation.routing import RouteGeometryError, route_distance_km
 from geoplan.planning.constraints import _constraints_for_segment
+from geoplan.planning.fleet_survey import FleetSurveyPolicy
 from geoplan.planning.models import PlanRequest
 
 
 def _resolve_segments(
     request: PlanRequest,
     coverage_planner: CoveragePlanner,
-    sweep_transition_planner: SweepTransitionPlanner,
     coverage_reference_airspeed_kmh: float | None,
+    drones: list[DroneSpec] | None = None,
 ) -> list[WorkSegment]:
     if not request.coverage_areas:
         return request.segments
@@ -43,6 +44,8 @@ def _resolve_segments(
             message="Для построения галсов отсутствуют параметры съёмки.",
         )
     generated: list[WorkSegment] = []
+    if drones:
+        parameters = FleetSurveyPolicy().grid_parameters(request, drones)
     for area in request.coverage_areas:
         plan_request = CoveragePlanRequest(
             area=area,
@@ -64,13 +67,10 @@ def _resolve_segments(
                 message=error.message,
                 recommendations=_coverage_failure_recommendations(error.code, plan_request),
             ) from error
-        if request.minimum_turn_radius_m == 0:
-            generated.extend(result.segments)
-            continue
-        generated.extend(
-            _curvature_constrained_segment(segment, area, request, sweep_transition_planner)
-            for segment in result.segments
-        )
+        # Preserve transferable straight strips. Aircraft-specific curves are
+        # constructed inside candidate evaluation, so a failed reference grouping
+        # does not prevent the productive pool from finding a different grouping.
+        generated.extend(result.segments)
     return [*request.segments, *generated]
 
 
@@ -182,6 +182,10 @@ def _curvature_constrained_segment(
     payload["route"] = curved_routes[0]
     payload["alternative_routes"] = curved_routes[1:]
     payload["distance_km"] = route_distance_km(curved_routes[0])
+    payload["survey_tracks"] = segment.survey_tracks or [
+        (segment.route[index], segment.route[index + 1])
+        for index in range(0, len(segment.route), 2)
+    ]
     try:
         return WorkSegment.model_validate(payload)
     except ValidationError as error:

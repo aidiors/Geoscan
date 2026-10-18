@@ -2,6 +2,7 @@
 
 from collections import Counter
 from itertools import pairwise
+from math import floor
 
 from geoplan.coverage.models import WorkSegment
 from geoplan.domain.enums import ErrorCode, MissionStageType
@@ -83,6 +84,8 @@ def normalize_reference_missions(
         segment = sources[mission.segment_id]
         if (
             segment.survey_tracks is not None
+            or mission.minimum_turn_radius_m > 0
+            or sum(s.stage_type is MissionStageType.SURVEY for s in mission.stages) > 1
             or segment.coverage_area_id is None
             or len(segment.route) % 2
         ):
@@ -128,5 +131,15 @@ def normalize_reference_missions(
             transit_duration_minutes=mission.duration_minutes - elapsed,
             useful_flight_percent=round(min(100, distance / mission.distance_km * 100), 2),
         )
+        if mission.camera_trigger_spacing_m is not None:
+            data["image_count"] = sum(
+                floor(
+                    (route_distance_km(s.coordinates) * 1000 + 1e-7)
+                    / mission.camera_trigger_spacing_m
+                )
+                + 1
+                for s in stages
+                if s.stage_type is MissionStageType.SURVEY
+            )
         normalized.append(Mission.model_validate(data))
     return normalized

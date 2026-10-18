@@ -38,6 +38,8 @@ class Aircraft:
     turnaround_minutes: float = 2
     eligible_tracks: frozenset[int] | None = None
     landing: Coordinate | None = None
+    survey_speed_kmh: float | None = None
+    minimum_turn_radius_m: float = 0
 
     @property
     def landing_coordinate(self) -> Coordinate:
@@ -117,10 +119,27 @@ class Cost:
         return self.survey + self.deadhead
 
 
+class ConnectionCost(Protocol):
+    def cost(
+        self,
+        aircraft: Aircraft,
+        source: tuple[Coordinate, Coordinate],
+        target: tuple[Coordinate, Coordinate],
+    ) -> tuple[float, float]: ...
+
+
 class CostModel[P: RoutingData]:
-    def __init__(self, problem: P, *, shared_geometry: bool = True) -> None:
+    def __init__(
+        self,
+        problem: P,
+        *,
+        shared_geometry: bool = True,
+        connection_cost: ConnectionCost | None = None,
+    ) -> None:
         self.problem = problem
         self.shared_geometry = shared_geometry
+        self.connection_cost = connection_cost
+        self._connections: dict[tuple[int, int, int], tuple[float, float]] = {}
         self.geometry_builds = 0
         self.service_evaluations = 0
         self.insertion_evaluations = 0
@@ -193,12 +212,24 @@ class CostModel[P: RoutingData]:
                     distance,
                     self.problem.aircraft[aircraft].speed_kmh,
                     self.problem.wind,
-                    self.problem.tracks[token // 2].survey_speed_kmh,
+                    self.problem.aircraft[aircraft].survey_speed_kmh
+                    or self.problem.tracks[token // 2].survey_speed_kmh,
                 )
             except ValueError:
                 duration = inf
             self._services[key] = duration, distance
         return self._services[key]
+
+    def connection(self, aircraft: int, source: int, target: int) -> tuple[float, float]:
+        plane = self.problem.aircraft[aircraft]
+        if self.connection_cost is None or plane.minimum_turn_radius_m == 0:
+            return self.leg(aircraft, self.endpoints(source)[1], self.endpoints(target)[0])
+        key = aircraft, source, target
+        if key not in self._connections:
+            self._connections[key] = self.connection_cost.cost(
+                plane, self.endpoints(source), self.endpoints(target)
+            )
+        return self._connections[key]
 
     def service_allowed(self, aircraft: int, token: int) -> bool:
         if not 0 <= aircraft < len(self.problem.aircraft) or not (
@@ -241,17 +272,16 @@ class CostModel[P: RoutingData]:
         returning = self.leg(
             trip.aircraft, self.endpoints(trip.visits[-1])[1], plane.landing_coordinate
         )[0]
-        previous: Coordinate | None = None
+        previous: int | None = None
         for token in trip.visits:
-            start, end = self.endpoints(token)
             if previous is not None:
-                duration, distance = self.leg(trip.aircraft, previous, start)
+                duration, distance = self.connection(trip.aircraft, previous, token)
                 connections += duration
                 internal_distance += distance
             duration, distance = self.service(trip.aircraft, token)
             survey += duration
             internal_distance += distance
-            previous = end
+            previous = token
         cost = Cost(survey, departure, connections, returning, internal_distance)
         valid = self.feasible_cost(trip.aircraft, cost)
         result = cost if valid else None
@@ -369,13 +399,20 @@ class CostModel[P: RoutingData]:
                     [start, end], list(self.problem.exclusions)
                 ) or not route_is_clear_of_no_fly_zones(connector, list(self.problem.exclusions)):
                     return False
-                elapsed += self._recomputed_duration(connector, plane.speed_kmh)
-                if index:
-                    internal_distance += route_distance_km(connector)
+                if index and self.connection_cost is not None and plane.minimum_turn_radius_m > 0:
+                    duration, distance = self.connection_cost.cost(
+                        plane, self.endpoints(trip.visits[index - 1]), (start, end)
+                    )
+                    elapsed += duration
+                    internal_distance += distance
+                else:
+                    elapsed += self._recomputed_duration(connector, plane.speed_kmh)
+                    if index:
+                        internal_distance += route_distance_km(connector)
                 elapsed += self._recomputed_duration(
                     [start, end],
                     plane.speed_kmh,
-                    self.problem.tracks[token // 2].survey_speed_kmh,
+                    plane.survey_speed_kmh or self.problem.tracks[token // 2].survey_speed_kmh,
                 )
                 internal_distance += route_distance_km([start, end])
                 previous = end

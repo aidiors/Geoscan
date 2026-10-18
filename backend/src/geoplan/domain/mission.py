@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from geoplan.domain.enums import AltitudeReference, MissionStageType
 from geoplan.domain.fleet import AutopilotProfile, FlightSite
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.survey import SensorProfile
 from geoplan.domain.terrain import VerticalProfilePoint
 
 
@@ -54,6 +55,9 @@ class Mission(BaseModel):
     transit_duration_minutes: float | None = Field(default=None, ge=0)
     useful_flight_percent: float | None = Field(default=None, ge=0, le=100)
     image_count: int | None = Field(default=None, ge=1)
+    sensor: SensorProfile | None = None
+    camera_trigger_spacing_m: float | None = Field(default=None, gt=0)
+    minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
     computed_gsd_cm: float | None = Field(default=None, gt=0)
     strip_spacing_m: float | None = Field(default=None, gt=0)
     flight_direction_degrees: float | None = Field(default=None, ge=0, lt=180)

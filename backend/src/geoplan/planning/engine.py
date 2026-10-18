@@ -94,8 +94,8 @@ def build_plan(
     segments = _resolve_segments(
         request,
         coverage_planner,
-        sweep_transition_planner,
         coverage_reference_airspeed_kmh,
+        eligible_drones,
     )
     baseline_error: PlanningError | None = None
     baseline = None
@@ -417,7 +417,7 @@ def _finish_plan(
             mission = mission.model_copy(
                 update={
                     "computed_gsd_cm": SurveyResolution().gsd_cm(
-                        mission, request.survey_parameters.sensor
+                        mission, mission.sensor or request.survey_parameters.sensor
                     )
                 }
             )
@@ -451,6 +451,10 @@ def _finish_plan(
             total_flight_minutes=sum(m.duration_minutes for m in schedule.missions),
             active_drone_count=optimized.active_drone_count,
             survey_turn_radius_m=request.minimum_turn_radius_m,
+            turn_radii_by_drone={
+                d.drone_id: max(request.minimum_turn_radius_m, d.minimum_turn_radius_m)
+                for d in request.drones
+            },
             coverage_angle_cost=_coverage_angle_cost(request),
             coverage_reference_airspeed_kmh=coverage_reference_airspeed_kmh,
         ),

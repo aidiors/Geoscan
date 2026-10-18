@@ -27,11 +27,15 @@ def representatives(model: CostModel) -> tuple[int, ...]:
             and plane.home == other.home
             and plane.landing_coordinate == other.landing_coordinate
             and plane.eligible_tracks == other.eligible_tracks
+            and other.minimum_turn_radius_m <= plane.minimum_turn_radius_m
+            and (other.survey_speed_kmh or inf) >= (plane.survey_speed_kmh or inf)
             and other.speed_kmh >= plane.speed_kmh
             and other.available_minutes >= plane.available_minutes
             and (
                 other.speed_kmh > plane.speed_kmh
                 or other.available_minutes > plane.available_minutes
+                or other.minimum_turn_radius_m < plane.minimum_turn_radius_m
+                or (other.survey_speed_kmh or inf) > (plane.survey_speed_kmh or inf)
                 or j < i
             )
             for j, other in enumerate(fleet)
@@ -72,8 +76,7 @@ def route_catalog(model: CostModel, order: tuple[int, ...], deadline: float) -> 
                             if label is None:
                                 continue
                             cost, visits = label
-                            previous = model.endpoints(visits[-1])[1]
-                            duration, length = model.leg(plane, previous, first)
+                            duration, length = model.connection(plane, visits[-1], token)
                             options.append(
                                 (
                                     Cost(

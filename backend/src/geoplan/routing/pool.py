@@ -8,6 +8,7 @@ from typing import Protocol
 from geoplan.domain.enums import OptimizationCriterion
 from geoplan.routing.allocation import assign_trips
 from geoplan.routing.cross_objective import CrossObjectiveCandidates
+from geoplan.routing.greedy_seed import FleetSweepSeed
 from geoplan.routing.model import CostModel, RoutingProblem, RoutingSearchObjective, Solution
 from geoplan.routing.neighborhood import SortieNeighborhoodSearch
 from geoplan.routing.ordering import cell_orders, order_cost
@@ -110,6 +111,16 @@ class ProductiveRoutePool:
             maximum_active_drones or len(model.problem.aircraft), len(model.problem.aircraft)
         )
         targets = self.duration_targets(model, fleet_limit, objective)
+        if orders and any(plane.minimum_turn_radius_m > 0 for plane in model.problem.aircraft):
+            seed_end = min(construction_end, perf_counter() + 2)
+            # Long groups save transit; shorter groups expose parallel schedules.
+            for target in (targets[0], min(targets, key=lambda value: abs(value - targets[0] / 2))):
+                seed = FleetSweepSeed().generate(
+                    model, orders[0], target, fleet_limit, seed_end, objective
+                )
+                if seed and seed not in seen:
+                    seen.add(seed)
+                    pool.append((f"curved-sweep-seed-{len(pool)}", seed))
         contexts: list[tuple[int, list[list[Arc]], int]] = []
         catalog_limit = min(self.maximum_candidates, self.maximum_catalog_candidates)
 

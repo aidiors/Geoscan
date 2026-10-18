@@ -256,9 +256,7 @@ def physical_comparison(
     if abs(baseline_schedule.makespan_minutes - plan.schedule.makespan_minutes) > 1e-9:
         raise AssertionError("Benchmark scheduling differs from the production baseline")
     schedule = schedule_assignment(request, missions, dependencies)
-    segments = _resolve_segments(
-        request, dependencies.coverage_planner, dependencies.sweep_transition_planner, None
-    )
+    segments = _resolve_segments(request, dependencies.coverage_planner, None, request.drones)
     audit = dependencies.safety_auditor.audit(request, segments, schedule.missions)
     baseline_audit = dependencies.safety_auditor.audit(
         request, segments, baseline_schedule.missions

@@ -13,6 +13,7 @@ from geoplan.domain.enums import (
     CoverageAngleCost,
     ErrorCode,
     ImportedGeometryType,
+    MissionStageType,
     MissionTask,
     OptimizationCriterion,
     ValidityMode,
@@ -207,10 +208,15 @@ def test_positive_turn_radius_changes_survey_route_and_distance() -> None:
     assert curved.drone_plans[0].autopilot_profile == baseline_request.drones[0].autopilot_profile
     assert curved.optimization is not None
     assert curved.optimization.survey_turn_radius_m == 10
-    assert len(curved_mission.stages[2].coordinates) > len(baseline_mission.stages[2].coordinates)
+    assert len(curved_mission.route) > len(baseline_mission.route)
     assert curved_mission.survey_distance_km is not None
     assert baseline_mission.survey_distance_km is not None
-    assert curved_mission.survey_distance_km > baseline_mission.survey_distance_km
+    assert curved_mission.distance_km > baseline_mission.distance_km
+    assert all(
+        len(s.coordinates) == 2
+        for s in curved_mission.stages
+        if s.stage_type is MissionStageType.SURVEY
+    )
 
 
 def test_gsd_failure_recommends_exact_maximum_altitude() -> None:
@@ -283,8 +289,9 @@ def test_positive_turn_radius_connects_departure_and_landing_tangentially() -> N
 
     mission = create_plan(request).drone_plans[0].missions[0]
     transit_route = mission.stages[1].coordinates
-    survey_route = mission.stages[2].coordinates
-    landing_route = mission.stages[3].coordinates
+    surveys = [s for s in mission.stages if s.stage_type is MissionStageType.SURVEY]
+    survey_route = [*surveys[0].coordinates, *surveys[-1].coordinates]
+    landing_route = mission.stages[-1].coordinates
 
     assert len(transit_route) > 2
     assert len(landing_route) > 2

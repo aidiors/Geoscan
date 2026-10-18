@@ -475,13 +475,9 @@ def _camera_trigger_command(distance_m: float) -> AutopilotCommand:
 
 
 def _camera_trigger_spacing_m(mission: Mission) -> float | None:
-    if (
-        mission.survey_distance_km is None
-        or mission.image_count is None
-        or mission.image_count <= 1
-    ):
-        return None
-    return mission.survey_distance_km * 1_000 / (mission.image_count - 1)
+    from geoplan.flight.camera import DistanceCameraPolicy
+
+    return DistanceCameraPolicy().spacing_m(mission)
 
 
 def _command_altitude(command: AutopilotCommand) -> float:

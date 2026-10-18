@@ -29,6 +29,7 @@ from geoplan.geodata.models import (
 )
 from geoplan.navigation.curvature import SweepTransitionPlanner
 from geoplan.navigation.optimizer import RouteOptimizer
+from geoplan.planning.advisor import AdvisorRequest, AdvisorResponse, FeasibilityAdvisor
 from geoplan.planning.engine import build_plan
 from geoplan.planning.freeform_ports import FreeformRouteOptimizer
 from geoplan.planning.models import (
@@ -37,6 +38,8 @@ from geoplan.planning.models import (
     TurnRadiusAnalysisRequest,
     TurnRadiusAnalysisResult,
 )
+from geoplan.planning.quality_models import SurveyQualityReport, SurveyQualityRequest
+from geoplan.planning.survey_quality import SurveyQualityAnalyzer
 from geoplan.planning.turn_radius import analyze_turn_radii
 from geoplan.routing.pool import RoutePoolGenerator
 from geoplan.safety.audit import PlanSafetyAuditor
@@ -165,6 +168,22 @@ def create_router(
             assignment_alternative,
             productive_route_pool,
         )
+
+    @router.post(
+        "/v1/feasibility-advice",
+        response_model=AdvisorResponse,
+        responses={422: {"model": ErrorResponse}},
+    )
+    def post_feasibility_advice(query: AdvisorRequest) -> AdvisorResponse:
+        return FeasibilityAdvisor(post_plan).advise(query)
+
+    @router.post(
+        "/v1/survey-quality",
+        response_model=SurveyQualityReport,
+        responses={422: {"model": ErrorResponse}},
+    )
+    def post_survey_quality(query: SurveyQualityRequest) -> SurveyQualityReport:
+        return SurveyQualityAnalyzer().analyze(query.request, query.plan)
 
     @router.post(
         "/v1/turn-radius-analysis",

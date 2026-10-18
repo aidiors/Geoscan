@@ -1,5 +1,46 @@
 import type { Coordinate } from "@/shared/geo/types";
 
+export interface SensorProfile {
+  sensor_id: string;
+  name: string;
+  sensor_width_mm: number;
+  sensor_height_mm: number;
+  focal_length_mm: number;
+  image_width_px: number;
+  image_height_px: number;
+  minimum_trigger_interval_s: number;
+}
+
+export interface SurveyQualityReport {
+  status: "checked" | "issues" | "partial" | "not_evaluated";
+  frame_count: number;
+  covered_percent: number | null;
+  maximum_gsd_cm: number | null;
+  minimum_forward_overlap_percent: number | null;
+  minimum_side_overlap_percent: number | null;
+  minimum_capture_interval_s: number | null;
+  cross_sortie_pairs_checked: number;
+  issues: string[];
+  assumptions: string[];
+  features: Array<{ type: "Feature"; properties: { kind: string }; geometry: {
+    type: "Polygon" | "MultiPolygon"; coordinates: number[][][] | number[][][][];
+  } }>;
+}
+
+export interface AdvisorResponse {
+  baseline: PlanResponse | null;
+  baseline_error: string | null;
+  message: string;
+  variants: Array<{
+    label: string;
+    status: "verified" | "not_found" | "error";
+    explanation: string;
+    changed_parameters: string[];
+    request: PlanRequest;
+    plan: PlanResponse | null;
+  }>;
+}
+
 export interface PayloadCapability {
   payload_id: string;
   name: string;
@@ -71,6 +112,9 @@ export interface MissionStage {
 }
 
 export interface Mission {
+  sensor?: SensorProfile | null;
+  camera_trigger_spacing_m?: number | null;
+  minimum_turn_radius_m?: number;
   drone_id: string;
   segment_id: string;
   duration_minutes: number;
@@ -210,6 +254,7 @@ export interface PlanResponse {
     total_flight_minutes: number;
     active_drone_count: number;
     survey_turn_radius_m: number;
+    turn_radii_by_drone?: Record<string, number>;
     coverage_angle_cost: "geometric_distance" | "wind_adjusted_duration";
     coverage_reference_airspeed_kmh: number | null;
     assignment_search?: {
@@ -298,6 +343,8 @@ export interface PlanResponse {
 export interface PlanRequest {
   criterion: OptimizationCriterion;
   drones: Array<{
+    installed_sensor?: SensorProfile | null;
+    minimum_turn_radius_m?: number;
     drone_id: string;
     name: string;
     cruise_speed_kmh: number;

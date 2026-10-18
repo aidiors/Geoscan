@@ -2,6 +2,7 @@ import { BatteryCharging, Database, ShieldCheck, Wind } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { scenarios } from "@/features/demos/data/scenarios";
+import { InstalledCameraFields } from "@/features/planner/ui/InstalledCameraFields";
 import type { AirframeType, AutopilotFirmware, ImportedZone, MissionTask, ZoneType } from "@/shared/api/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
 
@@ -247,6 +248,17 @@ export function ControlsPanel(props: ControlsPanelProps) {
               <span>Использовать в расчёте</span>
             </label>
             <label>Название<input value={selectedDrone.name} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { name: event.target.value })} /></label>
+            <NumberField label="Радиус разворота этого БВС, м" value={selectedDrone.minimumTurnRadius ?? 0} min={0} max={10000} onChange={(minimumTurnRadius) => props.onUpdateDrone(selectedDrone.id, { minimumTurnRadius })} />
+            <label className="checkbox-row">
+              <input type="checkbox" checked={selectedDrone.installedSensor != null} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { installedSensor: event.target.checked ? {
+                sensor_id: `camera-${selectedDrone.id}`, name: `Камера ${selectedDrone.name}`,
+                sensor_width_mm: props.survey.sensorWidth, sensor_height_mm: props.survey.sensorHeight,
+                focal_length_mm: props.survey.focalLength, image_width_px: props.survey.imageWidth,
+                image_height_px: props.survey.imageHeight, minimum_trigger_interval_s: props.survey.triggerInterval,
+              } : null })} />
+              <span>Отдельная установленная камера</span>
+            </label>
+            {selectedDrone.installedSensor && <InstalledCameraFields sensor={selectedDrone.installedSensor} onChange={(installedSensor) => props.onUpdateDrone(selectedDrone.id, { installedSensor })} />}
             <div className="field-grid">
               <NumberField label="Текущий заряд, %" value={selectedDrone.battery} min={1} max={100} onChange={(battery) => props.onUpdateDrone(selectedDrone.id, { battery })} />
               <NumberField label="Состояние АКБ, %" value={selectedDrone.batteryHealth} min={1} max={100} onChange={(batteryHealth) => props.onUpdateDrone(selectedDrone.id, { batteryHealth })} />

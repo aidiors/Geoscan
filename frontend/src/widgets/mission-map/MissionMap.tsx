@@ -14,8 +14,10 @@ import type { MapSize } from "@/shared/geo/map";
 import type { Coordinate, MapView, Point } from "@/shared/geo/types";
 import type { DroneProfile, FlightSiteState, SiteRole } from "@/features/planner/model/types";
 import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/shared/api/types";
+import type { SurveyQualityReport } from "@/shared/api/types";
 
 interface MissionMapProps {
+  quality?: SurveyQualityReport | null;
   zones: ImportedZone[];
   sites: FlightSiteState[];
   drones: DroneProfile[];
@@ -45,6 +47,7 @@ const siteLabels: Record<SiteRole, string> = {
 };
 
 export function MissionMap({
+  quality,
   zones,
   sites,
   drones,
@@ -158,6 +161,21 @@ export function MissionMap({
           </g>
           <g className="zone-layer">
             {zones.slice(0, 1_600).map((zone) => <ZoneShape key={zone.zone_id} zone={zone} view={view} mapSize={mapSize} />)}
+          </g>
+          <g className="quality-layer" pointerEvents="none">
+            {quality?.features.flatMap((feature, index) => {
+              const polygons = feature.geometry.type === "Polygon"
+                ? [feature.geometry.coordinates as number[][][]]
+                : feature.geometry.coordinates as number[][][][];
+              const color = feature.properties.kind === "footprint" ? "#0d9488" : "#dc2626";
+              return polygons.map((polygon, part) => <path key={`quality-${index}-${part}`} fill={color} fillOpacity={feature.properties.kind === "footprint" ? 0.08 : 0.4} stroke={color} strokeWidth={0.7} fillRule="evenodd"
+                d={polygon.map((ring) => ring.map(([longitude, latitude], i) => {
+                  const point = coordinateToMapPoint({ longitude, latitude }, view, mapSize);
+                  return `${i === 0 ? "M" : "L"}${point.x},${point.y}`;
+                }).join(" ") + " Z").join(" ")}>
+                <title>{feature.properties.kind === "footprint" ? "Плановый отпечаток кадра" : feature.properties.kind === "coverage_gap" ? "Пробел покрытия кадрами" : feature.properties.kind.includes("overlap") ? "Недостаточное перекрытие" : "Нарушение GSD"}</title>
+              </path>);
+            })}
           </g>
           <g className="route-layer" fill="none" strokeLinecap="round" strokeLinejoin="round">
             {plan?.drone_plans.flatMap((dronePlan) => {

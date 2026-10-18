@@ -13,6 +13,8 @@ import { defaultSurvey, planningSettings } from "@/features/planner/model/defaul
 import type { SavedScenario } from "@/features/planner/storage/scenario";
 import { migrateLegacyDroneProfile, normalizeDroneProfile } from "@/features/planner/storage/scenario";
 import { errorMessage } from "@/shared/api/errorMessage";
+import { useMissionInsights } from "@/features/planner/model/useMissionInsights";
+import type { PlanRequest } from "@/shared/api/types";
 
 export function usePlanner() {
   const initialScenario = scenarios[0];
@@ -29,6 +31,8 @@ export function usePlanner() {
   const [survey, setSurvey] = useState<SurveySettings>(defaultSurvey);
   const [settings, setSettings] = useState<PlanningSettings>(() => planningSettings(initialScenario.altitude));
   const [plan, setPlan] = useState<PlanResponse | null>(null);
+  const [lastRequest, setLastRequest] = useState<PlanRequest | null>(null);
+  const planRevision = useRef(0);
   const [radiusAnalysis, setRadiusAnalysis] = useState<TurnRadiusAnalysisResult | null>(null);
   const [analyzingRadii, setAnalyzingRadii] = useState(false);
   const radiusAnalysisRevision = useRef(0);
@@ -38,6 +42,7 @@ export function usePlanner() {
   const [calculating, setCalculating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const insights = useMissionInsights(lastRequest, plan, setStatus);
 
   const scenario = scenarios.find((candidate) => candidate.id === scenarioId) ?? initialScenario;
   const mapZones = useMemo(() => {
@@ -48,6 +53,8 @@ export function usePlanner() {
 
 
   function invalidate(nextStatus: string): void {
+    planRevision.current += 1;
+    setLastRequest(null);
     radiusAnalysisRevision.current += 1;
     setPlan(null);
     setRadiusAnalysis(null);
@@ -225,10 +232,14 @@ export function usePlanner() {
     request: ReturnType<typeof buildPlanRequest>,
     preferredDroneId: string,
   ): Promise<void> {
+    const version = ++planRevision.current;
+    setLastRequest(request);
+    setPlan(null);
     try {
       setCalculating(true);
       setStatus("Выполняется оптимизация маршрутов…");
       const result = await createPlan(request);
+      if (version !== planRevision.current) return;
       setPlan(result);
       setRevision((current) => current + 1);
       const active = result.drone_plans.find((dronePlan) => dronePlan.mission_count > 0);
@@ -237,10 +248,33 @@ export function usePlanner() {
       }
       setStatus("План рассчитан сервером");
     } catch (error: unknown) {
-      setStatus(errorMessage(error));
+      if (version === planRevision.current) setStatus(errorMessage(error));
     } finally {
       setCalculating(false);
     }
+  }
+
+  async function handleAdvise(allowAltitudeChange = false): Promise<void> {
+    try {
+      const request = lastRequest ?? buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings);
+      setLastRequest(request);
+      await insights.advise(request, allowAltitudeChange);
+    } catch (error) { setStatus(errorMessage(error)); }
+  }
+
+  function handleApplyAdvice(index: number): void {
+    const variant = insights.advice?.variants[index];
+    if (!variant || variant.status !== "verified" || !variant.plan) return;
+    planRevision.current += 1;
+    setLastRequest(variant.request);
+    setPlan(variant.plan);
+    setObjective(variant.request.criterion === "completion_time" ? "time" : variant.request.criterion === "balanced" ? "balanced" : "flight");
+    setSettings((current) => ({ ...current, altitude: variant.request.mission_altitude_m,
+      deadline: variant.request.completion_deadline_minutes?.toString() ?? "",
+      maximumActiveDrones: variant.request.maximum_active_drones?.toString() ?? "" }));
+    setRadiusAnalysis(null);
+    setRevision((current) => current + 1);
+    setStatus(`Применён вариант: ${variant.label}`);
   }
 
   async function handleCalculate(): Promise<void> {
@@ -408,6 +442,10 @@ export function usePlanner() {
   }
 
   return {
+    insights,
+    handleAdvise,
+    handleApplyAdvice,
+    canInspectQuality: lastRequest !== null && plan !== null,
     scenarioId,
     demoCaseId,
     showcaseOpen,

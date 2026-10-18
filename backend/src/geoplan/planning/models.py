@@ -108,7 +108,9 @@ class PlanRequest(BaseModel):
                 "Ограничения AGL требуют режима задания AGL и данных рельефа; "
                 "direct comparison with MSL is not permitted."
             )
-        if self.minimum_turn_radius_m > 0 and self.segments:
+        if (
+            self.minimum_turn_radius_m > 0 or any(d.minimum_turn_radius_m > 0 for d in self.drones)
+        ) and self.segments:
             raise ValueError("Радиус разворота поддерживается для генерируемых галсов.")
         if self.maximum_active_drones is not None and self.maximum_active_drones > len(self.drones):
             raise ValueError("Ограничение числа БВС превышает размер доступного парка.")
@@ -217,6 +219,7 @@ class OptimizationSummary(BaseModel):
     total_flight_minutes: float = Field(ge=0)
     active_drone_count: int = Field(gt=0)
     survey_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
+    turn_radii_by_drone: dict[str, float] = Field(default_factory=dict)
     coverage_angle_cost: CoverageAngleCost = CoverageAngleCost.GEOMETRIC_DISTANCE
     coverage_reference_airspeed_kmh: float | None = Field(default=None, gt=0, le=300)
     productive_routing: ProductiveRoutingSummary | None = None

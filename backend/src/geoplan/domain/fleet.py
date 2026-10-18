@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from geoplan.domain.enums import AirframeType, AltitudeReference, AutopilotFirmware, MissionTask
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.survey import SensorProfile
 
 
 class AutopilotProfile(BaseModel):
@@ -24,6 +25,8 @@ class PayloadCapability(BaseModel):
 
 class DroneSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
+    installed_sensor: SensorProfile | None = None
+    minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
 
     drone_id: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=128)

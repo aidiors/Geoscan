@@ -16,7 +16,13 @@ class SurveyResolution:
         if mission.altitude_reference is AltitudeReference.AGL and not mission.vertical_profile:
             height = mission.altitude_m
         return (
-            height * sensor.sensor_width_mm / sensor.focal_length_mm / sensor.image_width_px * 100
+            height
+            / sensor.focal_length_mm
+            * max(
+                sensor.sensor_width_mm / sensor.image_width_px,
+                sensor.sensor_height_mm / sensor.image_height_px,
+            )
+            * 100
         )
 
     def allows(self, mission: Mission, sensor: SensorProfile, maximum_gsd_cm: float) -> bool:

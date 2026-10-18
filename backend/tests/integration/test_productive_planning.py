@@ -31,6 +31,27 @@ class FixedTrackOnly:
         return baseline
 
 
+def test_curved_productive_groups_keep_survey_edges_and_pass_real_audit():
+    request = survey_request(minimum_turn_radius_m=40)
+    dependencies = replace(create_default_dependencies(), freeform_optimizer=FixedTrackOnly())
+    baseline = post_plan(request.model_copy(update={"productive_routing": False}), dependencies)
+    plan = post_plan(request, dependencies)
+    assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
+    assert plan.optimization is not None and plan.optimization.productive_routing is not None
+    assert plan.optimization.productive_routing.evaluated_variants > 0
+    assert scheduled_plan_objective(request, plan) <= scheduled_plan_objective(request, baseline)
+    assert plan.optimization.survey_turn_radius_m == 40
+    assert plan.metrics.sortie_count < baseline.metrics.sortie_count
+    for drone in plan.drone_plans:
+        for mission in drone.missions:
+            assert mission.route_leg_durations_minutes is not None
+            assert all(
+                len(stage.coordinates) == 2
+                for stage in mission.stages
+                if stage.stage_type is MissionStageType.SURVEY
+            )
+
+
 def test_route_pool_is_injected_through_http_composition():
     class EmptyPool:
         def __init__(self):

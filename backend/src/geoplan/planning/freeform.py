@@ -117,6 +117,7 @@ class AuditedFreeformRouteOptimizer:
             or request.survey_parameters is None
             or not source
             or request.minimum_turn_radius_m > 0
+            or any(d.minimum_turn_radius_m > 0 or d.installed_sensor is not None for d in drones)
             or request.task is not MissionTask.RGB
             or request.altitude_reference is not AltitudeReference.MSL
             or request.terrain_elevation_samples

@@ -90,7 +90,7 @@ def _vertical_layer_is_feasible(
 ) -> bool:
     survey = request.survey_parameters
     if survey is not None and not SurveyResolution().allows(
-        mission, survey.sensor, survey.maximum_gsd_cm
+        mission, mission.sensor or survey.sensor, survey.maximum_gsd_cm
     ):
         return False
     drone = next(drone for drone in request.drones if drone.drone_id == mission.drone_id)

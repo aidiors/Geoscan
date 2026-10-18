@@ -132,6 +132,8 @@ export function buildPlanRequest(
       maximum_control_range_km: drone.maximumControlRange ?? null,
       minimum_turnaround_minutes: drone.minimumTurnaroundMinutes ?? 0,
       payloads: drone.payloads ?? [],
+      installed_sensor: drone.installedSensor ?? null,
+      minimum_turn_radius_m: drone.minimumTurnRadius ?? 0,
     })),
     segments: scenario.segments,
     coverage_areas: workAreas.map((zone) => ({

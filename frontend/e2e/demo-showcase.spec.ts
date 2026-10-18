@@ -58,3 +58,36 @@ test("shows an actionable refusal for unsafe weather", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText(/ветер|ветра|БВС/i, { timeout: 120_000 });
   await expect(page.getByRole("heading", { name: "Ожидает расчёта" })).toBeVisible();
 });
+
+test("inspects real frame footprints and applies a replanned deadline alternative", async ({ page }, testInfo) => {
+  await page.goto("/");
+  const area = { type: "FeatureCollection", features: [{ type: "Feature",
+    properties: { name: "Quality test field" },
+    geometry: { type: "Polygon", coordinates: [[[37.394, 55.692], [37.406, 55.692], [37.406, 55.696], [37.394, 55.696], [37.394, 55.692]]] },
+  }] };
+  await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name: "quality-field.geojson", mimeType: "application/geo+json", buffer: Buffer.from(JSON.stringify(area)) });
+  const imported = page.waitForResponse((response) => response.url().endsWith("/v1/imports/geojson"));
+  await page.getByRole("button", { name: "Импортировать зону" }).click();
+  expect((await imported).status()).toBe(200);
+  await page.getByLabel("Срок, мин", { exact: true }).fill("1");
+  await page.getByRole("button", { name: /Рассчитать план/ }).click();
+  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  const qualityResponse = page.waitForResponse((response) => response.url().endsWith("/v1/survey-quality"));
+  await page.getByRole("button", { name: "Проверить отпечатки кадров" }).click();
+  const quality = await (await qualityResponse).json();
+  expect(quality.frame_count).toBeGreaterThan(0);
+  expect(quality.covered_percent).toBeGreaterThan(99);
+  await expect(page.getByText(/Кадров:/)).toBeVisible();
+  await expect(page.locator(".quality-layer path").first()).toBeAttached();
+  await page.screenshot({ path: testInfo.outputPath("survey-quality.png"), fullPage: true });
+
+  const adviceResponse = page.waitForResponse((response) => response.url().endsWith("/v1/feasibility-advice"));
+  await page.getByRole("button", { name: "Подобрать условия выполнения" }).click();
+  const advice = await (await adviceResponse).json();
+  const verified = advice.variants.find((variant: { status: string }) => variant.status === "verified");
+  expect(verified).toBeTruthy();
+  await page.getByRole("button", { name: "Применить проверенный вариант" }).first().click();
+  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByLabel("Срок, мин", { exact: true })).toHaveValue(String(verified.request.completion_deadline_minutes));
+  await expect(page.getByRole("button", { name: /GeoJSON/ })).toBeEnabled();
+});

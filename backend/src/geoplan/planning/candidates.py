@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from math import floor
+
 from geoplan.assignment.models import MissionAssignmentCandidate
 from geoplan.coverage.models import WorkSegment
+from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import NoFlyZone
 from geoplan.domain.diagnostics import FeasibilityRecommendation
 from geoplan.domain.enums import (
@@ -17,6 +20,7 @@ from geoplan.errors import PlanningError
 from geoplan.flight.duration import MissionDurationCalculator
 from geoplan.flight.emergency import FlightPhase, _evaluate_emergency_reachability
 from geoplan.flight.energy import _battery_use_percent, _effective_endurance_minutes
+from geoplan.flight.envelope import HorizontalAirspeedEnvelope
 from geoplan.flight.models import MissionDurationRequest
 from geoplan.flight.sites import _eligible_departure_sites, _eligible_landing_sites
 from geoplan.flight.terrain import VerticalProfilePlanner
@@ -39,6 +43,7 @@ from geoplan.planning.routes import (
     _optimize_route,
     _validate_geometry,
 )
+from geoplan.planning.survey_adapter import MissionSurveyAdapter
 from geoplan.planning.survey_phases import survey_edge_mask, survey_flight_phases, survey_stages
 
 
@@ -110,6 +115,7 @@ def _candidate_evaluation(
     constraints: list[NoFlyZone],
 ) -> tuple[MissionCandidate | None, PlanningError | None]:
     try:
+        segment, request = MissionSurveyAdapter(transition_planner).prepare(segment, drone, request)
         candidate = _create_candidate(
             segment,
             drone,
@@ -120,6 +126,15 @@ def _candidate_evaluation(
             vertical_profile_planner,
             constraints,
         )
+        if request.survey_parameters is not None and not SurveyResolution().allows(
+            candidate.mission,
+            request.survey_parameters.sensor,
+            request.survey_parameters.maximum_gsd_cm,
+        ):
+            raise PlanningError(
+                code=ErrorCode.GSD_REQUIREMENT_UNSATISFIED,
+                message=f"Камера БВС {drone.drone_id} не обеспечивает требуемый GSD.",
+            )
     except PlanningError as error:
         return None, error
     return candidate, None
@@ -253,7 +268,19 @@ def _create_candidate(
         survey_duration_minutes=service_minutes,
         transit_duration_minutes=estimate.precise_duration_minutes - service_minutes,
         useful_flight_percent=round(service_distance / optimized.total_distance_km * 100, 2),
-        image_count=segment.image_count,
+        image_count=(
+            sum(
+                floor((route_distance_km(s.coordinates) * 1000 + 1e-7) / segment.trigger_spacing_m)
+                + 1
+                for s in internal_stages
+                if s.stage_type is MissionStageType.SURVEY
+            )
+            if segment.trigger_spacing_m is not None
+            else segment.image_count
+        ),
+        sensor=request.survey_parameters.sensor if request.survey_parameters else None,
+        camera_trigger_spacing_m=segment.trigger_spacing_m,
+        minimum_turn_radius_m=request.minimum_turn_radius_m,
         computed_gsd_cm=segment.computed_gsd_cm,
         strip_spacing_m=segment.strip_spacing_m,
         flight_direction_degrees=segment.flight_direction_degrees,
@@ -289,6 +316,23 @@ def _create_candidate(
             ),
         ],
     )
+    if drone.minimum_cruise_speed_kmh is not None or drone.maximum_cruise_speed_kmh is not None:
+        envelope = HorizontalAirspeedEnvelope().range_kmh(mission, request.wind)
+        if (
+            envelope is None
+            or (
+                drone.minimum_cruise_speed_kmh is not None
+                and envelope[0] < drone.minimum_cruise_speed_kmh - 0.05
+            )
+            or (
+                drone.maximum_cruise_speed_kmh is not None
+                and envelope[1] > drone.maximum_cruise_speed_kmh + 0.05
+            )
+        ):
+            raise PlanningError(
+                code=ErrorCode.FLIGHT_ENVELOPE_EXCEEDED,
+                message=f"Недопустимая воздушная скорость для камеры БВС {drone.drone_id}.",
+            )
     return MissionCandidate(drone=drone, mission=mission)
 
 

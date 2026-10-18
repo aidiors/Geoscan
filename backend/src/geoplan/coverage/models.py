@@ -8,6 +8,7 @@ from geoplan.domain.airspace import NoFlyZone
 from geoplan.domain.enums import SweepAngleAlgorithm, SweepDirectionMode
 from geoplan.domain.environment import WindCondition
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.survey import SensorProfile as SensorProfile
 
 
 class WorkSegment(BaseModel):
@@ -22,6 +23,7 @@ class WorkSegment(BaseModel):
     computed_gsd_cm: float | None = Field(default=None, gt=0)
     strip_spacing_m: float | None = Field(default=None, gt=0)
     survey_speed_limit_kmh: float | None = Field(default=None, gt=0)
+    trigger_spacing_m: float | None = Field(default=None, gt=0)
     flight_direction_degrees: float | None = Field(default=None, ge=0, lt=180)
     survey_tracks: list[tuple[Coordinate, Coordinate]] | None = Field(
         default=None, min_length=1, max_length=5_000
@@ -36,19 +38,6 @@ class CoverageArea(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     coordinates: list[Coordinate] = Field(min_length=3, max_length=100_000)
     interior_rings: list[list[Coordinate]] = Field(default_factory=list, max_length=1_000)
-
-
-class SensorProfile(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    sensor_id: str = Field(min_length=1, max_length=64)
-    name: str = Field(min_length=1, max_length=128)
-    sensor_width_mm: float = Field(gt=0, le=200)
-    sensor_height_mm: float = Field(gt=0, le=200)
-    focal_length_mm: float = Field(gt=0, le=1_000)
-    image_width_px: int = Field(gt=0, le=200_000)
-    image_height_px: int = Field(gt=0, le=200_000)
-    minimum_trigger_interval_s: float = Field(gt=0, le=120)
 
 
 class SurveyParameters(BaseModel):
