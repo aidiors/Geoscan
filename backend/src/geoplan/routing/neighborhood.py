@@ -18,6 +18,7 @@ class SortieNeighborhoodSearch:
     maximum_results: int = 2
     adaptive: bool = False
     random_seed: int = 0
+    exchange_original_objective: bool = False
 
     def improve(
         self,
@@ -37,6 +38,21 @@ class SortieNeighborhoodSearch:
 
         def score(solution):
             return model.score(solution, search_objective=search_objective)
+
+        def retain(values: list[Solution]) -> list[Solution]:
+            ranked = sorted(values, key=score)
+            if not self.exchange_original_objective or self.maximum_results < 3:
+                return ranked[: self.maximum_results]
+            # Keep the two guide-objective leaders and the best original-objective
+            # exchange. Further auxiliary improvement must not discard a useful
+            # intermediate grouping just because it has more total flight time.
+            selected = ranked[:2]
+            for candidate in sorted(values, key=model.score):
+                if candidate not in selected:
+                    selected.append(candidate)
+                if len(selected) >= self.maximum_results:
+                    break
+            return selected
 
         # Every iteration destroys two whole sorties and reconstructs their
         # boundaries and orientations. Other sorties keep their track groups.
@@ -92,16 +108,20 @@ class SortieNeighborhoodSearch:
                     current = candidate
                     if candidate not in results:
                         results.append(candidate)
+                    if self.exchange_original_objective:
+                        exchanged = assign_trips(model, candidate, deadline, maximum_active_drones)
+                        if exchanged and exchanged not in results:
+                            results.append(exchanged)
             selection.reward(operator, improved=improved, feasible=feasible)
             if improved:
                 model.neighborhood_operator_improvements[operator] = (
                     model.neighborhood_operator_improvements.get(operator, 0) + 1
                 )
             if self.adaptive:
-                results = sorted(results, key=score)[: self.maximum_results]
+                results = retain(results)
             elif len(results) >= self.maximum_results:
                 break
-        return sorted(results, key=score)[: self.maximum_results]
+        return retain(results)
 
     @staticmethod
     def _priority(model, trip, iteration):

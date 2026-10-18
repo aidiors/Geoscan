@@ -66,7 +66,15 @@ class ProductiveRoutePool:
         if not pool or self.cross_objective_seconds <= 0 or len(pool) >= self.maximum_candidates:
             return RoutePoolBatch(primary=original)
         auxiliary = self.cross_objective_candidates.guidance(model, pool)
-        alternatives = primary._generate_for(
+        exchange_pool = replace(
+            primary,
+            maximum_candidates=primary.maximum_candidates + 2,
+            maximum_neighborhood_candidates=max(3, primary.maximum_neighborhood_candidates),
+            adaptive_neighborhood_search=replace(
+                primary.adaptive_neighborhood_search, exchange_original_objective=True
+            ),
+        )
+        alternatives = exchange_pool._generate_for(
             model,
             maximum_active_drones,
             auxiliary,

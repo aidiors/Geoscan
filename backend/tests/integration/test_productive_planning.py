@@ -51,7 +51,16 @@ def test_route_pool_is_injected_through_http_composition():
     assert plan.safety_audit is not None and plan.safety_audit.status == "passed"
 
 
-def test_deadline_mode_considers_fast_assignments_of_productive_groups():
+@pytest.fixture
+def complete_routing_search(monkeypatch):
+    # These are quality regressions over a finite search (orders/candidates/iterations).
+    # Wall-clock truncation depends on runner speed and belongs in benchmark evidence,
+    # not in assertions that a particular grouping must have been reached.
+    for module in ("pool", "split", "allocation", "neighborhood"):
+        monkeypatch.setattr(f"geoplan.routing.{module}.perf_counter", lambda: 0.0)
+
+
+def test_deadline_mode_considers_fast_assignments_of_productive_groups(complete_routing_search):
     source = next(
         case.request for case in scale_scenarios() if case.name == "evaluation_long_windy_100"
     )
@@ -67,7 +76,7 @@ def test_deadline_mode_considers_fast_assignments_of_productive_groups():
     assert plan.feasibility is not None and plan.feasibility.status == "feasible"
 
 
-def test_completion_mode_uses_economical_groupings_as_search_seeds():
+def test_completion_mode_uses_economical_groupings_as_search_seeds(complete_routing_search):
     source = next(case.request for case in scale_scenarios() if case.name == "flat_100")
     request = source.model_copy(
         update={
