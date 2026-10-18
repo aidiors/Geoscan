@@ -39,6 +39,12 @@ export function buildPlanRequest(
   if (enabledDrones.length === 0) {
     throw new Error("Включите хотя бы один БВС.");
   }
+  for (const drone of enabledDrones) {
+    const sets = drone.availableBatterySets;
+    if (sets != null && (!Number.isInteger(sets) || sets < 0 || sets > 10000)) {
+      throw new Error(`${drone.name}: число готовых комплектов АКБ должно быть целым от 0 до 10 000.`);
+    }
+  }
   const departureSites = sites.filter((flightSite) => flightSite.role === "takeoff");
   const landingSites = sites.filter((flightSite) => flightSite.role === "landing");
   const alternateSites = sites.filter((flightSite) => flightSite.role === "alternate");
@@ -104,6 +110,7 @@ export function buildPlanRequest(
       cruise_speed_kmh: drone.speed,
       maximum_flight_minutes: drone.flightMinutes,
       initial_charge_percent: drone.battery,
+      available_battery_sets: drone.availableBatterySets ?? null,
       battery_health_percent: drone.batteryHealth,
       energy_consumption_multiplier: drone.energyConsumptionMultiplier,
       battery_reserve_percent: drone.reserve,

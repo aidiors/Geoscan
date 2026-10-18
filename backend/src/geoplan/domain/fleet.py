@@ -23,9 +23,27 @@ class PayloadCapability(BaseModel):
     supported_tasks: list[MissionTask] = Field(min_length=1, max_length=16)
 
 
+class DroneResourceLimit(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    maximum_sorties: int | None = Field(default=None, ge=0)
+    maximum_flight_minutes: float | None = Field(default=None, ge=0)
+
+    @property
+    def is_bounded(self) -> bool:
+        return self.maximum_sorties is not None or self.maximum_flight_minutes is not None
+
+    def allows(self, sorties: int, flight_minutes: float) -> bool:
+        return (self.maximum_sorties is None or sorties <= self.maximum_sorties) and (
+            self.maximum_flight_minutes is None
+            or flight_minutes <= self.maximum_flight_minutes + 1e-9
+        )
+
+
 class DroneSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
     installed_sensor: SensorProfile | None = None
+    available_battery_sets: int | None = Field(default=None, ge=0, le=10_000)
     minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
 
     drone_id: str = Field(min_length=1, max_length=64)
@@ -120,6 +138,24 @@ class DroneSpec(BaseModel):
             else self.minimum_mission_altitude_msl_m
         )
         return specific if specific is not None else self.minimum_mission_altitude_m
+
+    def resource_limit(self) -> DroneResourceLimit:
+        sortie_limits = []
+        if self.available_battery_sets is not None:
+            sortie_limits.append(self.available_battery_sets)
+        if self.maintenance_interval_flights is not None:
+            sortie_limits.append(
+                max(0, self.maintenance_interval_flights - self.completed_flights_since_maintenance)
+            )
+        remaining_minutes = (
+            max(0, self.maintenance_interval_hours - self.flight_hours_since_maintenance) * 60
+            if self.maintenance_interval_hours is not None
+            else None
+        )
+        return DroneResourceLimit(
+            maximum_sorties=min(sortie_limits) if sortie_limits else None,
+            maximum_flight_minutes=remaining_minutes,
+        )
 
     def maximum_altitude_for(self, reference: AltitudeReference) -> float | None:
         specific = (

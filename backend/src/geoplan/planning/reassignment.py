@@ -49,6 +49,9 @@ def improve_regrouped_assignment(
                 return best, checked
             groups.append(group)
         problem = AssignmentOptimizationRequest(
+            resource_limits_by_drone={
+                d.drone_id: limit for d in drones if (limit := d.resource_limit()).is_bounded
+            },
             criterion=request.criterion,
             optimization_mode=request.optimization_mode,
             drone_ids=[d.drone_id for d in drones],

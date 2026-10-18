@@ -34,6 +34,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
   airspace_compliance: "Воздушное пространство",
   alternate_reserve: "Резервный аэродром",
   battery_reserve: "Резерв АКБ",
+  fleet_resources: "Комплекты АКБ и ресурс до ТО",
   coverage_completeness: "Полнота покрытия",
   drone_separation: "Разведение БВС",
   export_consistency: "Экспорт маршрута",
@@ -178,6 +179,12 @@ export function ResultsPanel({
       <div className="mission-list">
         {plan?.drone_plans.map((dronePlan) => {
           const drone = drones.find((candidate) => candidate.id === dronePlan.drone_id);
+          if (dronePlan.mission_count === 0) return (
+            <button type="button" key={dronePlan.drone_id} className={`mission-card ${dronePlan.drone_id === selectedDroneId ? "active" : ""}`} onClick={() => onSelectDrone(dronePlan.drone_id)}>
+              <span className="mission-title"><Plane size={16} style={{ color: drone?.color }} /><b>{drone?.name ?? dronePlan.drone_id}</b><em>Не используется</em></span>
+              <span className="mission-details">Борт передан в расчёт; в итоговом плане вылеты не назначены.</span>
+            </button>
+          );
           const maximumBattery = Math.max(0, ...dronePlan.missions.map((mission) => mission.estimated_battery_percent));
           const minimumStartingBattery = Math.min(100, ...dronePlan.missions.map((mission) => mission.starting_battery_percent));
           const reserveMargins = dronePlan.missions
@@ -221,6 +228,8 @@ export function ResultsPanel({
               {terrainMissions.length > 0 && <span className="mission-details">AGL-профиль: рельеф до {format(maximumTerrain)} м MSL · вертикальный путь {format(verticalDistance)} м</span>}
               {maximumVerticalLayer > 0 && <span className="mission-details">Вертикальное эшелонирование: до +{format(maximumVerticalLayer)} м · набор/снижение {format(verticalPhaseMinutes)} мин включены в расписание и АКБ</span>}
               <span className="battery-bar"><i style={{ width: `${Math.min(maximumBattery, 100)}%`, background: drone?.color ?? "#6d28d9" }} /></span>
+              {drone?.availableBatterySets != null && <span className="mission-details">Готовые комплекты АКБ: {dronePlan.mission_count} / {drone.availableBatterySets} использовано</span>}
+              {dronePlan.maintenance && <span className="mission-details">{dronePlan.maintenance.message}</span>}
               {dronePlan.maintenance?.maintenance_due_after_plan && <span className="maintenance-warning">После плана требуется ТО</span>}
             </button>
           );

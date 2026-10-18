@@ -11,6 +11,7 @@ from typing import Protocol
 from geoplan.domain.airspace import NoFlyZone
 from geoplan.domain.enums import OptimizationCriterion
 from geoplan.domain.environment import WindCondition
+from geoplan.domain.fleet import DroneResourceLimit
 from geoplan.domain.geo import Coordinate
 from geoplan.flight.performance import ground_speed_kmh, route_duration_minutes
 from geoplan.navigation.routing import (
@@ -41,6 +42,7 @@ class Aircraft:
     landing: Coordinate | None = None
     survey_speed_kmh: float | None = None
     minimum_turn_radius_m: float = 0
+    resource_limit: DroneResourceLimit | None = None
 
     @property
     def landing_coordinate(self) -> Coordinate:
@@ -325,6 +327,8 @@ class CostModel[P: RoutingData]:
                 else 0
             )
             counts[trip.aircraft] += 1
+            if not self.resources_allow(trip.aircraft, counts[trip.aircraft], loads[trip.aircraft]):
+                return None
         total = sum(cost.total for cost in costs)
         deadhead = sum(cost.deadhead for cost in costs)
         return {
@@ -365,6 +369,10 @@ class CostModel[P: RoutingData]:
                     else 0
                 )
                 counts[trip.aircraft] += 1
+                if not self.resources_allow(
+                    trip.aircraft, counts[trip.aircraft], loads[trip.aircraft]
+                ):
+                    return (inf,)
             return self.objective(
                 total, deadhead, max(loads), sum(c > 0 for c in counts), criterion, search_objective
             )
@@ -379,6 +387,11 @@ class CostModel[P: RoutingData]:
             criterion,
             search_objective,
         )
+
+    def resources_allow(self, aircraft: int, sorties: int, load: float) -> bool:
+        plane = self.problem.aircraft[aircraft]
+        flight_minutes = load - max(0, sorties - 1) * plane.turnaround_minutes
+        return plane.resource_limit is None or plane.resource_limit.allows(sorties, flight_minutes)
 
     def objective(
         self,

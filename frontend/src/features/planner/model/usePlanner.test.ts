@@ -37,4 +37,25 @@ describe("planner workspace", () => {
     expect(result.current.plan).toBeNull();
     expect(result.current.status).toBe("Параметры парка изменены — требуется новый расчёт");
   });
+
+  it("adds a model batch and clones the selected aircraft without copying private site bindings", () => {
+    const { result } = renderHook(usePlanner);
+    act(() => result.current.handleAddDrone("201", 2));
+    expect(result.current.drones).toHaveLength(5);
+    const added = result.current.drones.slice(-2);
+    expect(added.every((drone) => drone.modelId === "201")).toBe(true);
+    act(() => result.current.handleUpdateDrone(added[0].id, { battery: 66 }));
+    act(() => result.current.setSelectedDroneId(added[0].id));
+    act(() => result.current.handleCloneDrone());
+    const copied = result.current.drones.at(-1)!;
+    expect(copied.battery).toBe(66);
+    expect(copied.id).not.toBe(added[0].id);
+    expect(result.current.selectedDroneId).toBe(copied.id);
+    expect(result.current.sites.some((site) => site.assignedDroneId === copied.id)).toBe(false);
+    act(() => result.current.saveScenario());
+    act(() => result.current.handleRemoveDrone());
+    act(() => result.current.loadScenario());
+    expect(result.current.drones.at(-1)?.modelId).toBe("201");
+    expect(result.current.drones.at(-1)?.id).toBe(copied.id);
+  });
 });

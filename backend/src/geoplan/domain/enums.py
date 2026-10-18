@@ -42,6 +42,7 @@ class SafetyAuditStatus(StrEnum):
 
 
 class SafetyCheckCode(StrEnum):
+    FLEET_RESOURCES = "fleet_resources"
     AIRSPACE_COMPLIANCE = "airspace_compliance"
     ALTERNATE_RESERVE = "alternate_reserve"
     BATTERY_RESERVE = "battery_reserve"

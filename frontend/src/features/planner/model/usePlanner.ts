@@ -1,10 +1,11 @@
+import { cloneFleet, fleetCatalog } from "./fleetCatalog";
 import { useMemo, useRef, useState } from "react";
 import { analyzeTurnRadii, createPlan } from "@/features/planner/api/client";
 import { exportMission } from "@/features/mission-export/api/exportMission";
 import { importGeodata } from "@/features/geodata/api/importGeodata";
 import { mergeZones } from "@/features/geodata/model/mergeZones";
 import { defaultDemoCaseForScenario, demoCaseById, demoCases } from "@/features/demos/data/demoCases";
-import { cloneFleet, cloneSites, scenarios } from "@/features/demos/data/scenarios";
+import { cloneSites, scenarios } from "@/features/demos/data/scenarios";
 import { activeNoFlyZones, activeWorkAreas, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
 import { radiusSamples } from "@/features/planner/model/radii";
 import type { Coordinate } from "@/shared/geo/types";
@@ -135,48 +136,24 @@ export function usePlanner() {
     invalidate("Параметры парка изменены — требуется новый расчёт");
   }
 
-  function handleAddDrone(): void {
-    const ordinal = drones.length + 1;
-    const id = `custom-${Date.now()}`;
-    setDrones((current) => [...current, {
-      id,
-      name: `БВС ${ordinal}`,
-      color: ["#0891b2", "#ea580c", "#4f46e5"][ordinal % 3],
-      battery: 100,
-      batteryHealth: 100,
-      energyConsumptionMultiplier: 1,
-      speed: 50,
-      flightMinutes: 60,
-      maxWind: 10,
-      reserve: 20,
-      enabled: true,
-      tasks: [task],
-      autopilotFirmware: "generic_mavlink",
-      airframeType: "generic_multirotor",
-      hoverSpeed: 5,
-      maintenanceFlights: null,
-      maintenanceHours: null,
-      completedFlights: 0,
-      accumulatedHours: 0,
-      maximumClimbRate: null,
-      maximumDescentRate: null,
-      minimumMissionAltitude: null,
-      maximumMissionAltitude: null,
-      minimumMissionAltitudeAgl: null,
-      maximumMissionAltitudeAgl: null,
-      minimumMissionAltitudeMsl: null,
-      maximumMissionAltitudeMsl: null,
-      minimumCruiseSpeed: null,
-      maximumCruiseSpeed: null,
-      maximumRouteDistance: null,
-      minimumOperatingTemperature: null,
-      maximumOperatingTemperature: null,
-      maximumControlRange: null,
-      minimumTurnaroundMinutes: 0,
-      payloads: [{ payload_id: `custom-${id}`, name: "Пользовательская нагрузка", supported_tasks: [task] }],
-    }]);
-    setSelectedDroneId(id);
-    invalidate("Новый БВС добавлен в парк");
+  function handleAddDrone(modelId = "custom", count = 1): void {
+    try {
+      const added = fleetCatalog.create(modelId, count, drones, task);
+      setDrones((current) => [...current, ...added]);
+      setSelectedDroneId(added[0].id);
+      invalidate(`Добавлено БВС: ${added.length}. Проверьте комплектацию и состояние каждого борта`);
+    } catch (error) { setStatus(errorMessage(error)); }
+  }
+
+  function handleCloneDrone(): void {
+    const source = drones.find((drone) => drone.id === selectedDroneId);
+    if (!source) return;
+    try {
+      const added = fleetCatalog.clone(source, drones);
+      setDrones((current) => [...current, added]);
+      setSelectedDroneId(added.id);
+      invalidate("Настройки скопированы. Уточните заряд, ресурс и площадки нового борта");
+    } catch (error) { setStatus(errorMessage(error)); }
   }
 
   function handleRemoveDrone(): void {
@@ -486,6 +463,7 @@ export function usePlanner() {
     handleTaskChange,
     handleUpdateDrone,
     handleAddDrone,
+    handleCloneDrone,
     handleRemoveDrone,
     handleAddSite,
     handleImport,

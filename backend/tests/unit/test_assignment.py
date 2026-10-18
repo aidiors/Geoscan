@@ -1,3 +1,7 @@
+from itertools import product
+
+import pytest
+
 from geoplan.assignment.models import AssignmentOptimizationRequest, MissionAssignmentCandidate
 from geoplan.assignment.neighborhood import AssignmentNeighborhoodSearch
 from geoplan.assignment.solver import HybridAssignmentOptimizer, _score
@@ -50,6 +54,52 @@ def candidate(
             estimated_battery_percent=20,
         ),
     )
+
+
+def test_ten_thousand_forced_assignments_do_not_consume_recursion_depth():
+    request = AssignmentOptimizationRequest(
+        criterion=OptimizationCriterion.COMPLETION_TIME,
+        drone_ids=["a"],
+        candidate_groups=[[candidate(str(i), "a", 1)] for i in range(10_000)],
+    )
+    result = HybridAssignmentOptimizer().optimize(request)
+    assert len(result.assignments) == 10_000
+    assert result.completion_minutes == 10_000
+    assert result.optimality is OptimalityStatus.PROVEN_OPTIMAL
+
+
+def test_forced_assignments_preserve_active_fleet_constraint():
+    request = AssignmentOptimizationRequest(
+        criterion=OptimizationCriterion.COMPLETION_TIME,
+        drone_ids=["a", "b"],
+        maximum_active_drones=1,
+        candidate_groups=[[candidate("one", "a", 1)], [candidate("two", "b", 1)]],
+    )
+    with pytest.raises(ValueError, match="допустимый набор"):
+        HybridAssignmentOptimizer().optimize(request)
+
+
+@pytest.mark.parametrize("criterion", list(OptimizationCriterion))
+def test_many_forced_tasks_and_real_choices_match_exhaustive_search(criterion):
+    groups = [[candidate(str(i), "a" if i % 2 else "b", 0.1)] for i in range(1100)]
+    groups += [
+        [candidate("choice-1", "a", 8), candidate("choice-1", "b", 10)],
+        [candidate("choice-2", "a", 6), candidate("choice-2", "b", 3)],
+    ]
+    request = AssignmentOptimizationRequest(
+        criterion=criterion,
+        drone_ids=["a", "b"],
+        candidate_groups=groups,
+        completion_deadline_minutes=120,
+        turnaround_minutes_by_drone={"a": 0.05, "b": 0.08},
+    )
+    expected = min(_score(request, [0] * 1100 + list(c)) for c in product(range(2), repeat=2))
+    result = HybridAssignmentOptimizer().optimize(request)
+    actual = [
+        next(i for i, c in enumerate(g) if c.drone_id == a.drone_id)
+        for g, a in zip(groups, result.assignments, strict=True)
+    ]
+    assert _score(request, actual) == pytest.approx(expected)
 
 
 def test_exact_optimizer_minimizes_completion_time() -> None:

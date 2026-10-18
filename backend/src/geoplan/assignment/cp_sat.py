@@ -7,7 +7,7 @@ integer model only; all reported costs are recomputed from original durations.
 """
 
 from dataclasses import dataclass
-from math import isfinite
+from math import ceil, floor, isfinite
 from time import perf_counter
 
 from ortools.sat.python import cp_model
@@ -58,6 +58,12 @@ def evaluate_assignment(
         counts[drone] += 1
         total += duration
     active = sum(count > 0 for count in counts.values())
+    for drone, limit in request.resource_limits_by_drone.items():
+        flight = loads[drone] - max(0, counts[drone] - 1) * request.turnaround_minutes_by_drone.get(
+            drone, 0
+        )
+        if not limit.allows(counts[drone], flight):
+            raise ValueError("Aircraft resource limit exceeded")
     if active > (request.maximum_active_drones or len(request.drone_ids)):
         raise ValueError("Active fleet limit exceeded")
     completion = max(loads.values())
@@ -175,6 +181,20 @@ class CpSatAssignmentSolver:
             ]
             used = model.new_bool_var(f"used_{drone}")
             count = sum(variable for variable, _ in terms)
+            limit = request.resource_limits_by_drone.get(drone)
+            if limit is not None:
+                if limit.maximum_sorties is not None:
+                    model.add(count <= limit.maximum_sorties)
+                if limit.maximum_flight_minutes is not None:
+                    # Round consumption up and capacity down: never manufacture
+                    # usable service life through integer-time quantization.
+                    flight_terms = [
+                        selections[i][j] * ceil(candidate.mission.duration_minutes * scale)
+                        for i, group in enumerate(request.candidate_groups)
+                        for j, candidate in enumerate(group)
+                        if candidate.drone_id == drone
+                    ]
+                    model.add(sum(flight_terms) <= floor(limit.maximum_flight_minutes * scale))
             model.add(count >= used)
             model.add(count <= len(selections) * used)
             load = model.new_int_var(0, horizon, f"load_{drone}")

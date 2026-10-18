@@ -84,6 +84,7 @@ class IndependentPlanSafetyAuditor:
             _drone_separation_check(request, missions),
             _vertical_separation_check(request, missions),
             _battery_reserve_check(request, missions),
+            _fleet_resources_check(request, missions),
             _alternate_reserve_check(request, missions),
             _vertical_profile_check(request, missions),
             _coverage_check(request, segments, missions),
@@ -102,6 +103,39 @@ class IndependentPlanSafetyAuditor:
             checks=checks,
             assumptions=_audit_assumptions(request),
         )
+
+
+def _fleet_resources_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
+    if not any(
+        d.available_battery_sets is not None
+        or d.maintenance_interval_flights is not None
+        or d.maintenance_interval_hours is not None
+        for d in request.drones
+    ):
+        return _not_applicable(
+            SafetyCheckCode.FLEET_RESOURCES,
+            "Конечные запасы комплектов АКБ и межсервисные лимиты не заданы.",
+        )
+    counts = dict.fromkeys((d.drone_id for d in request.drones), 0)
+    minutes = dict.fromkeys(counts, 0.0)
+    for mission in missions:
+        counts[mission.drone_id] += 1
+        minutes[mission.drone_id] += mission.duration_minutes
+    failed = [
+        d.drone_id
+        for d in request.drones
+        if not d.resource_limit().allows(counts[d.drone_id], minutes[d.drone_id])
+    ]
+    return SafetyAuditCheck(
+        code=SafetyCheckCode.FLEET_RESOURCES,
+        status=SafetyAuditStatus.FAILED if failed else SafetyAuditStatus.PASSED,
+        affected_ids=failed,
+        message=(
+            "Превышен запас готовых комплектов АКБ либо межсервисный лимит."
+            if failed
+            else "Вылеты укладываются в заданные комплекты АКБ и межсервисные лимиты."
+        ),
+    )
 
 
 def _camera_timing_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
@@ -1285,7 +1319,9 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
         assumptions.append("Ветер постоянен по времени и пространству на всём плане.")
     assumptions.append(
         "Каждый повторный вылет начинается при заданном текущем заряде; "
-        "перезарядка или замена АКБ входит в межполётное обслуживание."
+        "замена АКБ входит в межполётное обслуживание. Указанное число готовых комплектов "
+        "ограничивает число вылетов; пополнение заряда внутри задания не моделируется. "
+        "При незаданном числе комплектов их доступность предполагается неограниченной."
     )
     assumptions.append(
         "Доступная энергия масштабируется по здоровью АКБ и коэффициенту "

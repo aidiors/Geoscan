@@ -4,10 +4,30 @@ from unittest.mock import patch
 import pytest
 
 from geoplan.domain.enums import OptimizationCriterion
+from geoplan.domain.fleet import DroneResourceLimit
 from geoplan.navigation.geometry import LocalProjection
 from geoplan.routing.model import Aircraft, CostModel, RoutingProblem, Track
 from geoplan.routing.pool import ProductiveRoutePool
 from geoplan.routing.split import route_catalog
+
+
+def test_route_assignment_and_partial_scoring_preserve_finite_battery_inventory():
+    from geoplan.routing.allocation import assign_trips
+    from geoplan.routing.model import Trip
+
+    original = model()
+    aircraft = tuple(
+        replace(a, resource_limit=DroneResourceLimit(maximum_sorties=1))
+        for a in original.problem.aircraft
+    )
+    costs = CostModel(replace(original.problem, aircraft=aircraft))
+    two = (Trip(0, (0, 2)), Trip(0, (4, 6)))
+    assert costs.metrics(two) is None
+    assert costs.score(two, complete=False) == (float("inf"),)
+    assigned = assign_trips(costs, two, float("inf"))
+    assert len(assigned) == 2
+    assert {t.aircraft for t in assigned} == {0, 1}
+    assert costs.metrics(assigned) is not None
 
 
 @pytest.mark.parametrize("criterion", list(OptimizationCriterion))

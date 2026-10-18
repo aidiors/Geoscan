@@ -53,6 +53,7 @@ export default function App() {
     handleTaskChange,
     handleUpdateDrone,
     handleAddDrone,
+    handleCloneDrone,
     handleRemoveDrone,
     handleAddSite,
     handleImport,
@@ -94,6 +95,7 @@ export default function App() {
           onSelectDrone={setSelectedDroneId}
           onUpdateDrone={handleUpdateDrone}
           onAddDrone={handleAddDrone}
+          onCloneDrone={handleCloneDrone}
           onRemoveDrone={handleRemoveDrone}
           onUpdateSurvey={(patch) => { setSurvey((current) => ({ ...current, ...patch })); invalidate("Параметры съёмки изменены"); }}
           onUpdateSettings={(patch) => { setSettings((current) => ({ ...current, ...patch })); invalidate("Ограничения расчёта изменены"); }}

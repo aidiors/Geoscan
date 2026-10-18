@@ -32,6 +32,7 @@ def assign_trips(
         groups.append((min(cost.total for cost, _ in options), options))
     current: Solution = ()
     loads: dict[int, float] = {}
+    counts: dict[int, int] = {}
     total = deadhead = completion = 0.0
     for _, options in sorted(groups, key=lambda group: group[0], reverse=True):
         if perf_counter() >= deadline:
@@ -39,9 +40,22 @@ def assign_trips(
         allowed = [
             (cost, candidate)
             for cost, candidate in options
-            if maximum_active_drones is None
-            or len(loads) < maximum_active_drones
-            or candidate.aircraft in loads
+            if (
+                maximum_active_drones is None
+                or len(loads) < maximum_active_drones
+                or candidate.aircraft in loads
+            )
+            and model.resources_allow(
+                candidate.aircraft,
+                counts.get(candidate.aircraft, 0) + 1,
+                loads.get(candidate.aircraft, 0)
+                + cost.total
+                + (
+                    model.problem.aircraft[candidate.aircraft].turnaround_minutes
+                    if candidate.aircraft in loads
+                    else 0
+                ),
+            )
         ]
         if not allowed:
             return ()
@@ -67,6 +81,7 @@ def assign_trips(
             ),
         )
         loads[chosen.aircraft] = added_load((cost, chosen))
+        counts[chosen.aircraft] = counts.get(chosen.aircraft, 0) + 1
         completion = max(completion, loads[chosen.aircraft])
         total += cost.total
         deadhead += cost.deadhead

@@ -8,6 +8,7 @@ from geoplan.domain.enums import (
     OptimizationCriterion,
     OptimizationMode,
 )
+from geoplan.domain.fleet import DroneResourceLimit
 from geoplan.domain.mission import Mission
 
 
@@ -32,10 +33,13 @@ class AssignmentOptimizationRequest(BaseModel):
     completion_deadline_minutes: float | None = Field(default=None, gt=0, le=10_080)
     optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
     turnaround_minutes_by_drone: dict[str, float] = Field(default_factory=dict)
+    resource_limits_by_drone: dict[str, DroneResourceLimit] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def candidate_groups_match_problem(self) -> AssignmentOptimizationRequest:
         known_drones = set(self.drone_ids)
+        if set(self.resource_limits_by_drone) - known_drones:
+            raise ValueError("Resource limit refers to an unknown aircraft.")
         if len(known_drones) != len(self.drone_ids):
             raise ValueError("Идентификаторы БВС в задаче распределения должны быть уникальны.")
         if any(not group for group in self.candidate_groups):

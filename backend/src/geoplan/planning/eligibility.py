@@ -47,6 +47,16 @@ def _drones_capable_of_task(
     )
 
 
+def _drones_with_available_resources(drones: list[DroneSpec]) -> list[DroneSpec]:
+    eligible = [drone for drone in drones if drone.resource_limit().allows(1, 1e-6)]
+    if eligible:
+        return eligible
+    raise PlanningError(
+        code=ErrorCode.NO_CAPABLE_DRONE,
+        message="Нет доступных БВС: проверьте готовые комплекты АКБ и остаток до обслуживания.",
+    )
+
+
 def _drones_capable_of_environment(
     drones: list[DroneSpec],
     request: PlanRequest,

@@ -222,6 +222,7 @@ def _routing_model(
                     landing=landing.coordinate,
                     survey_speed_kmh=camera_speed,
                     minimum_turn_radius_m=physical.minimum_turn_radius_m,
+                    resource_limit=drone.resource_limit(),
                 )
             )
     if not aircraft:

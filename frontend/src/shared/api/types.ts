@@ -322,6 +322,7 @@ export interface PlanResponse {
         | "airspace_compliance"
         | "alternate_reserve"
         | "battery_reserve"
+        | "fleet_resources"
         | "coverage_completeness"
         | "drone_separation"
         | "export_consistency"
@@ -346,6 +347,7 @@ export interface PlanResponse {
 export interface PlanRequest {
   criterion: OptimizationCriterion;
   drones: Array<{
+    available_battery_sets?: number | null;
     installed_sensor?: SensorProfile | null;
     minimum_turn_radius_m?: number;
     drone_id: string;

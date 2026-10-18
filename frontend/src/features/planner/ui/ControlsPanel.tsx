@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 
 import { scenarios } from "@/features/demos/data/scenarios";
 import { InstalledCameraFields } from "@/features/planner/ui/InstalledCameraFields";
+import { FleetActions } from "@/features/planner/ui/FleetActions";
+import { fleetCatalog } from "@/features/planner/model/fleetCatalog";
 import type { AirframeType, AutopilotFirmware, ImportedZone, MissionTask, ZoneType } from "@/shared/api/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
 
@@ -23,7 +25,8 @@ interface ControlsPanelProps {
   onObjectiveChange: (objective: Objective) => void;
   onSelectDrone: (droneId: string) => void;
   onUpdateDrone: (droneId: string, patch: Partial<DroneProfile>) => void;
-  onAddDrone: () => void;
+  onAddDrone: (modelId: string, count: number) => void;
+  onCloneDrone: () => void;
   onRemoveDrone: () => void;
   onUpdateSurvey: (patch: Partial<SurveySettings>) => void;
   onUpdateSettings: (patch: Partial<PlanningSettings>) => void;
@@ -227,7 +230,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <p className="hint">Начало обязательно для временных зон. Окончание ограничивает полёты рабочим или световым окном. Эшелонирование выключено при максимальном повышении 0 м.</p>
       </PanelSection>
 
-      <PanelSection title="Парк БВС" badge={`${props.drones.filter((drone) => drone.enabled).length} активно`}>
+      <PanelSection title="Парк БВС" badge={`${props.drones.filter((drone) => drone.enabled).length} в расчёте / ${props.drones.length}`}>
         <div className="fleet-list">
           {props.drones.map((drone) => (
             <button type="button" key={drone.id} className={`fleet-row ${drone.id === props.selectedDroneId ? "active" : ""}`} onClick={() => props.onSelectDrone(drone.id)}>
@@ -244,6 +247,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
               <span>Использовать в расчёте</span>
             </label>
             <label>Название<input value={selectedDrone.name} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { name: event.target.value })} /></label>
+            <p className="hint">Модель: {fleetCatalog.models.find((model) => model.id === selectedDrone.modelId)?.name ?? "Своя конфигурация"}. ID борта: {selectedDrone.id}</p>
             <NumberField label="Радиус разворота этого БВС, м" value={selectedDrone.minimumTurnRadius ?? 0} min={0} max={10000} onChange={(minimumTurnRadius) => props.onUpdateDrone(selectedDrone.id, { minimumTurnRadius })} />
             <label className="checkbox-row">
               <input type="checkbox" checked={selectedDrone.installedSensor != null} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { installedSensor: event.target.checked ? {
@@ -263,7 +267,13 @@ export function ControlsPanel(props: ControlsPanelProps) {
               <NumberField label="Полёт, мин" value={selectedDrone.flightMinutes} min={1} onChange={(flightMinutes) => props.onUpdateDrone(selectedDrone.id, { flightMinutes })} />
               <NumberField label="Ветер, м/с" value={selectedDrone.maxWind} min={1} onChange={(maxWind) => props.onUpdateDrone(selectedDrone.id, { maxWind })} />
               <NumberField label="Резерв, %" value={selectedDrone.reserve} min={0} max={99} onChange={(reserve) => props.onUpdateDrone(selectedDrone.id, { reserve })} />
+              <OptionalNumberField label="Готовых комплектов АКБ" value={selectedDrone.availableBatterySets ?? null} min={0} max={10000} integer onChange={(availableBatterySets) => props.onUpdateDrone(selectedDrone.id, { availableBatterySets })} />
+              <OptionalNumberField label="Межсервисный ресурс, вылетов" value={selectedDrone.maintenanceFlights} min={1} max={100000} integer onChange={(maintenanceFlights) => props.onUpdateDrone(selectedDrone.id, { maintenanceFlights })} />
+              <NumberField label="Вылетов после ТО" value={selectedDrone.completedFlights} min={0} max={100000} onChange={(completedFlights) => props.onUpdateDrone(selectedDrone.id, { completedFlights })} />
+              <OptionalNumberField label="Межсервисный ресурс, ч" value={selectedDrone.maintenanceHours} min={0.01} max={100000} onChange={(maintenanceHours) => props.onUpdateDrone(selectedDrone.id, { maintenanceHours })} />
+              <NumberField label="Налёт после ТО, ч" value={selectedDrone.accumulatedHours} min={0} max={100000} step={0.1} onChange={(accumulatedHours) => props.onUpdateDrone(selectedDrone.id, { accumulatedHours })} />
             </div>
+            <p className="hint">Один готовый комплект АКБ — один вылет с указанным зарядом и состоянием. Пустое поле означает неограниченное число подготовленных комплектов. Зарядка в ходе задания не рассчитывается; время замены задайте в обслуживании между вылетами. Лимиты ТО ограничивают суммарные вылеты и налёт этого борта.</p>
             <div className="field-grid">
               <label className="field">
                 <span>Автопилот</span>
@@ -304,7 +314,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
             }} /></label>
           </div>
         )}
-        <div className="mini-actions"><button type="button" onClick={props.onAddDrone}>＋ Добавить</button><button type="button" onClick={props.onRemoveDrone}>Удалить</button></div>
+        <FleetActions count={props.drones.length} onAdd={props.onAddDrone} onClone={props.onCloneDrone} onRemove={props.onRemoveDrone} />
       </PanelSection>
 
       <PanelSection title="Геоданные" badge="KML / GeoJSON">
@@ -348,8 +358,8 @@ function NumberField({ label, value, min, max, step = 1, onChange }: { label: st
   return <label className="field"><span>{label}</span><input type="number" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} /></label>;
 }
 
-function OptionalNumberField({ label, value, min, max, onChange }: { label: string; value: number | null; min?: number; max?: number; onChange: (value: number | null) => void }) {
-  return <label className="field"><span>{label}</span><input type="number" value={value ?? ""} min={min} max={max} step="any" placeholder="не задано" onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))} /></label>;
+function OptionalNumberField({ label, value, min, max, integer = false, onChange }: { label: string; value: number | null; min?: number; max?: number; integer?: boolean; onChange: (value: number | null) => void }) {
+  return <label className="field"><span>{label}</span><input type="number" value={value ?? ""} min={min} max={max} step={integer ? 1 : "any"} placeholder="не задано" onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))} /></label>;
 }
 
 function TextNumberField({ label, value, placeholder, integer = false, onChange }: { label: string; value: string; placeholder: string; integer?: boolean; onChange: (value: string) => void }) {

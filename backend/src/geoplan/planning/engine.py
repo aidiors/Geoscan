@@ -42,6 +42,7 @@ from geoplan.planning.eligibility import (
     _drones_capable_of_environment,
     _drones_capable_of_task,
     _drones_capable_of_wind,
+    _drones_with_available_resources,
     _drones_with_eligible_sites,
 )
 from geoplan.planning.execution import AuditedMissionEvaluator
@@ -89,7 +90,9 @@ def build_plan(
     capable_drones = _drones_capable_of_task(request.drones, request.task)
     envelope_capable_drones = _drones_capable_of_environment(capable_drones, request)
     weather_capable_drones = _drones_capable_of_wind(envelope_capable_drones, request.wind)
-    eligible_drones = _drones_with_eligible_sites(weather_capable_drones, request)
+    eligible_drones = _drones_with_available_resources(
+        _drones_with_eligible_sites(weather_capable_drones, request)
+    )
     coverage_reference_airspeed_kmh = _coverage_reference_airspeed_kmh(
         request,
         eligible_drones,
@@ -295,6 +298,9 @@ def _assign_segments(
         vertical_profile_planner,
     )
     optimization_request = AssignmentOptimizationRequest(
+        resource_limits_by_drone={
+            d.drone_id: limit for d in eligible_drones if (limit := d.resource_limit()).is_bounded
+        },
         criterion=request.criterion,
         drone_ids=[drone.drone_id for drone in eligible_drones],
         candidate_groups=candidate_groups,
@@ -315,7 +321,22 @@ def _assign_segments(
     except ValueError as error:
         current_limit = request.maximum_active_drones or len(eligible_drones)
         required_limit = min(len(eligible_drones), current_limit + 1)
-        if required_limit > current_limit:
+        if any(
+            limit.maximum_sorties is not None or limit.maximum_flight_minutes is not None
+            for limit in optimization_request.resource_limits_by_drone.values()
+        ):
+            assignment_recommendations = [
+                FeasibilityRecommendation(
+                    code=RecommendationCode.ADD_CAPABLE_DRONE,
+                    message=(
+                        "Проверьте готовые комплекты АКБ и остаток до обслуживания; "
+                        "добавьте доступный борт либо измените разбиение вылетов."
+                    ),
+                    confidence=RecommendationConfidence.ESTIMATE,
+                    affected_ids=[d.drone_id for d in eligible_drones],
+                )
+            ]
+        elif required_limit > current_limit:
             assignment_recommendations = [
                 FeasibilityRecommendation(
                     code=RecommendationCode.INCREASE_ACTIVE_DRONE_LIMIT,
@@ -341,7 +362,10 @@ def _assign_segments(
             ]
         raise PlanningError(
             code=ErrorCode.UNPLANNABLE_SEGMENT,
-            message="Ограничение числа БВС не позволяет распределить все участки.",
+            message=(
+                "Задание не распределено при заданных ограничениях парка, "
+                "готовых комплектов АКБ и межсервисных лимитах."
+            ),
             recommendations=assignment_recommendations,
         ) from error
     return optimized, optimization_request

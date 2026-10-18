@@ -1,4 +1,4 @@
-import { cloneFleet } from "@/features/demos/data/scenarios";
+import { cloneFleet } from "@/features/planner/model/fleetCatalog";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SurveySettings } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask } from "@/shared/api/types";
 
@@ -32,6 +32,8 @@ export function migrateLegacyDroneProfile(drone: DroneProfile): DroneProfile {
 export function normalizeDroneProfile(drone: DroneProfile): DroneProfile {
   return {
     ...drone,
+    modelId: drone.modelId ?? (cloneFleet().some((preset) => preset.id === drone.id) ? drone.id : "custom"),
+    availableBatterySets: drone.availableBatterySets ?? null,
     autopilotFirmware: drone.autopilotFirmware ?? "generic_mavlink",
     airframeType: drone.airframeType ?? "generic_multirotor",
     hoverSpeed: drone.hoverSpeed ?? 5,

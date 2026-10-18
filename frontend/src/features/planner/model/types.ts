@@ -7,6 +7,8 @@ export type Objective = "time" | "flight" | "balanced";
 export type SiteRole = "takeoff" | "landing" | "alternate";
 
 export interface DroneProfile {
+  modelId?: string;
+  availableBatterySets?: number | null;
   installedSensor?: SensorProfile | null;
   minimumTurnRadius?: number;
   id: string;
