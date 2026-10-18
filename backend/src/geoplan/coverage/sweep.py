@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from itertools import pairwise
 from math import atan2, ceil, degrees, hypot
-from time import perf_counter
 from typing import Protocol
 
 from shapely.affinity import rotate
@@ -13,6 +12,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from geoplan.budget import check_planning_budget
+from geoplan.coverage.completeness import SweepCoverageValidator
 from geoplan.coverage.models import CoveragePlanRequest, CoveragePlanResult, WorkSegment
 from geoplan.coverage.scoring import (
     ROUTE_CLEARANCE_M,
@@ -76,8 +76,21 @@ class CoveragePlanningError(Exception):
 
 
 @dataclass(frozen=True)
+class BoundedSweepAnglePortfolio:
+    """Cover the whole half-circle with fixed effort before local refinement."""
+
+    def coarse_angles(self, geometry: BaseGeometry) -> list[float]:
+        rectangle = _minimum_rectangle_angle(geometry)
+        return _unique_angles([rectangle, rectangle + 90, *range(0, 180, 30)])
+
+    def refined_angles(self, angle: float) -> list[float]:
+        return [angle - 1, angle + 1]
+
+
+@dataclass(frozen=True)
 class BoustrophedonCoveragePlanner:
     automatic_angle_algorithm: SweepAngleAlgorithm = SweepAngleAlgorithm.GEOMETRY_AWARE
+    bounded_angles: BoundedSweepAnglePortfolio = field(default_factory=BoundedSweepAnglePortfolio)
 
     @property
     def coverage_algorithm(self) -> CoverageAlgorithm:
@@ -117,6 +130,7 @@ class BoustrophedonCoveragePlanner:
             request.parameters.maximum_segment_distance_km,
             survey_speed_limit_kmh,
             self.automatic_angle_algorithm,
+            self.bounded_angles,
         )
         segments = [
             _work_segment(
@@ -150,6 +164,7 @@ def _select_angle_plan(
     maximum_distance_km: float,
     survey_speed_limit_kmh: float,
     automatic_algorithm: SweepAngleAlgorithm,
+    bounded_angles: BoundedSweepAnglePortfolio | None = None,
 ) -> tuple[AnglePlan, SweepAngleAlgorithm]:
     if request.parameters.direction_mode is SweepDirectionMode.MANUAL:
         selected = _best_angle_plan(
@@ -168,23 +183,18 @@ def _select_angle_plan(
             maximum_distance_km,
             survey_speed_limit_kmh,
             selected_algorithm,
+            bounded_angles,
         )
         return selected, automatic_algorithm
     if automatic_algorithm is SweepAngleAlgorithm.BOUNDED_PORTFOLIO:
-        search_deadline = perf_counter() + 1.5
         geometry, _ = _flyable_geometry(request)
-        # Include cheap geometric directions and a uniform grid. Refine the winner
-        # without evaluating the coarse angles twice or decomposing every polygon.
-        angles = [float(angle) for angle in range(0, 180, 15)]
-        angles.append(_minimum_rectangle_angle(geometry))
-        angles.extend(_convex_hull_edge_angles(geometry))
+        portfolio = bounded_angles or BoundedSweepAnglePortfolio()
         coarse = _best_angle_plan(
             request,
             strip_spacing_m,
             maximum_distance_km,
             survey_speed_limit_kmh,
-            angles,
-            search_deadline=search_deadline,
+            portfolio.coarse_angles(geometry),
             preferred_angle=_minimum_rectangle_angle(geometry),
         )
         return _best_angle_plan(
@@ -192,9 +202,8 @@ def _select_angle_plan(
             strip_spacing_m,
             maximum_distance_km,
             survey_speed_limit_kmh,
-            [coarse.angle_degrees + offset for offset in (-2, -1, 1, 2)],
+            portfolio.refined_angles(coarse.angle_degrees),
             incumbent=coarse,
-            search_deadline=search_deadline,
         ), automatic_algorithm
     if automatic_algorithm is SweepAngleAlgorithm.COARSE_TO_FINE:
         coarse_angles = _candidate_angles(request, SweepAngleAlgorithm.GRID_10_DEGREES)
@@ -234,7 +243,6 @@ def _best_angle_plan(
     survey_speed_limit_kmh: float,
     angles: list[float],
     incumbent: AnglePlan | None = None,
-    search_deadline: float | None = None,
     preferred_angle: float | None = None,
 ) -> AnglePlan:
     best = incumbent
@@ -248,8 +256,6 @@ def _best_angle_plan(
         ordered_angles.sort(key=lambda angle: (abs(angle - preferred_angle % 180) > 1e-5, angle))
     for angle in ordered_angles:
         check_planning_budget()
-        if search_deadline is not None and perf_counter() >= search_deadline:
-            break
         try:
             route_sets = _coverage_route_sets(
                 request,
@@ -281,8 +287,6 @@ def _best_angle_plan(
         return best
     for angle in ordered_angles:
         check_planning_budget()
-        if best is not None and search_deadline is not None and perf_counter() >= search_deadline:
-            break
         try:
             route_sets = _coverage_route_sets(
                 request,
@@ -459,6 +463,22 @@ def _coverage_route_sets(
         raise CoveragePlanningError(
             code=ErrorCode.COVERAGE_GENERATION_FAILED,
             message=f"Для целевой зоны {request.area.name} не удалось построить галсы.",
+        )
+    sensor = request.parameters.sensor
+    footprint_width_m = min(
+        request.mission_altitude_m * sensor.sensor_width_mm / sensor.focal_length_mm,
+        request.parameters.strip_width_m,
+    )
+    # Thin branches can lie between scanlines. Missing them must never make
+    # an angle look cheaper than a complete layout.
+    if not SweepCoverageValidator().accepts(
+        rotated, [line for row in rows for line in row], footprint_width_m
+    ):
+        raise CoveragePlanningError(
+            code=ErrorCode.COVERAGE_GENERATION_FAILED,
+            message=(
+                f"Направление {angle_degrees % 180:.1f}° не покрывает 99% зоны {request.area.name}."
+            ),
         )
     route_sets: list[CoverageRouteSet] = []
     for batch in _split_sweep_rows(rows, maximum_distance_km):

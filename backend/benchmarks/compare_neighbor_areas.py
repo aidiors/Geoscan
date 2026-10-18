@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from dataclasses import replace
+from itertools import product
 from pathlib import Path
 from time import perf_counter
 
@@ -31,9 +32,18 @@ def main() -> None:
     parser.add_argument("--count", type=int, default=8)
     parser.add_argument("--anchor", type=int, default=1)
     parser.add_argument("--budget", type=float, default=60)
+    parser.add_argument("--repeats", type=int, default=1)
+    parser.add_argument(
+        "--criteria",
+        nargs="+",
+        choices=[c.value for c in OptimizationCriterion],
+        default=[c.value for c in OptimizationCriterion],
+    )
     args = parser.parse_args()
     if args.output.exists():
         parser.error("Use a new evidence file")
+    if not 1 <= args.repeats <= 30:
+        parser.error("Repeat count must be between 1 and 30")
     request = neighbor_fields_request()
     if args.customer_source is not None:
         polygons = customer_polygons(args.customer_source)
@@ -52,6 +62,8 @@ def main() -> None:
             "other customer restriction layers are not connected.",
             "Fixed-time heuristic runs do not prove optimality or universal improvement.",
             "Alternative coverage is disabled in both arms to isolate cross-area regrouping.",
+            "Run order alternates between repetitions; downstream time-bounded searches "
+            "can still vary, so compare distributions rather than one run.",
         ],
         "code_sha256": code_hashes,
         "rows": [],
@@ -59,15 +71,17 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     artifacts = args.output.parent / args.output.stem
     artifacts.mkdir(exist_ok=True)
-    for criterion in OptimizationCriterion:
+    for criterion, repetition in product(
+        map(OptimizationCriterion, args.criteria), range(args.repeats)
+    ):
         query = request.model_copy(
             update={
                 "criterion": criterion,
                 "completion_deadline_minutes": request.completion_deadline_minutes or 30,
             }
         )
-        scores = []
-        for label in ("separate", "joint"):
+        scores = {}
+        for label in ("separate", "joint") if repetition % 2 == 0 else ("joint", "separate"):
             dependencies = replace(create_default_dependencies(), alternative_coverage_planner=None)
             if label == "separate":
                 dependencies = replace(dependencies, cross_area_optimizer=SeparateAreaControl())
@@ -77,11 +91,12 @@ def main() -> None:
                 row = {
                     "criterion": criterion.value,
                     "variant": label,
+                    "repetition": repetition,
                     "planning_seconds": perf_counter() - started,
                     "http_status": response.status_code,
                 }
                 body = response.json()
-                name = f"{criterion.value}-{label}"
+                name = f"{criterion.value}-r{repetition}-{label}"
                 (artifacts / f"{name}-request.json").write_text(
                     query.model_dump_json(), encoding="utf-8"
                 )
@@ -96,7 +111,7 @@ def main() -> None:
                         objective=list(scheduled_plan_objective(query, plan)),
                         search=body["search"],
                     )
-                    scores.append(scheduled_plan_objective(query, plan))
+                    scores[label] = scheduled_plan_objective(query, plan)
                     quality = client.post(
                         "/v1/survey-quality",
                         json={"request": query.model_dump(mode="json"), "plan": body},
@@ -129,7 +144,11 @@ def main() -> None:
         if len(scores) == 2:
             print(
                 json.dumps(
-                    {"criterion": criterion.value, "joint_not_worse": scores[1] <= scores[0]}
+                    {
+                        "criterion": criterion.value,
+                        "repetition": repetition,
+                        "joint_not_worse": scores["joint"] <= scores["separate"],
+                    }
                 ),
                 flush=True,
             )

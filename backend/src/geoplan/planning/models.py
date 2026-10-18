@@ -252,6 +252,18 @@ class PlanCheckpoint(BaseModel):
     objective: list[float]
 
 
+class PlanPipelineReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    status: str = "running"
+    elapsed_seconds: float = Field(default=0, ge=0)
+    candidate_events: int = Field(default=0, ge=0)
+    audited_events: int = Field(default=0, ge=0)
+    improvements: int = Field(default=0, ge=0)
+    failed_check_codes: list[str] = Field(default_factory=list, max_length=32)
+    error_code: str | None = None
+
+
 class PlanSearchSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
     status: str
@@ -260,6 +272,7 @@ class PlanSearchSummary(BaseModel):
     request_fingerprint: str
     checkpoints: list[PlanCheckpoint] = Field(default_factory=list, max_length=64)
     pipelines_started: int = Field(default=0, ge=0)
+    pipelines: list[PlanPipelineReport] = Field(default_factory=list, max_length=8)
 
 
 class PlanResponse(BaseModel):

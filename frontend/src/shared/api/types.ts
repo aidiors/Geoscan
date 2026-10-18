@@ -223,6 +223,11 @@ export interface PlanResponse {
     time_limit_seconds: number;
     request_fingerprint: string;
     pipelines_started?: number;
+    pipelines?: Array<{
+      name: string; status: string; elapsed_seconds: number;
+      candidate_events: number; audited_events: number; improvements: number;
+      failed_check_codes: string[]; error_code: string | null;
+    }>;
     checkpoints: Array<{
       stage: string; elapsed_seconds: number; completion_minutes: number;
       total_flight_minutes: number; sortie_count: number; objective: number[];

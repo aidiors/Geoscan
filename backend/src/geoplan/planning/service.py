@@ -38,33 +38,30 @@ class AuditedPlanningService:
                     and request.optimization_mode is OptimizationMode.OPTIMIZED
                 ):
                     try:
-                        progress.pipelines_started += 1
-                        initial = self.initial(
-                            request, lambda stage, plan: progress.offer(f"initial:{stage}", plan)
-                        )
-                        progress.offer("initial", initial)
-                        check_planning_budget()
+                        with progress.pipeline("initial") as observe:
+                            initial = self.initial(request, observe)
+                            observe("result", initial)
+                            check_planning_budget()
                     except PlanningTimeExceeded, PlanningCancelled:
                         raise
                     except PlanningError:
                         pass
-                progress.pipelines_started += 1
-                result = self.primary(request, progress.offer)
-                progress.offer("primary", result)
-                check_planning_budget()
+                with progress.pipeline("primary") as observe:
+                    result = self.primary(request, observe)
+                    observe("result", result)
+                    check_planning_budget()
                 if (
                     self.alternative is not None
                     and self._try_alternative(request)
                     and improvement_allowed(20)
                 ):
                     try:
-                        progress.pipelines_started += 1
-                        with planning_budget(self.alternative_seconds):
-                            alternative = self.alternative(
-                                request,
-                                lambda stage, plan: progress.offer(f"adaptive:{stage}", plan),
-                            )
-                            progress.offer("adaptive", alternative)
+                        with (
+                            progress.pipeline("adaptive") as observe,
+                            planning_budget(self.alternative_seconds),
+                        ):
+                            alternative = self.alternative(request, observe)
+                            observe("result", alternative)
                             check_planning_budget()
                     except PlanningTimeExceeded:
                         status = "stage_time_limit"
