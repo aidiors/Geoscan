@@ -1,3 +1,4 @@
+import { TerrainAltitudeProfile } from "@/features/terrain/ui/TerrainAltitudeProfile";
 import { Download, Plane, Route, ShieldCheck, ShieldX, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { ForwardFlightAltitudeProfile } from "@/features/planner/ui/ForwardFlightAltitudeProfile";
@@ -10,6 +11,7 @@ import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/sha
 
 interface ResultsPanelProps {
   archived?: boolean;
+  terrainMode?: boolean;
   insights?: ReactNode;
   plan: PlanResponse | null;
   drones: DroneProfile[];
@@ -52,6 +54,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
 
 export function ResultsPanel({
   archived = false,
+  terrainMode = false,
   insights,
   plan,
   drones,
@@ -181,7 +184,8 @@ export function ResultsPanel({
           <label className="field"><span>От, м</span><input type="number" min="0" max="10000" step="any" value={minimumRadius} onChange={(event) => setMinimumRadius(Number(event.target.value))} /></label>
           <label className="field"><span>До, м</span><input type="number" min="0" max="10000" step="any" value={maximumRadius} onChange={(event) => setMaximumRadius(Number(event.target.value))} /></label>
         </div>
-        <button className="secondary-button" type="button" disabled={!plan || !radiusRangeValid || !selectedAreaId || analyzingRadii} onClick={() => onAnalyzeRadii(selectedAreaId, minimumRadius, maximumRadius)}>{analyzingRadii ? "Проверяем…" : "Проверить диапазон"}</button>
+        <button className="secondary-button" type="button" disabled={terrainMode || !plan || !radiusRangeValid || !selectedAreaId || analyzingRadii} onClick={() => onAnalyzeRadii(selectedAreaId, minimumRadius, maximumRadius)}>{analyzingRadii ? "Проверяем…" : "Проверить диапазон"}</button>
+        {terrainMode && <p className="hint">Сравнение радиусов доступно для плоской поверхности MSL. Над DEM заданный радиус учитывается в основном расчёте.</p>}
         {!radiusRangeValid && <small>Укажите радиус от 0 до 10 000 м; нижняя граница не больше верхней.</small>}
         {radiusAnalysisMatchesInputs && <div className="radius-analysis-result">
           {radiusAnalysis.scenarios.map((scenario) => <div key={scenario.radius_m}><b>{format(scenario.radius_m)} м</b><span title={scenario.message}>{scenario.status === "feasible" ? `${format(scenario.distance_km ?? 0)} км · построен` : scenario.status === "not_evaluated" ? "Не проверено" : "Для этих галсов не найден"}</span></div>)}
@@ -254,6 +258,7 @@ export function ResultsPanel({
       </div>
 
       {forwardMission && <ForwardFlightAltitudeProfile mission={forwardMission} />}
+      {selectedPlan && <TerrainAltitudeProfile key={selectedDroneId} missions={selectedPlan.missions} />}
       <div className="export-group">
         <button type="button" disabled={exportDisabled} onClick={() => onExport("geojson")}><Download size={15} /> GeoJSON</button>
         <button type="button" disabled={exportDisabled} onClick={() => onExport("kml")}><Download size={15} /> KML</button>
@@ -263,6 +268,7 @@ export function ResultsPanel({
       {plan && <p className="hint">{releaseBlocked
         ? "Для экспорта в автопилот нужен проверенный план, укладывающийся в заданные условия. При устаревшем подтверждении повторите расчёт. GIS доступен для анализа."
         : "Целостность расчётного плана подтверждена сервером. Совместимость с прошивкой и готовность к полёту требуют отдельной проверки."}</p>}
+      {selectedPlan?.missions.some((mission) => mission.altitude_reference === "agl") && <p className="hint">AGL-экспорт требует поддержки terrain-frame в прошивке и согласованной бортовой модели рельефа. Загруженный GeoTIFF автоматически на БВС не передаётся.</p>}
       {selectedPlan && selectedPlan.missions.length > 1 && <p className="hint">Экспорт в автопилот: ZIP с отдельным файлом на каждый вылет. Откройте dispatch.html для просмотра расписания. Оператор запускает вылеты отдельно, соблюдая интервалы и подготовку АКБ.</p>}
       {forwardExportBlocked && <p className="hint">Самолётный профиль доступен в GeoJSON и KML. Автопилотный экспорт требует проверки команд взлёта и посадки под конкретную прошивку.</p>}
     </aside>

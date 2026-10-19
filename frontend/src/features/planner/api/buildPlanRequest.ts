@@ -1,3 +1,4 @@
+import type { TerrainAsset } from "@/features/terrain/model/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask, PlanRequest } from "@/shared/api/types";
 import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
@@ -41,15 +42,24 @@ export function buildPlanRequest(
   survey: SurveySettings,
   settings: PlanningSettings,
   source?: WorkAreaSource,
+  terrain?: TerrainAsset | null,
 ): PlanRequest {
-  const ground = settings.flatGroundElevation ?? 0;
+  const agl = settings.altitudeReference === "agl";
+  const ground = agl ? 0 : settings.flatGroundElevation ?? 0;
   const groundUncertainty = settings.terrainVerticalUncertainty ?? 0;
   if (!Number.isFinite(ground) || ground < -500 || ground > 10000
     || !Number.isFinite(groundUncertainty) || groundUncertainty < 0 || groundUncertainty > 500) {
     throw new Error("Задайте отметку поверхности от −500 до 10 000 м и погрешность от 0 до 500 м.");
   }
-  if (!Number.isFinite(settings.altitude) || settings.altitude <= ground + groundUncertainty) {
-    throw new Error("Высота полёта MSL должна превышать отметку поверхности с учётом погрешности.");
+  if (!Number.isFinite(settings.altitude) || settings.altitude <= (agl ? 0 : ground + groundUncertainty)) {
+    throw new Error(agl ? "Высота AGL должна быть положительным числом." : "Высота полёта MSL должна превышать отметку поверхности с учётом погрешности.");
+  }
+  if (agl) {
+    if (!terrain || !terrain.metresConfirmed || !terrain.mslConfirmed || terrain.inspection.band !== terrain.band) {
+      throw new Error("Для AGL загрузите DEM и подтвердите метры и систему высот MSL.");
+    }
+    const interval = settings.terrainSamplingInterval ?? 25;
+    if (!Number.isFinite(interval) || interval < 5 || interval > 1000) throw new Error("Шаг профиля DEM должен быть от 5 до 1000 м.");
   }
   const unsupported = importedZones.find((zone) => zone.zone_type !== "obstacle"
     && !(zone.zone_type === "work_area" && zone.enabled === false) && zone.geometry_type !== "polygon");
@@ -64,6 +74,13 @@ export function buildPlanRequest(
     throw new Error("Включите хотя бы один БВС.");
   }
   for (const drone of enabledDrones) {
+    if (agl && drone.tasks.includes(task)) {
+      if (![drone.maximumClimbRate, drone.maximumDescentRate].every((value) => value != null && Number.isFinite(value) && value > 0)) {
+        throw new Error(`${drone.name}: для DEM задайте подтверждённые пределы набора и снижения.`);
+      }
+      if (drone.fixedWingPhaseProfile) throw new Error(`${drone.name}: самолётные фазы пока поддерживают только плоскую поверхность MSL.`);
+      if (drone.takeoffLandingProfile && sites.some((site) => site.role === "alternate")) throw new Error("Взлёт и посадка над DEM пока не моделируют подход к резерву. Сохраните резерв и отключите профиль взлёта/посадки либо выделите отдельный сценарий.");
+    }
     const forward = drone.fixedWingPhaseProfile;
     if (forward) {
       if (drone.airframeType !== "fixed_wing" || !(Number.isFinite(drone.minimumTurnRadius) && (drone.minimumTurnRadius ?? 0) > 0)) {
@@ -242,7 +259,8 @@ export function buildPlanRequest(
       .filter((zone) => zone.zone_type === "obstacle")
       .map((zone) => obstacleMapper.toRequest(zone)),
     mission_altitude_m: settings.altitude,
-    altitude_reference: "msl",
+    altitude_reference: agl ? "agl" : "msl",
+    ...(agl && terrain ? { terrain_source: { source_type: "geotiff" as const, content: terrain.content, band: terrain.band }, terrain_sampling_interval_m: settings.terrainSamplingInterval ?? 25 } : {}),
     flat_ground_elevation_m: ground,
     terrain_vertical_uncertainty_m: groundUncertainty,
     task,

@@ -17,33 +17,13 @@ from geoplan.domain.terrain import (
     TerrainSource,
     VerticalProfilePoint,
 )
+from geoplan.flight.geotiff import GeoTiffReader
+from geoplan.flight.terrain_errors import (
+    InvalidTerrainSourceError,
+    TerrainDataUnavailableError,
+    VerticalRateExceededError,
+)
 from geoplan.navigation.geometry import projection_for_coordinates
-
-
-class TerrainDataUnavailableError(RuntimeError):
-    def __init__(self, coordinate: Coordinate, nearest_distance_m: float) -> None:
-        self.coordinate = coordinate
-        self.nearest_distance_m = nearest_distance_m
-        super().__init__("Для точки маршрута нет достаточно близкой отметки рельефа.")
-
-
-class VerticalRateExceededError(RuntimeError):
-    def __init__(
-        self,
-        required_climb_rate_mps: float,
-        required_descent_rate_mps: float,
-        maximum_climb_rate_mps: float,
-        maximum_descent_rate_mps: float,
-    ) -> None:
-        self.required_climb_rate_mps = required_climb_rate_mps
-        self.required_descent_rate_mps = required_descent_rate_mps
-        self.maximum_climb_rate_mps = maximum_climb_rate_mps
-        self.maximum_descent_rate_mps = maximum_descent_rate_mps
-        super().__init__("Вертикальный профиль превышает предел набора или снижения.")
-
-
-class InvalidTerrainSourceError(RuntimeError):
-    pass
 
 
 class TerrainProvider(Protocol):
@@ -115,21 +95,13 @@ class GeoTiffTerrainProvider:
             raise InvalidTerrainSourceError("GeoTIFF provider requires a GeoTIFF source.")
         try:
             with MemoryFile(source.content) as memory_file, memory_file.open() as dataset:
-                if dataset.driver != "GTiff":
-                    raise InvalidTerrainSourceError("Terrain source is not a GeoTIFF dataset.")
-                if dataset.crs is None:
-                    raise InvalidTerrainSourceError("GeoTIFF terrain source has no CRS.")
-                if source.band > dataset.count:
-                    raise InvalidTerrainSourceError("Requested terrain band does not exist.")
-                if dataset.width * dataset.height > self.maximum_raster_pixels:
-                    raise InvalidTerrainSourceError("Decoded GeoTIFF exceeds the pixel limit.")
+                band = GeoTiffReader(self.maximum_raster_pixels).read_band(dataset, source.band)
                 xs, ys = transform(
                     "EPSG:4326",
                     dataset.crs,
                     [coordinate.longitude for coordinate in coordinates],
                     [coordinate.latitude for coordinate in coordinates],
                 )
-                band = dataset.read(source.band, masked=True)
                 elevations: list[float] = []
                 for coordinate, x, y in zip(coordinates, xs, ys, strict=True):
                     row, column = dataset.index(x, y)

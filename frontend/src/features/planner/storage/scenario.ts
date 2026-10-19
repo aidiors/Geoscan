@@ -1,8 +1,10 @@
+import type { TerrainAsset } from "@/features/terrain/model/types";
 import { cloneFleet } from "@/features/planner/model/fleetCatalog";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask } from "@/shared/api/types";
 
 export interface SavedScenario {
+  terrain?: TerrainAsset | null;
   baseScenario?: Scenario;
   version?: 2 | 3;
   scenarioId: string;

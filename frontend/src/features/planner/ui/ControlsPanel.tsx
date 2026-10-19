@@ -1,3 +1,5 @@
+import { TerrainFields } from "@/features/terrain/ui/TerrainFields";
+import type { TerrainAsset } from "@/features/terrain/model/types";
 import { BatteryCharging, Database, ShieldCheck, Wind } from "lucide-react";
 import { useRef, useState } from "react";
 
@@ -12,6 +14,10 @@ import type { AirframeType, AutopilotFirmware, ImportedZone, MissionTask, ZoneTy
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
 
 interface ControlsPanelProps {
+  terrain?: TerrainAsset | null;
+  terrainImporting?: boolean;
+  onImportTerrain?: (file: File, band: number) => Promise<void>;
+  onTerrainChange?: (asset: TerrainAsset | null) => void;
   scenario?: import("@/features/planner/model/types").Scenario;
   projects?: import("react").ReactNode;
   scenarioId: string;
@@ -120,12 +126,24 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <select value={props.task} onChange={(event) => props.onTaskChange(event.target.value as MissionTask)}>
           {Object.entries(taskLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <NumberField label="Высота задания MSL, м" value={props.settings.altitude} min={20} max={10000} onChange={(altitude) => props.onUpdateSettings({ altitude })} />
+        <label className="field"><span>Режим высоты</span><select aria-label="Режим высоты" value={props.settings.altitudeReference ?? "msl"}
+          onChange={(event) => props.onUpdateSettings({ altitudeReference: event.target.value as "msl" | "agl" })}>
+          <option value="msl">MSL · плоская поверхность</option><option value="agl">AGL · по DEM</option>
+        </select></label>
+        <NumberField label={props.settings.altitudeReference === "agl" ? "Высота над рельефом AGL, м" : "Высота задания MSL, м"} value={props.settings.altitude} min={1} max={10000} onChange={(altitude) => props.onUpdateSettings({ altitude })} />
+        {props.settings.altitudeReference === "agl" ? <>
+          <TerrainFields terrain={props.terrain ?? null} busy={props.terrainImporting ?? false}
+            onImport={props.onImportTerrain ?? (async () => {})} onChange={props.onTerrainChange ?? (() => {})} />
+          <NumberField label="Погрешность DEM ±, м" value={props.settings.terrainVerticalUncertainty ?? 0} min={0} max={500} onChange={(terrainVerticalUncertainty) => props.onUpdateSettings({ terrainVerticalUncertainty })} />
+          <NumberField label="Шаг профиля DEM, м" value={props.settings.terrainSamplingInterval ?? 25} min={5} max={1000} onChange={(terrainSamplingInterval) => props.onUpdateSettings({ terrainSamplingInterval })} />
+          <p className="hint">Высота MSL = DEM + AGL + погрешность. Просвет проверяется в отсчётах профиля; пики между отсчётами не гарантируются. У каждого БВС нужны пределы набора и снижения. После смены режима проверьте числовую высоту задания.</p>
+        </> : <>
         <div className="field-grid">
           <NumberField label="Отметка поверхности MSL, м" value={props.settings.flatGroundElevation ?? 0} min={-500} max={10000} onChange={(flatGroundElevation) => props.onUpdateSettings({ flatGroundElevation })} />
           <NumberField label="Погрешность поверхности ±, м" value={props.settings.terrainVerticalUncertainty ?? 0} min={0} max={500} onChange={(terrainVerticalUncertainty) => props.onUpdateSettings({ terrainVerticalUncertainty })} />
         </div>
         <p className="hint">Высота над поверхностью: {props.settings.altitude - (props.settings.flatGroundElevation ?? 0)} м, погрешность ±{props.settings.terrainVerticalUncertainty ?? 0} м. Поверхность считается плоской; отметка задаётся оператором и не заменяет реальный рельеф.</p>
+        </>}
       </PanelSection>
 
       <PanelSection title="Параметры съёмки" badge="Галсы">

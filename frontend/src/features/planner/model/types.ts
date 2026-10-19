@@ -101,6 +101,8 @@ export interface SurveySettings {
 }
 
 export interface PlanningSettings {
+  altitudeReference?: "msl" | "agl";
+  terrainSamplingInterval?: number;
   flatGroundElevation?: number;
   terrainVerticalUncertainty?: number;
   planningTimeLimitSeconds?: number;

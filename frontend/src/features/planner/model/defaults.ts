@@ -23,6 +23,8 @@ export function planningSettings(
 ): PlanningSettings {
   return {
     altitude,
+    altitudeReference: "msl",
+    terrainSamplingInterval: 25,
     flatGroundElevation: 0,
     terrainVerticalUncertainty: 0,
     windSpeed: 5,

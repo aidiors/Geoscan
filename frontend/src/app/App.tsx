@@ -12,6 +12,7 @@ import { ProjectPanel } from "@/features/projects/ui/ProjectPanel";
 export default function App() {
   const [theme, setTheme] = useTheme();
   const {
+    terrain, terrainImporting, handleImportTerrain, handleTerrainChange,
     scenarioId,
     demoCaseId,
     showcaseOpen,
@@ -84,6 +85,7 @@ export default function App() {
       />
       <main className="workspace">
         <ControlsPanel
+          terrain={terrain} terrainImporting={terrainImporting} onImportTerrain={handleImportTerrain} onTerrainChange={handleTerrainChange}
           scenario={scenario}
           projects={<ProjectPanel capture={captureProject} restore={restoreProject} onStatus={setStatus} />}
           scenarioId={scenarioId}
@@ -131,7 +133,7 @@ export default function App() {
           onAddSite={handleAddSite}
           onClearZones={() => { setImportedZones([]); invalidate("Импортированные зоны очищены"); }}
         />
-        <ResultsPanel archived={archivedPlan} insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
+        <ResultsPanel terrainMode={settings.altitudeReference === "agl"} archived={archivedPlan} insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
       </main>
     </div>
   );

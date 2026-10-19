@@ -99,12 +99,23 @@ def _vertical_profile(
             maximum_descent_rate_mps=maximum_descent_rate,
             terrain_vertical_uncertainty_m=request.terrain_vertical_uncertainty_m,
         )
-    except (TerrainDataUnavailableError, InvalidTerrainSourceError) as error:
+    except InvalidTerrainSourceError as error:
+        raise PlanningError(
+            code=ErrorCode.TERRAIN_DATA_UNAVAILABLE,
+            message=f"DEM для участка {segment_id}: {error}",
+        ) from error
+    except TerrainDataUnavailableError as error:
         raise PlanningError(
             code=ErrorCode.TERRAIN_DATA_UNAVAILABLE,
             message=(
-                f"Для маршрута участка {segment_id} нет отметки рельефа ближе "
-                f"{request.terrain_max_interpolation_distance_m:g} м."
+                f"Для маршрута участка {segment_id} отсутствует отметка рельефа "
+                f"в точке {error.coordinate.latitude:.6f}, {error.coordinate.longitude:.6f}. "
+                + (
+                    "Точка вне GeoTIFF или в NoData; пропуски не заполняются."
+                    if request.terrain_source is not None
+                    and request.terrain_source.source_type == "geotiff"
+                    else f"Предел интерполяции: {request.terrain_max_interpolation_distance_m:g} м."
+                )
             ),
             recommendations=[
                 FeasibilityRecommendation(

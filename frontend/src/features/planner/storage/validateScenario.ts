@@ -1,3 +1,4 @@
+import { validateTerrainAsset } from "@/features/terrain/model/validateTerrainAsset";
 import type { SavedScenario } from "./scenario";
 import { defaultSurvey, planningSettings } from "@/features/planner/model/defaults";
 import { cloneFleet } from "@/features/planner/model/fleetCatalog";
@@ -73,7 +74,13 @@ export function parseSavedScenario(value: unknown): SavedScenario {
   }
   sites(data.sites);
   zones(data.importedZones);
+  if (data.terrain != null) validateTerrainAsset(data.terrain);
   const survey = record(data.survey), settings = record(data.settings);
+  if (settings.altitudeReference !== undefined && !["msl", "agl"].includes(String(settings.altitudeReference))) throw new Error("Неизвестная система высот проекта");
+  if (settings.terrainSamplingInterval !== undefined) {
+    number(settings.terrainSamplingInterval);
+    if ((settings.terrainSamplingInterval as number) < 5 || (settings.terrainSamplingInterval as number) > 1000) throw new Error("Неверный шаг профиля DEM");
+  }
   for (const [key, template] of Object.entries(defaultSurvey)) {
     if (typeof template === "number") number(survey[key]); else text(survey[key]);
   }
@@ -91,5 +98,5 @@ export function parseSavedScenario(value: unknown): SavedScenario {
     }
     if (scenario.id !== data.scenarioId) throw new Error("Не совпадает базовая геометрия сценария");
   }
-  return data as unknown as SavedScenario;
+  return structuredClone(data) as unknown as SavedScenario;
 }

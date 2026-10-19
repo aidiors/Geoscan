@@ -1,3 +1,5 @@
+import { TerrainRepository } from "@/features/terrain/api/TerrainRepository";
+import type { TerrainAsset } from "@/features/terrain/model/types";
 import { cloneFleet, fleetCatalog } from "./fleetCatalog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { analyzeTurnRadii, createPlan } from "@/features/planner/api/client";
@@ -21,7 +23,12 @@ import type { ProjectDocument, SourceFile } from "@/features/projects/model/type
 import type { Scenario } from "@/features/planner/model/types";
 import { parseSavedScenario } from "@/features/planner/storage/validateScenario";
 
+const terrainRepository = new TerrainRepository();
+
 export function usePlanner() {
+  const [terrain, setTerrain] = useState<TerrainAsset | null>(null);
+  const [terrainImporting, setTerrainImporting] = useState(false);
+  const terrainImportVersion = useRef(0);
   const initialScenario = scenarios[0];
   const initialDemoCase = demoCases[0];
   const [scenarioId, setScenarioId] = useState(initialScenario.id);
@@ -76,12 +83,39 @@ export function usePlanner() {
     setStatus(nextStatus);
   }
 
+  function handleTerrainChange(asset: TerrainAsset | null): void {
+    terrainImportVersion.current += 1;
+    setTerrainImporting(false);
+    setTerrain(asset);
+    invalidate("DEM изменён — требуется новый расчёт");
+  }
+
+  async function handleImportTerrain(file: File, band: number): Promise<void> {
+    const version = ++terrainImportVersion.current;
+    const revision = planRevision.current;
+    setTerrainImporting(true);
+    setStatus("Читаем и проверяем GeoTIFF…");
+    try {
+      const asset = await terrainRepository.load(file, band);
+      if (version !== terrainImportVersion.current || revision !== planRevision.current) return;
+      setTerrain(asset);
+      invalidate("DEM загружен. Подтвердите метры и систему высот MSL.");
+    } catch (error) {
+      if (version === terrainImportVersion.current && revision === planRevision.current) setStatus(`${errorMessage(error)} Предыдущий DEM сохранён, если был загружен.`);
+    } finally {
+      if (version === terrainImportVersion.current) setTerrainImporting(false);
+    }
+  }
+
   function handleScenarioChange(nextScenarioId: string): void {
     const nextScenario = scenarios.find((candidate) => candidate.id === nextScenarioId);
     if (!nextScenario) return;
     setScenarioId(nextScenario.id);
     setScenarioOverride(null);
     setSourceFiles([]);
+    terrainImportVersion.current += 1;
+    setTerrainImporting(false);
+    setTerrain(null);
     setDemoCaseId(defaultDemoCaseForScenario(nextScenario.id)?.id ?? initialDemoCase.id);
     setTask(nextScenario.task);
     setSites(cloneSites(nextScenario));
@@ -89,7 +123,7 @@ export function usePlanner() {
     setWorkAreaSource("scenario");
     setPendingSiteRole(null);
     setSettings((current) => ({ ...current, altitude: nextScenario.altitude,
-      flatGroundElevation: 0, terrainVerticalUncertainty: 0 }));
+      altitudeReference: "msl", flatGroundElevation: 0, terrainVerticalUncertainty: 0 }));
     const capable = drones.find((drone) => drone.tasks.includes(nextScenario.task));
     if (capable) setSelectedDroneId(capable.id);
     invalidate("Тестовый сценарий загружен");
@@ -116,6 +150,9 @@ export function usePlanner() {
     setDemoCaseId(demoCase.id);
     setScenarioOverride(null);
     setSourceFiles([]);
+    terrainImportVersion.current += 1;
+    setTerrainImporting(false);
+    setTerrain(null);
     setScenarioId(nextScenario.id);
     setTask(nextScenario.task);
     setObjective(demoCase.recommendedObjective);
@@ -275,7 +312,7 @@ export function usePlanner() {
 
   async function handleAdvise(allowAltitudeChange = false): Promise<void> {
     try {
-      const request = lastRequest ?? buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource);
+      const request = lastRequest ?? buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource, terrain);
       setLastRequest(request);
       await insights.advise(request, allowAltitudeChange);
     } catch (error) { setStatus(errorMessage(error)); }
@@ -303,7 +340,7 @@ export function usePlanner() {
     setAnalyzingRadii(false);
     let request;
     try {
-      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource);
+      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource, terrain);
     } catch (error: unknown) {
       setStatus(errorMessage(error));
       return;
@@ -338,9 +375,13 @@ export function usePlanner() {
   }
 
   async function handleAnalyzeRadii(areaId: string, minimumRadius: number, maximumRadius: number): Promise<void> {
+    if (settings.altitudeReference === "agl") {
+      setStatus("Сравнение радиусов пока рассчитано на плоскую поверхность MSL. Для DEM используйте основной расчёт с заданным радиусом.");
+      return;
+    }
     let request;
     try {
-      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource);
+      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource, terrain);
     } catch (error: unknown) {
       setStatus(errorMessage(error));
       return;
@@ -396,6 +437,7 @@ export function usePlanner() {
     return {
       version: 3,
       baseScenario: scenario,
+      terrain,
       scenarioId,
       task,
       objective,
@@ -442,6 +484,9 @@ export function usePlanner() {
       setStatus("Сохранённый сценарий имеет неподдерживаемый формат");
       return;
     }
+    terrainImportVersion.current += 1;
+    setTerrainImporting(false);
+    setTerrain(snapshot.terrain ?? null);
     setScenarioId(snapshot.scenarioId);
     setScenarioOverride(snapshot.baseScenario ?? null);
     setSourceFiles([]);
@@ -510,6 +555,7 @@ export function usePlanner() {
   }
 
   return {
+    terrain, terrainImporting, handleImportTerrain, handleTerrainChange,
     insights,
     handleAdvise,
     handleApplyAdvice,

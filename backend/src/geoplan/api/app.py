@@ -11,6 +11,7 @@ from geoplan.api.routes import (
     planning_error_handler,
     request_validation_error_handler,
 )
+from geoplan.api.terrain import create_terrain_router
 from geoplan.composition import AppDependencies
 from geoplan.errors import PlanningError
 
@@ -20,6 +21,7 @@ def create_app(dependencies: AppDependencies, *, serve_frontend: bool = True) ->
     application.add_exception_handler(PlanningError, planning_error_handler)
     application.add_exception_handler(RequestValidationError, request_validation_error_handler)
     application.include_router(create_project_router(dependencies.project_repository))
+    application.include_router(create_terrain_router())
     application.include_router(
         create_router(
             dependencies.duration_calculator,
