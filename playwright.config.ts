@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolve } from "node:path";
 
 const backendCommand = process.platform === "win32"
   ? "backend\\.venv\\Scripts\\python.exe -m uvicorn geoplan.bootstrap:app --host 127.0.0.1 --port 8013"
@@ -25,7 +26,9 @@ export default defineConfig({
   webServer: {
     command: backendCommand,
     url: "http://127.0.0.1:8013/health",
-    reuseExistingServer: !process.env.CI,
+    // Project tests must never write into an operator's running workspace.
+    reuseExistingServer: false,
+    env: { GEOPLAN_DATA_DIR: resolve("work", "e2e-data", String(process.pid)) },
     timeout: 120_000,
   },
 });
