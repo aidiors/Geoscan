@@ -263,7 +263,7 @@ export function MissionMap({
           </div>
           <button type="button" aria-label="Приблизить" onClick={() => setView((current) => zoomAtPoint(current, 1, { x: mapSize.width / 2, y: mapSize.height / 2 }, mapSize))}><Plus size={17} /></button>
           <button type="button" aria-label="Отдалить" onClick={() => setView((current) => zoomAtPoint(current, -1, { x: mapSize.width / 2, y: mapSize.height / 2 }, mapSize))}><Minus size={17} /></button>
-          <button type="button" onClick={() => setView(fitCoordinates(allCoordinates, mapSize))}><Crosshair size={15} /> Вписать</button>
+          <button type="button" title="Подобрать масштаб, чтобы показать все зоны, площадки и маршруты" onClick={() => setView(fitCoordinates(allCoordinates, mapSize))}><Crosshair size={15} /> Показать всё</button>
           <button type="button" onClick={onClearZones}><Trash2 size={15} /> Очистить зоны</button>
         </div>
         {failedBasemap === basemap && <div className="map-layer-notice" role="status">Часть карты не загрузилась. Проверьте подключение или выберите другую подложку.</div>}

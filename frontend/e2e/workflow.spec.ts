@@ -1,5 +1,20 @@
 import { expect, test } from "@playwright/test";
 
+test("navigation selects and focuses the requested section without clipping workspace actions", async ({ page }) => {
+  await page.goto("/");
+  const workflow = page.getByRole("navigation", { name: "Этапы подготовки задания" });
+  for (const [name, target] of [["3 Качество", "mission-quality"], ["4 Экспорт", "mission-exports"], ["2 Расчёт", "mission-results"], ["1 Задание", "mission-inputs"]]) {
+    await workflow.getByRole("link", { name, exact: true }).click();
+    await expect(workflow.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "step");
+    await expect(page.locator(`#${target}`)).toBeFocused();
+  }
+  const restore = page.getByRole("button", { name: "Восстановить", exact: true });
+  await restore.scrollIntoViewIfNeeded();
+  expect(await restore.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await workflow.getByRole("link", { name: "1 Задание", exact: true }).click();
+  expect(await page.locator(".controls-panel").evaluate((element) => element.scrollTop)).toBe(0);
+});
+
 test("guides an operator from a calculated plan through quality to export and invalidates edited inputs", async ({ page }) => {
   await page.goto("/");
   const workflow = page.getByRole("navigation", { name: "Этапы подготовки задания" });
