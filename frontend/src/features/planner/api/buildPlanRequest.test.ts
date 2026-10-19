@@ -48,6 +48,20 @@ const settings: PlanningSettings = {
 };
 
 describe("plan request", () => {
+  it("validates fixed-wing phase configuration and preserves alternate-site requirements", () => {
+    const scenario = scenarios[0];
+    const drone = { ...cloneFleet()[0], minimumTurnRadius:50, fixedWingPhaseProfile: {
+      climb_rate_mps:2, descent_rate_mps:1, climb_energy_multiplier:1.5, descent_energy_multiplier:1,
+    } };
+    const sites = cloneSites(scenario);
+    expect(() => buildPlanRequest("flight", scenario.task, scenario, [drone], sites, [], survey,
+      {...settings, maximumActiveDrones:"1"})).toThrow("Сохраните резерв");
+    const build = () => buildPlanRequest("flight", scenario.task, scenario, [drone], sites.filter((s) => s.role !== "alternate"), [], survey,
+      {...settings, maximumActiveDrones:"1"});
+    expect(build().drones[0].fixed_wing_phase_profile).toEqual(drone.fixedWingPhaseProfile);
+    drone.minimumTurnRadius = 0;
+    expect(build).toThrow("подтверждённый радиус");
+  });
   it("sends operating phase rates and rejects unsupported airframes or excessive rates", () => {
     const scenario = scenarios[0];
     const drone = { ...cloneFleet()[2], takeoffLandingProfile: {

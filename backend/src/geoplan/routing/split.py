@@ -33,6 +33,8 @@ def representatives(model: CostModel) -> tuple[int, ...]:
             and other.available_minutes >= plane.available_minutes
             and other.sortie_overhead_minutes <= plane.sortie_overhead_minutes
             and other.sortie_energy_surcharge_minutes <= plane.sortie_energy_surcharge_minutes
+            and other.departure_energy_multiplier <= plane.departure_energy_multiplier
+            and other.return_energy_multiplier <= plane.return_energy_multiplier
             and (
                 other.speed_kmh > plane.speed_kmh
                 or other.available_minutes > plane.available_minutes

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from geoplan.domain.altitude import HeightAboveGround
 from geoplan.domain.enums import AltitudeReference, MissionStageType
 from geoplan.domain.fleet import AutopilotProfile, FlightSite
+from geoplan.domain.flight_phases import ForwardFlightPhases
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.survey import SensorProfile
 from geoplan.domain.terrain import VerticalProfilePoint
@@ -27,7 +28,15 @@ class Mission(BaseModel):
     altitude_reference: AltitudeReference = AltitudeReference.MSL
     flat_ground_elevation_m: float = Field(default=0, ge=-500, le=10_000)
     vertical_profile: list[VerticalProfilePoint] = Field(default_factory=list, max_length=100_000)
-    minimum_agl_m: float | None = Field(default=None, gt=0)
+    route_altitudes_msl_m: list[float] | None = Field(
+        default=None, min_length=2, max_length=100_000
+    )
+    forward_flight_phases: ForwardFlightPhases | None = None
+    minimum_agl_m: float | None = Field(
+        default=None,
+        gt=0,
+        description="Minimum working/survey clearance; ground launch and arrival are excluded.",
+    )
     minimum_terrain_elevation_m: float | None = Field(default=None, ge=-500, le=10_000)
     maximum_terrain_elevation_m: float | None = Field(default=None, ge=-500, le=10_000)
     maximum_required_climb_rate_mps: float | None = Field(default=None, ge=0, le=100)
@@ -76,7 +85,16 @@ class Mission(BaseModel):
     )
 
     @property
+    def flight_altitudes_msl_m(self) -> list[float]:
+        if self.route_altitudes_msl_m is not None:
+            return self.route_altitudes_msl_m
+        if self.vertical_profile:
+            return [point.target_altitude_msl for point in self.vertical_profile]
+        return [self.altitude_m]
+
+    @property
     def height_agl(self) -> HeightAboveGround:
+        """Optical height bounds on work legs, excluding launch and landing phases."""
         if self.vertical_profile:
             return HeightAboveGround(
                 min(p.target_agl_m for p in self.vertical_profile)
@@ -135,6 +153,19 @@ class Mission(BaseModel):
 
     @model_validator(mode="after")
     def schedule_offsets_are_complete(self) -> Mission:
+        altitudes = self.route_altitudes_msl_m
+        if (altitudes is None) != (self.forward_flight_phases is None):
+            raise ValueError("Профиль самолёта требует высоты MSL каждой точки маршрута.")
+        if altitudes is not None:
+            if (
+                self.altitude_reference is not AltitudeReference.MSL
+                or self.vertical_profile
+                or len(altitudes) != len(self.route)
+                or any(not isfinite(a) or a < -500 or a > 100_000 for a in altitudes)
+                or self.vertical_climb_duration_minutes > 0
+                or self.vertical_descent_duration_minutes > 0
+            ):
+                raise ValueError("Некорректный самолётный профиль MSL: набор выполняется на ходу.")
         _ = self.height_agl
         _ = self.route_leg_durations_minutes
         captures = self.photo_capture_route_indices

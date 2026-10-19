@@ -97,6 +97,12 @@ class PlanRequest(BaseModel):
 
     @model_validator(mode="after")
     def has_route_source(self) -> PlanRequest:
+        if any(drone.fixed_wing_phase_profile is not None for drone in self.drones):
+            if self.altitude_reference is not AltitudeReference.MSL or self.alternate_landing_sites:
+                raise ValueError(
+                    "Самолётный профиль пока поддерживает плоскую MSL-поверхность "
+                    "без резервных площадок; AGL и аварийный заход требуют отдельной модели."
+                )
         if (
             self.altitude_reference is AltitudeReference.AGL
             and self.alternate_landing_sites

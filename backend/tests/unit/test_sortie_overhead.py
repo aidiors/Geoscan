@@ -57,3 +57,31 @@ def test_energy_surcharge_limits_capacity_without_inflating_flight_time():
         )
     )
     assert without_surcharge.trip(Trip(0, (0,))) is not None
+
+
+def test_forward_phase_energy_scales_transits_without_adding_flight_time():
+    base = model()
+    plane = replace(
+        base.problem.aircraft[0],
+        home=Coordinate(longitude=36.99, latitude=55),
+        landing=Coordinate(longitude=37.02, latitude=55),
+    )
+    normal = CostModel(replace(base.problem, aircraft=(plane,)))
+    powered = CostModel(
+        replace(
+            base.problem,
+            aircraft=(replace(plane, departure_energy_multiplier=2, return_energy_multiplier=1.5),),
+        )
+    )
+    trip = Trip(0, (0,))
+    first, second = normal.trip(trip), powered.trip(trip)
+    assert first is not None and second is not None
+    assert first.total == second.total
+    capacity = first.total + first.departure * 0.5
+    tight = CostModel(
+        replace(
+            base.problem,
+            aircraft=(replace(powered.problem.aircraft[0], available_minutes=capacity),),
+        )
+    )
+    assert tight.trip(trip) is None

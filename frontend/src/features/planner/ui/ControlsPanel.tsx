@@ -6,6 +6,7 @@ import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
 import { InstalledCameraFields } from "@/features/planner/ui/InstalledCameraFields";
 import { FleetActions } from "@/features/planner/ui/FleetActions";
 import { TakeoffLandingFields } from "@/features/planner/ui/TakeoffLandingFields";
+import { FixedWingPhaseFields } from "@/features/planner/ui/FixedWingPhaseFields";
 import { fleetCatalog } from "@/features/planner/model/fleetCatalog";
 import type { AirframeType, AutopilotFirmware, ImportedZone, MissionTask, ZoneType } from "@/shared/api/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
@@ -296,7 +297,8 @@ export function ControlsPanel(props: ControlsPanelProps) {
               <label className="field">
                 <span>Тип аппарата</span>
                 <select value={selectedDrone.airframeType} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { airframeType: event.target.value as AirframeType,
-                  ...(["fixed_wing", "vtol_fixed_rotor"].includes(event.target.value) ? { takeoffLandingProfile: null } : {}) })}>
+                  ...(["fixed_wing", "vtol_fixed_rotor"].includes(event.target.value) ? { takeoffLandingProfile: null } : {}),
+                  ...(event.target.value !== "fixed_wing" ? { fixedWingPhaseProfile: null } : {}) })}>
                   {Object.entries(airframeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
@@ -305,6 +307,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
               <OptionalNumberField label="Предельное снижение, м/с" value={selectedDrone.maximumDescentRate} min={0.1} max={100} onChange={(maximumDescentRate) => props.onUpdateDrone(selectedDrone.id, { maximumDescentRate })} />
             </div>
             <TakeoffLandingFields drone={selectedDrone} onUpdate={(patch) => props.onUpdateDrone(selectedDrone.id, patch)} />
+            <FixedWingPhaseFields drone={selectedDrone} onUpdate={(patch) => props.onUpdateDrone(selectedDrone.id, patch)} />
             <div className="field-grid">
               <OptionalNumberField label="Мин. высота AGL, м" value={selectedDrone.minimumMissionAltitudeAgl} min={0} max={10000} onChange={(minimumMissionAltitudeAgl) => props.onUpdateDrone(selectedDrone.id, { minimumMissionAltitudeAgl })} />
               <OptionalNumberField label="Макс. высота AGL, м" value={selectedDrone.maximumMissionAltitudeAgl} min={1} max={10000} onChange={(maximumMissionAltitudeAgl) => props.onUpdateDrone(selectedDrone.id, { maximumMissionAltitudeAgl })} />

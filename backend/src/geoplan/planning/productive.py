@@ -229,6 +229,16 @@ def _routing_model(
                     resource_limit=drone.resource_limit(),
                     sortie_overhead_minutes=phases.duration_minutes,
                     sortie_energy_surcharge_minutes=phases.energy_surcharge_minutes,
+                    departure_energy_multiplier=(
+                        drone.fixed_wing_phase_profile.climb_energy_multiplier
+                        if drone.fixed_wing_phase_profile
+                        else 1
+                    ),
+                    return_energy_multiplier=(
+                        drone.fixed_wing_phase_profile.descent_energy_multiplier
+                        if drone.fixed_wing_phase_profile
+                        else 1
+                    ),
                 )
             )
     if not aircraft:

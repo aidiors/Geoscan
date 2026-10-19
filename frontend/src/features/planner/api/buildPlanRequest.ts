@@ -64,6 +64,20 @@ export function buildPlanRequest(
     throw new Error("Включите хотя бы один БВС.");
   }
   for (const drone of enabledDrones) {
+    const forward = drone.fixedWingPhaseProfile;
+    if (forward) {
+      if (drone.airframeType !== "fixed_wing" || !(Number.isFinite(drone.minimumTurnRadius) && (drone.minimumTurnRadius ?? 0) > 0)) {
+        throw new Error(`${drone.name}: самолётный профиль требует тип «Самолёт» и подтверждённый радиус разворота.`);
+      }
+      if (![forward.climb_rate_mps, forward.descent_rate_mps].every((v) => Number.isFinite(v) && v > 0 && v <= 100)
+        || ![forward.climb_energy_multiplier, forward.descent_energy_multiplier].every((v) => Number.isFinite(v) && v >= 1 && v <= 10)) {
+        throw new Error(`${drone.name}: проверьте пределы набора и снижения и коэффициенты энергии самолётного профиля.`);
+      }
+      if ((drone.maximumClimbRate != null && forward.climb_rate_mps > drone.maximumClimbRate)
+        || (drone.maximumDescentRate != null && forward.descent_rate_mps > drone.maximumDescentRate)) {
+        throw new Error(`${drone.name}: плановый предел вертикальной скорости превышает возможности БВС.`);
+      }
+    }
     const phase = drone.takeoffLandingProfile;
     if (phase) {
       if (["fixed_wing", "vtol_fixed_rotor"].includes(drone.airframeType)) {
@@ -86,6 +100,9 @@ export function buildPlanRequest(
   const departureSites = sites.filter((flightSite) => flightSite.role === "takeoff");
   const landingSites = sites.filter((flightSite) => flightSite.role === "landing");
   const alternateSites = sites.filter((flightSite) => flightSite.role === "alternate");
+  if (alternateSites.length > 0 && enabledDrones.some((drone) => drone.fixedWingPhaseProfile != null)) {
+    throw new Error("Самолётный профиль пока не моделирует заход на резервную площадку. Сохраните резерв и отключите этот профиль либо создайте отдельный сценарий для GIS-проверки без резервных площадок.");
+  }
   if (departureSites.length === 0) {
     throw new Error("Добавьте хотя бы одну точку взлёта.");
   }
@@ -166,6 +183,7 @@ export function buildPlanRequest(
       flight_hours_since_maintenance: drone.accumulatedHours,
       maximum_climb_rate_mps: drone.maximumClimbRate,
       takeoff_landing_profile: drone.takeoffLandingProfile ?? null,
+      fixed_wing_phase_profile: drone.fixedWingPhaseProfile ?? null,
       maximum_descent_rate_mps: drone.maximumDescentRate,
       minimum_mission_altitude_m: null,
       maximum_mission_altitude_m: null,

@@ -11,11 +11,21 @@ export interface SensorProfile {
   minimum_trigger_interval_s: number;
 }
 
-export interface VerticalTakeoffLandingProfile {
+export interface FlightPhaseOperatingProfile {
   climb_rate_mps: number;
   descent_rate_mps: number;
   climb_energy_multiplier: number;
   descent_energy_multiplier: number;
+}
+
+export type VerticalTakeoffLandingProfile = FlightPhaseOperatingProfile;
+
+export interface ForwardFlightPhases {
+  climb_minutes: number;
+  descent_minutes: number;
+  maximum_climb_rate_mps: number;
+  maximum_descent_rate_mps: number;
+  energy_surcharge_minutes: number;
 }
 
 export interface SurveyQualityReport {
@@ -118,6 +128,7 @@ export interface MissionStage {
   stage_type: "takeoff" | "transit" | "survey" | "landing";
   coordinates: Coordinate[];
   duration_minutes: number;
+  leg_durations_minutes?: number[] | null;
 }
 
 export interface Mission {
@@ -149,6 +160,8 @@ export interface Mission {
   vertical_distance_m: number;
   vertical_energy_equivalent_minutes: number;
   vertical_climb_duration_minutes: number;
+  route_altitudes_msl_m?: number[] | null;
+  forward_flight_phases?: ForwardFlightPhases | null;
   vertical_descent_duration_minutes: number;
   terrain_vertical_uncertainty_m?: number;
   vertical_deconfliction_offset_m?: number;
@@ -394,6 +407,7 @@ export interface PlanRequest {
     flight_hours_since_maintenance: number;
     maximum_climb_rate_mps: number | null;
     takeoff_landing_profile?: VerticalTakeoffLandingProfile | null;
+    fixed_wing_phase_profile?: FlightPhaseOperatingProfile | null;
     maximum_descent_rate_mps: number | null;
     minimum_mission_altitude_m: number | null;
     maximum_mission_altitude_m: number | null;

@@ -45,6 +45,8 @@ class Aircraft:
     resource_limit: DroneResourceLimit | None = None
     sortie_overhead_minutes: float = 0
     sortie_energy_surcharge_minutes: float = 0
+    departure_energy_multiplier: float = 1
+    return_energy_multiplier: float = 1
 
     @property
     def landing_coordinate(self) -> Coordinate:
@@ -265,9 +267,12 @@ class CostModel[P: RoutingData]:
     def feasible_cost(self, aircraft: int, cost: Cost) -> bool:
         limit = self.problem.maximum_internal_distance_km
         plane = self.problem.aircraft[aircraft]
-        return (
-            cost.total + plane.sortie_energy_surcharge_minutes <= plane.available_minutes + 1e-8
-            and (limit is None or cost.internal_distance <= limit + 1e-8)
+        return cost.total + plane.sortie_energy_surcharge_minutes + cost.departure * (
+            plane.departure_energy_multiplier - 1
+        ) + cost.returning * (
+            plane.return_energy_multiplier - 1
+        ) <= plane.available_minutes + 1e-8 and (
+            limit is None or cost.internal_distance <= limit + 1e-8
         )
 
     def trip(self, trip: Trip) -> Cost | None:

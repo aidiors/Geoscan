@@ -82,7 +82,10 @@ class CanonicalMissionExportVerifier:
         return ExportVerificationResult(
             consistent=not affected,
             message=(
-                "GeoJSON, KML и форматы автопилотов соответствуют рассчитанным маршрутам."
+                "GIS-экспорт соответствует рассчитанным маршрутам. Для самолётного профиля "
+                "экспорт автопилоту недоступен до проверки команд взлёта и захода под прошивку."
+                if not affected and any(m.forward_flight_phases for m in missions)
+                else "GeoJSON, KML и форматы автопилотов соответствуют рассчитанным маршрутам."
                 if not affected
                 else "Хотя бы один экспортированный маршрут отличается от рассчитанного."
             ),
@@ -99,6 +102,8 @@ def _mission_exports_match(mission: Mission) -> bool:
     kml_matches = f"<coordinates>{kml_coordinates}</coordinates>" in _create_kml_mission_folder(
         mission
     )
+    if mission.forward_flight_phases is not None:
+        return geojson_matches and kml_matches
     autopilot_coordinates: list[list[float]] = []
     commanded_altitude_m = (
         mission.altitude_m + mission.terrain_vertical_uncertainty_m
@@ -183,6 +188,11 @@ def _qgc_altitudes_match(mission: Mission) -> bool:
 
 
 def _absolute_export_coordinates(mission: Mission) -> list[list[float]]:
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            [p.longitude, p.latitude, altitude]
+            for p, altitude in zip(mission.route, mission.route_altitudes_msl_m, strict=True)
+        ]
     if mission.vertical_profile:
         return [
             [
@@ -227,6 +237,7 @@ def build_kml_export(request: ExportRequest) -> KmlExport:
 
 def build_qgroundcontrol_export(request: ExportRequest) -> QGroundControlExport:
     drone_plan = _drone_plan_for_request(request)
+    _require_executable_phases(drone_plan.missions)
     plan = _qgroundcontrol_plan(drone_plan.missions, drone_plan.autopilot_profile)
     return QGroundControlExport(
         file_name=f"mission-{request.drone_id}.plan",
@@ -236,11 +247,21 @@ def build_qgroundcontrol_export(request: ExportRequest) -> QGroundControlExport:
 
 def build_mission_planner_export(request: ExportRequest) -> MissionPlannerExport:
     missions = _missions_for_drone(request)
+    _require_executable_phases(missions)
     content = "\n".join(["QGC WPL 110", *_mission_planner_lines(missions)])
     return MissionPlannerExport(
         file_name=f"mission-{request.drone_id}.waypoints",
         content=f"{content}\n",
     )
+
+
+def _require_executable_phases(missions: list[Mission]) -> None:
+    if any(m.forward_flight_phases is not None for m in missions):
+        raise PlanningError(
+            code=ErrorCode.AUTOPILOT_PHASE_EXPORT_UNSUPPORTED,
+            message="Самолётный профиль доступен для GIS-проверки. Команды взлёта и захода "
+            "нужно согласовать под конкретную прошивку; автоматический экспорт заблокирован.",
+        )
 
 
 def _missions_for_drone(request: ExportRequest) -> list[Mission]:
@@ -520,6 +541,8 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
             duration_minutes=mission.duration_minutes,
             distance_km=mission.distance_km,
             altitude_m=mission.altitude_m,
+            route_altitudes_msl_m=mission.route_altitudes_msl_m,
+            forward_flight_phases=mission.forward_flight_phases,
             altitude_reference=mission.altitude_reference,
             flat_ground_elevation_m=mission.flat_ground_elevation_m,
             maximum_agl_m=mission.height_agl.maximum_m,
@@ -563,8 +586,12 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
 
 
 def _create_kml_mission_folder(mission: Mission) -> str:
-    stage_placemarks = "".join(
-        _create_kml_stage_placemark(stage, mission.altitude_m) for stage in mission.stages
+    stage_placemarks = (
+        ""
+        if mission.forward_flight_phases
+        else "".join(
+            _create_kml_stage_placemark(stage, mission.altitude_m) for stage in mission.stages
+        )
     )
     return (
         "<Folder>"

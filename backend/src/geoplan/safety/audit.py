@@ -30,6 +30,10 @@ from geoplan.flight.altitude import FlightAltitudeEnvelope
 from geoplan.flight.camera import DistanceCameraPolicy
 from geoplan.flight.energy import _battery_use_percent
 from geoplan.flight.envelope import HorizontalAirspeedEnvelope
+from geoplan.flight.fixed_wing import (
+    forward_flight_margins,
+    forward_route_inside_airspaces,
+)
 from geoplan.flight.photography import ExplicitFrameInspector
 from geoplan.flight.site_clearance import VerticalSiteClearance
 from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
@@ -284,12 +288,13 @@ def _no_fly_clearance_check(
 
 
 def _no_fly_zone_applies_to_mission(zone: NoFlyZone, mission: Mission) -> bool:
+    heights = _mission_altitudes(mission, zone.altitude_reference)
     if (
         zone.minimum_altitude_m is not None
         and zone.maximum_altitude_m is not None
-        and not any(
-            zone.minimum_altitude_m <= altitude <= zone.maximum_altitude_m
-            for altitude in _mission_altitudes(mission, zone.altitude_reference)
+        and heights
+        and not (
+            min(heights) <= zone.maximum_altitude_m and max(heights) >= zone.minimum_altitude_m
         )
     ):
         return False
@@ -435,14 +440,24 @@ def _mission_is_inside_airspace(
 
 
 def _mission_altitudes_msl(mission: Mission) -> list[float]:
-    if mission.vertical_profile:
-        return [point.target_altitude_msl for point in mission.vertical_profile]
-    return [mission.altitude_m]
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            min(mission.route_altitudes_msl_m) - mission.terrain_vertical_uncertainty_m,
+            *mission.route_altitudes_msl_m,
+        ]
+    return mission.flight_altitudes_msl_m
 
 
 def _mission_altitudes(mission: Mission, reference: AltitudeReference) -> list[float]:
     if reference is AltitudeReference.MSL:
         return _mission_altitudes_msl(mission)
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            0,
+            max(mission.route_altitudes_msl_m)
+            - mission.flat_ground_elevation_m
+            + mission.terrain_vertical_uncertainty_m,
+        ]
     if mission.vertical_profile:
         return [point.target_agl_m for point in mission.vertical_profile]
     if mission.altitude_reference is AltitudeReference.AGL:
@@ -458,6 +473,14 @@ def _vertical_route_inside_airspaces(
     mission: Mission,
     airspaces: list[AllowedAirspace],
 ) -> bool:
+    if mission.route_altitudes_msl_m is not None:
+        return forward_route_inside_airspaces(
+            mission.route,
+            mission.route_altitudes_msl_m,
+            mission.flat_ground_elevation_m,
+            mission.terrain_vertical_uncertainty_m,
+            airspaces,
+        )
     if not mission.vertical_profile:
         compatible = [
             airspace
@@ -980,6 +1003,7 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
     for mission in missions:
         drone = drones[mission.drone_id]
         margins = FlightAltitudeEnvelope().margins(drone, mission)
+        margins.extend(forward_flight_margins(drone, mission))
         if drone.takeoff_landing_profile is not None:
             heights = [mission.height_agl.maximum_m] * 2
             if mission.vertical_profile:
@@ -1032,7 +1056,9 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
             applicable = True
             margins.append(drone.maximum_cruise_speed_kmh - mission.cruise_speed_kmh)
         if drone.minimum_cruise_speed_kmh is not None or drone.maximum_cruise_speed_kmh is not None:
-            actual = HorizontalAirspeedEnvelope().range_kmh(mission, request.wind)
+            actual = HorizontalAirspeedEnvelope().range_kmh(
+                mission, request.wind, include_vertical=True
+            )
             if actual is None:
                 margins.append(-1)
             else:
@@ -1374,7 +1400,9 @@ def _audit_assumptions(request: PlanRequest, missions: list[Mission]) -> list[st
     missing_phases = [
         d.drone_id
         for d in request.drones
-        if d.drone_id in used and d.takeoff_landing_profile is None
+        if d.drone_id in used
+        and d.takeoff_landing_profile is None
+        and d.fixed_wing_phase_profile is None
     ]
     if missing_phases:
         assumptions.append(
@@ -1401,6 +1429,24 @@ def _audit_assumptions(request: PlanRequest, missions: list[Mission]) -> list[st
         "рельефа. Поддержка конкретной прошивки и выполнение команд в SITL "
         "или на реальном БВС этой проверкой не подтверждаются."
     )
+    if any(d.fixed_wing_phase_profile is not None and d.drone_id in used for d in request.drones):
+        assumptions.append(
+            "Самолётный профиль распределяет набор на весь перелёт до первого галса, "
+            "снижение — на весь возврат. Эти фазы выполняются во время "
+            "горизонтального перелёта; время не добавляется повторно. "
+            "Расход на перелётах масштабируется заданными коэффициентами."
+        )
+        assumptions.append(
+            "Скорость в плане задаёт горизонтальную воздушную составляющую; предел полной "
+            "воздушной скорости учитывает вертикальную составляющую. Направление запуска, "
+            "разгон, выпуск парашюта, выравнивание, связь крена и срыва не моделируются. "
+            "Радиус и рабочие скорости задаёт оператор. Профиль доступен только для GIS-проверки."
+        )
+        assumptions.append(
+            "Длина самолётного маршрута включает вертикальную составляющую набора и снижения; "
+            "при погрешности поверхности используется консервативный вертикальный уклон. "
+            "GIS показывает номинальный профиль над заданной отметкой поверхности."
+        )
     if any(obstacle.known_top_msl_m is None for obstacle in request.obstacles):
         assumptions.append(
             "Для препятствий без абсолютной отметки вершины MSL применяется горизонтальный "

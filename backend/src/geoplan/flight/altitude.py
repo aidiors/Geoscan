@@ -22,12 +22,20 @@ class FlightAltitudeEnvelope:
             margins.append(height.minimum_m - drone.minimum_mission_altitude_agl_m)
         if drone.maximum_mission_altitude_agl_m is not None:
             margins.append(drone.maximum_mission_altitude_agl_m - height.maximum_m)
-        elevations = [p.target_altitude_msl for p in mission.vertical_profile]
+        elevations = (
+            mission.flight_altitudes_msl_m
+            if mission.altitude_reference is AltitudeReference.MSL or mission.vertical_profile
+            else []
+        )
         if not elevations and mission.altitude_reference is AltitudeReference.MSL:
             elevations = [mission.altitude_m]
         if drone.minimum_mission_altitude_msl_m is not None:
             margins.append(
-                min(elevations) - drone.minimum_mission_altitude_msl_m if elevations else -1
+                min(elevations)
+                - (mission.terrain_vertical_uncertainty_m if mission.route_altitudes_msl_m else 0)
+                - drone.minimum_mission_altitude_msl_m
+                if elevations
+                else -1
             )
         if drone.maximum_mission_altitude_msl_m is not None:
             margins.append(

@@ -11,8 +11,11 @@ from geoplan.navigation.routing import coordinate_distance_km, route_bearing_deg
 
 @dataclass(frozen=True)
 class HorizontalAirspeedEnvelope:
-    def range_kmh(self, mission: Mission, wind: WindCondition | None) -> tuple[float, float] | None:
+    def range_kmh(
+        self, mission: Mission, wind: WindCondition | None, *, include_vertical: bool = False
+    ) -> tuple[float, float] | None:
         speeds = []
+        index = 0
         for stage in mission.stages:
             times = stage.leg_durations_minutes
             if times is None:
@@ -29,7 +32,11 @@ class HorizontalAirspeedEnvelope:
                     route_bearing_degrees(start, end) - (wind.direction_degrees if wind else 0)
                 )
                 wind_speed = wind.speed_mps * 3.6 if wind else 0
-                speeds.append(
-                    hypot(ground + wind_speed * cos(relative), wind_speed * sin(relative))
-                )
+                horizontal = hypot(ground + wind_speed * cos(relative), wind_speed * sin(relative))
+                vertical = 0.0
+                if include_vertical and mission.route_altitudes_msl_m is not None:
+                    heights = mission.route_altitudes_msl_m
+                    vertical = (heights[index + 1] - heights[index]) / (minutes * 60) * 3.6
+                speeds.append(hypot(horizontal, vertical))
+                index += 1
         return (min(speeds), max(speeds)) if speeds else None

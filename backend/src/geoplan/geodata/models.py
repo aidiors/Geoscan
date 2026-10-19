@@ -14,6 +14,7 @@ from geoplan.domain.enums import (
     ImportFormat,
     ZoneType,
 )
+from geoplan.domain.flight_phases import ForwardFlightPhases
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import MissionStage
 from geoplan.planning.models import PlanResponse
@@ -167,6 +168,8 @@ class GeoJsonProperties(BaseModel):
     duration_minutes: float = Field(gt=0)
     distance_km: float = Field(gt=0)
     altitude_m: float = Field(gt=0)
+    route_altitudes_msl_m: list[float] | None = None
+    forward_flight_phases: ForwardFlightPhases | None = None
     altitude_reference: AltitudeReference = AltitudeReference.MSL
     flat_ground_elevation_m: float = Field(default=0, ge=-500, le=10_000)
     maximum_agl_m: float | None = Field(default=None, gt=0)

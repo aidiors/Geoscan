@@ -23,6 +23,7 @@ from geoplan.flight.duration import MissionDurationCalculator
 from geoplan.flight.emergency import FlightPhase, _evaluate_emergency_reachability
 from geoplan.flight.energy import _battery_use_percent, _effective_endurance_minutes
 from geoplan.flight.envelope import HorizontalAirspeedEnvelope
+from geoplan.flight.fixed_wing import FixedWingPhasePlanner, forward_route_inside_airspaces
 from geoplan.flight.models import MissionDurationRequest
 from geoplan.flight.site_clearance import VerticalSiteClearance
 from geoplan.flight.sites import _eligible_departure_sites, _eligible_landing_sites
@@ -205,8 +206,10 @@ def _create_candidate(
     phases = optimized.takeoff_landing
     total_duration = estimate.precise_duration_minutes + phases.duration_minutes
     energy_equivalent_minutes = (
-        vertical_profile.vertical_energy_equivalent_minutes if vertical_profile is not None else 0
-    ) + phases.energy_surcharge_minutes
+        (vertical_profile.vertical_energy_equivalent_minutes if vertical_profile is not None else 0)
+        + phases.energy_surcharge_minutes
+        + (optimized.forward_flight.energy_surcharge_minutes if optimized.forward_flight else 0)
+    )
     battery_percent = round(
         _battery_use_percent(total_duration + energy_equivalent_minutes, drone),
         2,
@@ -228,6 +231,8 @@ def _create_candidate(
         altitude_reference=request.altitude_reference,
         flat_ground_elevation_m=request.flat_ground_elevation_m,
         vertical_profile=(vertical_profile.points if vertical_profile is not None else []),
+        route_altitudes_msl_m=optimized.route_altitudes_msl_m,
+        forward_flight_phases=optimized.forward_flight,
         minimum_agl_m=(
             vertical_profile.minimum_agl_m
             if vertical_profile is not None
@@ -252,7 +257,8 @@ def _create_candidate(
         vertical_distance_m=(
             round(
                 (vertical_profile.vertical_distance_m if vertical_profile is not None else 0)
-                + phases.vertical_distance_m,
+                + phases.vertical_distance_m
+                + (2 * request.survey_height_agl.maximum_m if optimized.forward_flight else 0),
                 2,
             )
         ),
@@ -342,7 +348,9 @@ def _create_candidate(
         ],
     )
     if drone.minimum_cruise_speed_kmh is not None or drone.maximum_cruise_speed_kmh is not None:
-        envelope = HorizontalAirspeedEnvelope().range_kmh(mission, request.wind)
+        envelope = HorizontalAirspeedEnvelope().range_kmh(
+            mission, request.wind, include_vertical=True
+        )
         if (
             envelope is None
             or (
@@ -463,6 +471,57 @@ def _best_route_and_sites(
             except PlanningError as error:
                 errors.append(error)
                 continue
+            forward = None
+            route_altitudes = None
+            if drone.fixed_wing_phase_profile is not None:
+                departure_times = duration_estimate.transit_leg_durations_minutes
+                landing_times = duration_estimate.landing_leg_durations_minutes
+                if departure_times is None or landing_times is None:
+                    errors.append(
+                        PlanningError(
+                            code=ErrorCode.VERTICAL_PROFILE_UNSATISFIED,
+                            message="Самолётный профиль требует точные времена плеч перелёта.",
+                        )
+                    )
+                    continue
+                try:
+                    forward = FixedWingPhasePlanner().plan(
+                        drone,
+                        request.survey_height_agl.maximum_m,
+                        sum(departure_times),
+                        sum(landing_times),
+                    )
+                    route_altitudes = FixedWingPhasePlanner().altitudes(
+                        transit_route,
+                        optimized.route,
+                        landing_route,
+                        departure_times,
+                        landing_times,
+                        request.flat_ground_elevation_m,
+                        request.mission_altitude_m,
+                    )
+                    total_distance = FixedWingPhasePlanner().distance_km(
+                        full_route,
+                        route_altitudes,
+                        request.flat_ground_elevation_m,
+                        request.terrain_vertical_uncertainty_m,
+                    )
+                    transit_distance = total_distance - survey_distance
+                    if not forward_route_inside_airspaces(
+                        full_route,
+                        route_altitudes,
+                        request.flat_ground_elevation_m,
+                        request.terrain_vertical_uncertainty_m,
+                        request.allowed_airspaces,
+                    ):
+                        raise PlanningError(
+                            code=ErrorCode.OUTSIDE_ALLOWED_AIRSPACE,
+                            message="Самолётный набор или снижение выходят "
+                            "за разрешённый диапазон высот.",
+                        )
+                except PlanningError as error:
+                    errors.append(error)
+                    continue
             try:
                 vertical_profile = _vertical_profile(
                     full_route,
@@ -569,6 +628,8 @@ def _best_route_and_sites(
                     emergency_reachability=emergency_reachability,
                     vertical_profile=vertical_profile,
                     takeoff_landing=takeoff_landing,
+                    forward_flight=forward,
+                    route_altitudes_msl_m=route_altitudes,
                 )
             )
     if choices:
@@ -599,7 +660,8 @@ def _route_choice_key(choice: OptimizedMissionRoute) -> tuple[float, str, str]:
     return (
         choice.duration_estimate.precise_duration_minutes
         + vertical_minutes
-        + choice.takeoff_landing.energy_equivalent_minutes,
+        + choice.takeoff_landing.energy_equivalent_minutes
+        + (choice.forward_flight.energy_surcharge_minutes if choice.forward_flight else 0),
         departure_id,
         landing_id,
     )

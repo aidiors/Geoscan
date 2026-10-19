@@ -11,6 +11,7 @@ from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
 from geoplan.flight.altitude import FlightAltitudeEnvelope
 from geoplan.flight.energy import _battery_use_percent
+from geoplan.flight.fixed_wing import forward_route_inside_airspaces
 from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
 from geoplan.navigation.routing import (
     route_is_clear_of_no_fly_zones,
@@ -191,14 +192,24 @@ def _mission_time_windows(
 
 
 def _mission_altitudes_msl(mission: Mission) -> list[float]:
-    if mission.vertical_profile:
-        return [point.target_altitude_msl for point in mission.vertical_profile]
-    return [mission.altitude_m]
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            min(mission.route_altitudes_msl_m) - mission.terrain_vertical_uncertainty_m,
+            *mission.route_altitudes_msl_m,
+        ]
+    return mission.flight_altitudes_msl_m
 
 
 def _mission_altitudes(mission: Mission, reference: AltitudeReference) -> list[float]:
     if reference is AltitudeReference.MSL:
         return _mission_altitudes_msl(mission)
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            0,
+            max(mission.route_altitudes_msl_m)
+            - mission.flat_ground_elevation_m
+            + mission.terrain_vertical_uncertainty_m,
+        ]
     if mission.vertical_profile:
         return [point.target_agl_m for point in mission.vertical_profile]
     if mission.altitude_reference is AltitudeReference.AGL:
@@ -210,8 +221,10 @@ def _zone_applies_to_mission(zone: NoFlyZone, mission: Mission) -> bool:
     if zone.minimum_altitude_m is None or zone.maximum_altitude_m is None:
         return True
     altitudes = _mission_altitudes(mission, zone.altitude_reference)
-    return any(
-        zone.minimum_altitude_m <= altitude <= zone.maximum_altitude_m for altitude in altitudes
+    return (
+        bool(altitudes)
+        and min(altitudes) <= zone.maximum_altitude_m
+        and max(altitudes) >= zone.minimum_altitude_m
     )
 
 
@@ -273,6 +286,14 @@ def _mission_route_inside_airspaces(
     mission: Mission,
     airspaces: list[AllowedAirspace],
 ) -> bool:
+    if mission.route_altitudes_msl_m is not None:
+        return forward_route_inside_airspaces(
+            mission.route,
+            mission.route_altitudes_msl_m,
+            mission.flat_ground_elevation_m,
+            mission.terrain_vertical_uncertainty_m,
+            airspaces,
+        )
     if not mission.vertical_profile:
         compatible = [
             airspace

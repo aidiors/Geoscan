@@ -1,5 +1,6 @@
 import { Download, Plane, Route, ShieldCheck, ShieldX, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { ForwardFlightAltitudeProfile } from "@/features/planner/ui/ForwardFlightAltitudeProfile";
 import type { ReactNode } from "react";
 
 import { radiusSamples } from "@/features/planner/model/radii";
@@ -77,6 +78,8 @@ export function ResultsPanel({
     && radiusAnalysis.scenarios.at(-1)?.status !== "feasible";
   const selectedPlan = plan?.drone_plans.find((dronePlan) => dronePlan.drone_id === selectedDroneId);
   const exportDisabled = exporting || !selectedPlan || selectedPlan.mission_count === 0;
+  const forwardExportBlocked = selectedPlan?.missions.some((mission) => mission.forward_flight_phases != null) ?? false;
+  const forwardMission = selectedPlan?.missions.find((mission) => mission.forward_flight_phases != null);
   const coverageAngleSummary = plan?.optimization?.coverage_angle_cost === "wind_adjusted_duration"
     ? `Направление галсов выбрано по времени с учётом ветра · опорная скорость ${format(plan.optimization.coverage_reference_airspeed_kmh ?? 0)} км/ч`
     : "Направление галсов выбрано по геометрической длине";
@@ -217,6 +220,7 @@ export function ResultsPanel({
           const absoluteStarts = dronePlan.missions.map((mission) => mission.start_time).filter((value): value is string => Boolean(value));
           const absoluteEnds = dronePlan.missions.map((mission) => mission.end_time).filter((value): value is string => Boolean(value));
           const terrainMissions = dronePlan.missions.filter((mission) => mission.altitude_reference === "agl");
+          const forwardPhases = dronePlan.missions.flatMap((mission) => mission.forward_flight_phases ? [mission.forward_flight_phases] : []);
           const maximumTerrain = Math.max(...terrainMissions.map((mission) => mission.maximum_terrain_elevation_m ?? 0));
           const verticalDistance = terrainMissions.reduce((sum, mission) => sum + mission.vertical_distance_m, 0);
           const maximumVerticalLayer = Math.max(0, ...dronePlan.missions.map((mission) => mission.vertical_deconfliction_offset_m ?? 0));
@@ -233,6 +237,7 @@ export function ResultsPanel({
               <span className="mission-details">{format(dronePlan.total_duration_minutes)} мин · {format(totalDistance)} км · {format(usefulPercent)}% съёмка · АКБ старт {format(minimumStartingBattery)}%, расход до {format(maximumBattery)}%{minimumReserveMargin !== null ? ` · сверх резерва ${format(minimumReserveMargin)} п.п.` : ""}{sweepAngles.length > 0 ? ` · галсы ${sweepAngles.map((angle) => `${format(angle)}°`).join("/")}` : ""}{scheduleText}</span>
               {minimumAlternateMargin !== null && <span className="mission-details">Аварийный уход: минимум {format(minimumAlternateMargin)} п.п. сверх резерва · адаптивно проверено {alternateEvaluations} точек · интервал до {format(maximumAlternateInterval)} м · погрешность ≤ {format(maximumAlternateError)} мин</span>}
               {terrainMissions.length > 0 && <span className="mission-details">AGL-профиль: рельеф до {format(maximumTerrain)} м MSL · вертикальный путь {format(verticalDistance)} м</span>}
+              {forwardPhases.length > 0 && <span className="mission-details">Самолётный профиль: набор до {format(Math.max(...forwardPhases.map((p) => p.maximum_climb_rate_mps)))} м/с · снижение до {format(Math.max(...forwardPhases.map((p) => p.maximum_descent_rate_mps)))} м/с · выполняются во время перелётов, без добавления времени · GIS-проверка</span>}
               {maximumVerticalLayer > 0 && <span className="mission-details">Вертикальное эшелонирование: до +{format(maximumVerticalLayer)} м · набор/снижение {format(verticalPhaseMinutes)} мин включены в расписание и АКБ</span>}
               {maximumVerticalLayer === 0 && verticalPhaseMinutes > 0 && <span className="mission-details">Взлёт и посадка: {format(verticalPhaseMinutes)} мин включены в расписание и АКБ</span>}
               <span className="battery-bar"><i style={{ width: `${Math.min(maximumBattery, 100)}%`, background: drone?.color ?? "#6d28d9" }} /></span>
@@ -244,12 +249,14 @@ export function ResultsPanel({
         }) ?? <div className="empty-state">После расчёта здесь появятся индивидуальные задания БВС.</div>}
       </div>
 
+      {forwardMission && <ForwardFlightAltitudeProfile mission={forwardMission} />}
       <div className="export-group">
         <button type="button" disabled={exportDisabled} onClick={() => onExport("geojson")}><Download size={15} /> GeoJSON</button>
         <button type="button" disabled={exportDisabled} onClick={() => onExport("kml")}><Download size={15} /> KML</button>
-        <button type="button" disabled={exportDisabled} onClick={() => onExport("qgroundcontrol")}><Download size={15} /> QGroundControl</button>
-        <button type="button" disabled={exportDisabled} onClick={() => onExport("mission-planner")}><Download size={15} /> Mission Planner</button>
+        <button type="button" disabled={exportDisabled || forwardExportBlocked} onClick={() => onExport("qgroundcontrol")}><Download size={15} /> QGroundControl</button>
+        <button type="button" disabled={exportDisabled || forwardExportBlocked} onClick={() => onExport("mission-planner")}><Download size={15} /> Mission Planner</button>
       </div>
+      {forwardExportBlocked && <p className="hint">Самолётный профиль доступен в GeoJSON и KML. Автопилотный экспорт требует проверки команд взлёта и посадки под конкретную прошивку.</p>}
     </aside>
   );
 }

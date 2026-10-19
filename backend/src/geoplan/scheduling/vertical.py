@@ -15,12 +15,11 @@ class AltitudeInterval:
 
 
 def altitude_interval_msl(mission: Mission) -> AltitudeInterval:
-    altitudes = (
-        [point.target_altitude_msl for point in mission.vertical_profile]
-        if mission.vertical_profile
-        else [mission.altitude_m]
-    )
-    return AltitudeInterval(min(altitudes), max(altitudes))
+    altitudes = mission.flight_altitudes_msl_m
+    lower = min(altitudes)
+    if mission.route_altitudes_msl_m is not None:
+        lower -= mission.terrain_vertical_uncertainty_m
+    return AltitudeInterval(lower, max(altitudes))
 
 
 def vertical_interval_gap_m(first: Mission, second: Mission) -> float:

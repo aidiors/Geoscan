@@ -1,6 +1,6 @@
 import type { MissionTask, SweepDirectionMode, AutopilotFirmware, AirframeType, ImportedZone, WorkSegment, PayloadCapability } from "@/shared/api/types";
 import type { Coordinate } from "@/shared/geo/types";
-import type { SensorProfile, VerticalTakeoffLandingProfile } from "@/shared/api/types";
+import type { SensorProfile, VerticalTakeoffLandingProfile, FlightPhaseOperatingProfile } from "@/shared/api/types";
 
 export type Objective = "time" | "flight" | "balanced";
 export type WorkAreaSource = "scenario" | "imported";
@@ -9,6 +9,7 @@ export type SiteRole = "takeoff" | "landing" | "alternate";
 
 export interface DroneProfile {
   takeoffLandingProfile?: VerticalTakeoffLandingProfile | null;
+  fixedWingPhaseProfile?: FlightPhaseOperatingProfile | null;
   modelId?: string;
   availableBatterySets?: number | null;
   installedSensor?: SensorProfile | null;
