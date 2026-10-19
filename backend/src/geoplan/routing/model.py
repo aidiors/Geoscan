@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from itertools import pairwise
-from math import inf, isclose
+from math import cos, hypot, inf, isclose, radians
 from typing import Protocol
 
 from geoplan.domain.airspace import NoFlyZone
@@ -502,17 +502,25 @@ class CostModel[P: RoutingData]:
     def _recomputed_duration(
         self, route: list[Coordinate], speed: float, cap: float = inf
     ) -> float:
-        # Separate accumulation from route_duration_minutes and the cost caches.
-        return sum(
-            route_distance_km([a, b])
-            * 60
-            / min(
-                ground_speed_kmh(a, b, speed, self.problem.wind),
-                cap,
+        # Independent accumulation: great-circle flight time plus the conservative
+        # speed bound for latitude/longitude-linear camera waypoint interpolation.
+        elapsed = 0.0
+        for a, b in pairwise(route):
+            if a == b:
+                continue
+            duration = (
+                route_distance_km([a, b])
+                * 60
+                / min(ground_speed_kmh(a, b, speed, self.problem.wind), cap)
             )
-            for a, b in pairwise(route)
-            if a != b
-        )
+            low, high = sorted((a.latitude, b.latitude))
+            nearest = 0 if low <= 0 <= high else min(abs(low), abs(high))
+            interpolation_bound = 6371 * hypot(
+                radians(b.latitude - a.latitude),
+                cos(radians(nearest)) * radians(b.longitude - a.longitude),
+            )
+            elapsed += max(duration, interpolation_bound * 60 / cap)
+        return elapsed
 
 
 def reverse(visits: tuple[int, ...]) -> tuple[int, ...]:

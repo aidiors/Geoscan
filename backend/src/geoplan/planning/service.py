@@ -41,7 +41,7 @@ class AuditedPlanningService:
                     try:
                         with (
                             progress.pipeline("initial") as observe,
-                            planning_budget(self.initial_seconds),
+                            planning_budget(self._initial_budget_seconds(request)),
                         ):
                             initial = self.initial(request, observe)
                             observe("result", initial)
@@ -91,6 +91,17 @@ class AuditedPlanningService:
         selected = progress.best or result
         assert selected is not None
         return progress.snapshot(selected, status)
+
+    def _initial_budget_seconds(self, request: PlanRequest) -> float:
+        # Keep a cheap audited seed when available, but leave the short request's
+        # time for the primary pipeline, which also publishes its own baseline.
+        if (
+            request.productive_routing
+            and len(request.coverage_areas) > 1
+            and request.planning_time_limit_seconds <= 60
+        ):
+            return min(1.0, request.planning_time_limit_seconds * 0.05)
+        return min(self.initial_seconds, request.planning_time_limit_seconds)
 
     def _try_alternative(self, request: PlanRequest) -> bool:
         return (

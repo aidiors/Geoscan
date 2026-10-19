@@ -38,6 +38,7 @@ from geoplan.navigation.routing import (
     coordinate_distance_km,
     route_distance_km,
 )
+from geoplan.planning.camera_diagnostics import CameraMissionDiagnostics
 from geoplan.planning.candidate_models import MissionCandidate, OptimizedMissionRoute
 from geoplan.planning.constraints import _constraints_for_segment
 from geoplan.planning.models import PlanRequest
@@ -364,10 +365,7 @@ def _create_candidate(
                 and envelope[1] > drone.maximum_cruise_speed_kmh + 0.05
             )
         ):
-            raise PlanningError(
-                code=ErrorCode.FLIGHT_ENVELOPE_EXCEEDED,
-                message=f"Недопустимая воздушная скорость для камеры БВС {drone.drone_id}.",
-            )
+            raise CameraMissionDiagnostics().airspeed_error(request, drone, mission, envelope)
     return MissionCandidate(drone=drone, mission=mission)
 
 

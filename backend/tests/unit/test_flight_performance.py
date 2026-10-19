@@ -1,14 +1,42 @@
+from itertools import pairwise
+
 import pytest
 
 from geoplan.domain.environment import WindCondition
 from geoplan.domain.geo import Coordinate
 from geoplan.flight.duration import CruiseMissionDurationCalculator
 from geoplan.flight.models import MissionDurationRequest
+from geoplan.flight.performance import route_leg_durations_minutes
+from geoplan.navigation.routing import coordinate_distance_km
 
 NORTHBOUND_ROUTE = [
     Coordinate(longitude=37.4, latitude=55.7),
     Coordinate(longitude=37.4, latitude=55.8),
 ]
+
+
+@pytest.mark.parametrize("latitude", [-70, -55, 0, 55, 70])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_camera_cap_bounds_every_interpolated_coordinate_step(latitude, reverse):
+    a = Coordinate(longitude=37, latitude=latitude)
+    b = Coordinate(longitude=37.2, latitude=latitude + 0.1)
+    if reverse:
+        a, b = b, a
+    distance = coordinate_distance_km(a, b)
+    minutes = route_leg_durations_minutes([a, b], distance, 90, None, 30)[0]
+    # Explicit camera positions are latitude/longitude-linear, as exported.
+    points = [
+        Coordinate(
+            longitude=a.longitude + (b.longitude - a.longitude) * i / 100,
+            latitude=a.latitude + (b.latitude - a.latitude) * i / 100,
+        )
+        for i in range(101)
+    ]
+    speeds = [coordinate_distance_km(x, y) / (minutes / 100) * 60 for x, y in pairwise(points)]
+    assert max(speeds) <= 30 + 1e-7
+    assert route_leg_durations_minutes([a, b], distance, 90, None)[0] == pytest.approx(
+        distance / 90 * 60
+    )
 
 
 def test_sensor_speed_limit_applies_only_to_survey_phase() -> None:

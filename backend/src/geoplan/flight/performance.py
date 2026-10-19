@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import pairwise
-from math import cos, radians, sin, sqrt
+from math import cos, hypot, radians, sin, sqrt
 
 from geoplan.domain.environment import WindCondition
 from geoplan.domain.geo import Coordinate
@@ -52,8 +52,38 @@ def route_leg_durations_minutes(
         leg_distance = distance_km * geometric_distance / total_length
         ground_speed = ground_speed_kmh(start, end, cruise_speed_kmh, wind)
         ground_speed = _limited_speed(ground_speed, ground_speed_limit_kmh)
-        durations.append(leg_distance / ground_speed * 60)
+        duration = leg_distance / ground_speed * 60
+        if ground_speed_limit_kmh is not None:
+            duration = max(
+                duration,
+                leg_distance
+                / geometric_distance
+                * _linear_coordinate_length_bound_km(start, end)
+                / ground_speed_limit_kmh
+                * 60,
+            )
+        durations.append(duration)
     return durations
+
+
+def _linear_coordinate_length_bound_km(start: Coordinate, end: Coordinate) -> float:
+    """Bound the speed of latitude/longitude-linear camera waypoint insertion.
+
+    On the same sphere as coordinate_distance_km, ds/dt is bounded by
+    R * hypot(delta_lat, max(cos(lat)) * delta_lon). A great-circle edge
+    length alone can slightly underestimate the longest finite camera step.
+    This changes capped clocks, not geometry or overlap requirements.
+    """
+    minimum_latitude, maximum_latitude = sorted((start.latitude, end.latitude))
+    closest_to_equator = (
+        0
+        if minimum_latitude <= 0 <= maximum_latitude
+        else min(abs(minimum_latitude), abs(maximum_latitude))
+    )
+    return 6371 * hypot(
+        radians(end.latitude - start.latitude),
+        cos(radians(closest_to_equator)) * radians(end.longitude - start.longitude),
+    )
 
 
 def ground_speed_kmh(

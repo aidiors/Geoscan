@@ -220,6 +220,48 @@ def test_request_accepts_thirty_minutes_and_rejects_a_longer_budget():
         productive_survey_request(planning_time_limit_seconds=1801)
 
 
+def test_short_multi_area_seed_timeout_leaves_time_for_primary(audited_plan, monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(budget, "monotonic", lambda: now[0])
+
+    def initial(request, observer):
+        now[0] += 1.1
+        budget.check_planning_budget()
+        raise AssertionError("Seed should have exhausted its own time allocation")
+
+    def primary(request, observer):
+        now[0] += 25
+        budget.check_planning_budget()
+        return audited_plan
+
+    result = AuditedPlanningService(primary, initial=initial).plan(
+        neighbor_fields_request(planning_time_limit_seconds=30)
+    )
+    assert result.metrics == audited_plan.metrics
+    assert result.search is not None
+    assert result.search.pipelines[0].status == "time_limit"
+    assert result.search.pipelines[1].status == "improved"
+    budget.check_planning_budget()
+
+
+def test_cheap_seed_survives_primary_failure_in_short_request(audited_plan, monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(budget, "monotonic", lambda: now[0])
+
+    def initial(request, observer):
+        now[0] += 0.1
+        return audited_plan
+
+    def primary(request, observer):
+        raise PlanningError(ErrorCode.COVERAGE_GENERATION_FAILED, "No primary route")
+
+    result = AuditedPlanningService(primary, initial=initial).plan(
+        neighbor_fields_request(planning_time_limit_seconds=30)
+    )
+    assert result.metrics == audited_plan.metrics
+    assert result.search is not None and result.search.status == "retained_after_error"
+
+
 def test_stream_has_bounded_admission_and_disconnect_releases_worker(audited_plan):
     entered, stopped = Event(), Event()
 
