@@ -10,6 +10,7 @@ import { PlanSearchProgress } from "./PlanSearchProgress";
 import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/shared/api/types";
 
 interface ResultsPanelProps {
+  planningIssue?: string | null;
   archived?: boolean;
   terrainMode?: boolean;
   insights?: ReactNode;
@@ -53,6 +54,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
 };
 
 export function ResultsPanel({
+  planningIssue,
   archived = false,
   terrainMode = false,
   insights,
@@ -90,9 +92,15 @@ export function ResultsPanel({
     ? `Направление галсов выбрано по времени с учётом ветра · опорная скорость ${format(plan.optimization.coverage_reference_airspeed_kmh ?? 0)} км/ч`
     : "Направление галсов выбрано по геометрической длине";
   return (
-    <aside className="panel results-panel">
+    <aside className="panel results-panel" id="mission-results" tabIndex={-1}>
       <div className="eyebrow"><Route size={15} /> Результат оптимизации</div>
       <h2>{plan ? "Расчётный план" : "Ожидает расчёта"}</h2>
+      {planningIssue && <section className="planning-issue" role="alert">
+        <b>{plan ? "Поиск завершён с сообщением" : "План пока не построен"}</b>
+        <p>{planningIssue}</p>
+        <p>Измените указанные условия и повторите расчёт. В блоке «Качество съёмки и варианты выполнения» можно проверить альтернативы.</p>
+        <a href="#mission-inputs">Изменить условия задания →</a>
+      </section>}
       {archived && <p className="hint" role="note">Архивный результат: условия и качество не перепроверялись при открытии. Для экспорта в автопилот выполните новый расчёт.</p>}
       <p className="lead">{plan?.feasibility?.message ?? "Настройте сценарий и запустите расчёт — демонстрационные цифры не используются."}</p>
       {plan && <p className="hint">{plan.criterion === "balanced"
@@ -118,6 +126,7 @@ export function ResultsPanel({
         <Metric label="Налёт" value={plan ? `${format(plan.metrics.total_flight_minutes)} мин` : "—"} detail="по флоту" />
         <Metric label="Маршрут" value={plan ? `${format(plan.metrics.total_distance_km)} км` : "—"} detail={plan ? `${format(plan.metrics.useful_flight_percent)}% полезного пути` : "общая дистанция"} />
       </div>
+      {plan && <p className="fleet-summary"><Plane size={16} /> {plan.metrics.active_drone_count} БВС в работе · {plan.metrics.sortie_count} вылетов <span>Расчётное время полётов; длительность поиска показана отдельно.</span></p>}
 
       <PlanSearchProgress search={plan?.search} />
       {plan?.optimization && (
@@ -259,7 +268,7 @@ export function ResultsPanel({
 
       {forwardMission && <ForwardFlightAltitudeProfile mission={forwardMission} />}
       {selectedPlan && <TerrainAltitudeProfile key={selectedDroneId} missions={selectedPlan.missions} />}
-      <div className="export-group">
+      <div className="export-group" id="mission-exports" tabIndex={-1}>
         <button type="button" disabled={exportDisabled} onClick={() => onExport("geojson")}><Download size={15} /> GeoJSON</button>
         <button type="button" disabled={exportDisabled} onClick={() => onExport("kml")}><Download size={15} /> KML</button>
         <button type="button" disabled={exportDisabled || forwardExportBlocked || releaseBlocked} onClick={() => onExport("qgroundcontrol")}><Download size={15} /> QGroundControl</button>

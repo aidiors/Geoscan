@@ -8,6 +8,7 @@ import { activeWorkAreas } from "@/features/planner/api/buildPlanRequest";
 import { usePlanner } from "@/features/planner/model/usePlanner";
 import { MissionInsights } from "@/features/planner/ui/MissionInsights";
 import { ProjectPanel } from "@/features/projects/ui/ProjectPanel";
+import { MissionWorkflow } from "@/features/planner/ui/MissionWorkflow";
 
 export default function App() {
   const [theme, setTheme] = useTheme();
@@ -71,6 +72,7 @@ export default function App() {
     captureProject,
     restoreProject,
     archivedPlan,
+    planningIssue,
   } = usePlanner();
   return (
     <div className="app-shell">
@@ -84,6 +86,7 @@ export default function App() {
         onLoad={handleDemoCaseLoad}
         onRun={(caseId) => void handleDemoCaseRun(caseId)}
       />
+      <MissionWorkflow plan={plan} quality={insights.quality} archived={archivedPlan} calculating={calculating} canInspect={canInspectQuality} busy={calculating || insights.busy} onInspect={() => void insights.inspect()} onCalculate={() => void handleCalculate()} />
       <main className="workspace">
         <ControlsPanel
           terrain={terrain} terrainImporting={terrainImporting} onImportTerrain={handleImportTerrain} onTerrainChange={handleTerrainChange}
@@ -135,7 +138,7 @@ export default function App() {
           onAddSite={handleAddSite}
           onClearZones={() => { setImportedZones([]); invalidate("Импортированные зоны очищены"); }}
         />
-        <ResultsPanel terrainMode={settings.altitudeReference === "agl"} archived={archivedPlan} insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
+        <ResultsPanel planningIssue={planningIssue} terrainMode={settings.altitudeReference === "agl"} archived={archivedPlan} insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
       </main>
     </div>
   );

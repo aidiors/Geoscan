@@ -38,6 +38,21 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .52; }
 
 .app-shell { display: flex; width: 100%; height: 100%; min-height: 0; flex-direction: column; background: var(--pale); }
+.mission-workflow { display: flex; flex: 0 0 auto; align-items: center; gap: 24px; padding: 13px 28px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.mission-workflow ol { display: flex; flex: 0 0 auto; gap: 18px; padding: 0; margin: 0; list-style: none; }
+.mission-workflow li a { display: flex; align-items: center; gap: 7px; color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 700; }
+.mission-workflow li a span { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid var(--line); border-radius: 50%; }
+.mission-workflow .current a { color: var(--soft-violet-text); }
+.mission-workflow .current a span { background: var(--soft-violet); border-color: #a78bfa; }
+.mission-workflow .done a { color: var(--green); }
+.mission-workflow p { flex: 1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.mission-workflow button, .workflow-action { flex: 0 0 auto; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--pale); color: var(--ink); font-size: 12px; font-weight: 700; text-decoration: none; }
+.mission-workflow a:focus-visible, .mission-workflow button:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
+.fleet-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px; font-weight: 700; }
+.fleet-summary span { flex-basis: 100%; color: var(--muted); font-size: 11px; line-height: 1.5; font-weight: 400; }
+.quality-caution { border-left: 3px solid #d97706; padding-left: 10px; font-size: 12px; line-height: 1.5; }
+@media (max-width: 1200px) { .mission-workflow { flex-wrap: wrap; gap: 10px 20px; padding: 10px 18px; } .mission-workflow p { min-width: 250px; } }
+@media (max-width: 680px) { .mission-workflow ol { gap: 12px; width: 100%; } .mission-workflow li a { font-size: 11px; } .mission-workflow p { min-width: 0; flex-basis: 100%; } }
 .app-header { z-index: 20; display: flex; min-height: 72px; flex: 0 0 72px; align-items: center; gap: 22px; padding: 11px 28px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .brand { display: flex; min-width: 250px; align-items: center; gap: 12px; }
 .brand-mark { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; color: #fff; background: var(--violet); box-shadow: 0 8px 18px #2c155833; }
@@ -336,3 +351,6 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
 .search-progress table { width: 100%; border-collapse: collapse; font-size: 10px; }
 .search-progress th, .search-progress td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--line); }
 .search-progress th:first-child, .search-progress td:first-child { text-align: left; }
+
+.planning-issue { padding: 14px; margin: 16px 0; border: 1px solid #d97706; border-radius: 10px; background: var(--editor); font-size: 13px; line-height: 1.6; }
+.planning-issue a { color: var(--soft-violet-text); font-weight: 700; }

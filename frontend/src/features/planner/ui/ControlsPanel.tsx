@@ -111,7 +111,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
   }
 
   return (
-    <aside className="panel controls-panel">
+    <aside className="panel controls-panel" id="mission-inputs" tabIndex={-1}>
       <div className="eyebrow"><Database size={15} /> Конструктор сценария</div>
       <h1>{selectedScenario.title}</h1>
       <p className="lead">{selectedScenario.description}</p>

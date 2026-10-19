@@ -46,6 +46,7 @@ export function usePlanner() {
   const [survey, setSurvey] = useState<SurveySettings>(defaultSurvey);
   const [settings, setSettings] = useState<PlanningSettings>(() => planningSettings(initialScenario.altitude));
   const [plan, setPlan] = useState<PlanResponse | null>(null);
+  const [planningIssue, setPlanningIssue] = useState<string | null>(null);
   const [archivedPlan, setArchivedPlan] = useState(false);
   const [lastRequest, setLastRequest] = useState<PlanRequest | null>(null);
   const planRevision = useRef(0);
@@ -71,6 +72,7 @@ export function usePlanner() {
 
 
   function invalidate(nextStatus: string): void {
+    setPlanningIssue(null);
     planningController.current?.abort();
     setCalculating(false);
     planRevision.current += 1;
@@ -277,6 +279,7 @@ export function usePlanner() {
     const version = ++planRevision.current;
     let received = false;
     setLastRequest(request);
+    setPlanningIssue(null);
     setArchivedPlan(false);
     setPlan(null);
     try {
@@ -301,6 +304,7 @@ export function usePlanner() {
     } catch (error: unknown) {
       if (version === planRevision.current) {
         setStatus(errorMessage(error));
+        if (!controller.signal.aborted) setPlanningIssue(errorMessage(error));
         setPlan((current) => current?.search ? { ...current, search: { ...current.search,
           status: controller.signal.aborted ? "cancelled" : "retained_after_error" } } : current);
       }
@@ -549,6 +553,7 @@ export function usePlanner() {
   }
 
   function restoreProject(document: ProjectDocument): void {
+    setPlanningIssue(null);
     const snapshot = parseSavedScenario(document.editor_state);
     if (!snapshot.baseScenario && !scenarios.some((candidate) => candidate.id === snapshot.scenarioId)) throw new Error("Не найдена исходная геометрия сценария");
     applyScenarioSnapshot(snapshot);
@@ -623,5 +628,6 @@ export function usePlanner() {
     captureProject,
     restoreProject,
     archivedPlan,
+    planningIssue,
   };
 }
