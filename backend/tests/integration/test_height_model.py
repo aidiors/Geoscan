@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 
 import pytest
@@ -68,6 +69,15 @@ def test_exports_keep_absolute_flight_altitude_and_surface_model(height_plans):
                 assert props["altitude_m"] == request.mission_altitude_m == 250
                 assert props["flat_ground_elevation_m"] == 150
                 assert props["minimum_agl_m"] == props["maximum_agl_m"] == 100
+            elif kind == "qgroundcontrol":
+                mission = json.loads(result.json()["content"])["mission"]
+                assert mission["plannedHomePosition"][2] == 150
+                assert mission["globalPlanAltitudeMode"] == 2
+                positions = [i for i in mission["items"] if i["command"] in {16, 21, 22}]
+                assert all(i["frame"] == 0 and i["AltitudeMode"] == 2 for i in positions)
+                assert all(
+                    i["params"][6] == (150 if i["command"] == 21 else 250) for i in positions
+                )
 
 
 def test_gsd_error_recommendation_keeps_the_flight_datum(height_plans):

@@ -15,6 +15,7 @@ from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import DronePlan, Mission, MissionStage
 from geoplan.errors import PlanningError
 from geoplan.flight.trajectory import mission_route_clock
+from geoplan.geodata.altitude import AutopilotAltitudePolicy
 from geoplan.geodata.models import (
     ExportRequest,
     GeoJsonFeature,
@@ -34,7 +35,7 @@ from geoplan.navigation.routing import coordinate_distance_km
 from geoplan.safety.audit import ExportVerificationResult
 
 MavCommand = Literal[16, 21, 22, 178, 206, 2000]
-MavFrame = Literal[2, 3, 10]
+MavFrame = Literal[0, 2, 10]
 
 MAV_CMD_NAV_WAYPOINT: Literal[16] = 16
 MAV_CMD_NAV_LAND: Literal[21] = 21
@@ -43,7 +44,7 @@ MAV_CMD_DO_CHANGE_SPEED: Literal[178] = 178
 MAV_CMD_DO_SET_CAM_TRIGG_DIST: Literal[206] = 206
 MAV_CMD_IMAGE_START_CAPTURE: Literal[2000] = 2000
 MAV_FRAME_MISSION: Literal[2] = 2
-MAV_FRAME_GLOBAL_RELATIVE_ALT: Literal[3] = 3
+MAV_FRAME_GLOBAL: Literal[0] = 0
 MAV_FRAME_GLOBAL_TERRAIN_ALT: Literal[10] = 10
 
 FIRMWARE_TYPES: dict[AutopilotFirmware, Literal[0, 3, 12]] = {
@@ -99,7 +100,11 @@ def _mission_exports_match(mission: Mission) -> bool:
         mission
     )
     autopilot_coordinates: list[list[float]] = []
-    commanded_altitude_m = _commanded_altitude_m(mission)
+    commanded_altitude_m = (
+        mission.altitude_m + mission.terrain_vertical_uncertainty_m
+        if mission.altitude_reference is AltitudeReference.AGL
+        else mission.altitude_m
+    )
     for command in _mission_commands(mission):
         if command.command not in {
             MAV_CMD_NAV_TAKEOFF,
@@ -111,14 +116,22 @@ def _mission_exports_match(mission: Mission) -> bool:
         longitude = command.params[5]
         if latitude is None or longitude is None:
             return False
-        expected_altitude_m = 0 if command.command == MAV_CMD_NAV_LAND else commanded_altitude_m
+        expected_altitude_m = (
+            (
+                0
+                if mission.altitude_reference is AltitudeReference.AGL
+                else mission.flat_ground_elevation_m
+            )
+            if command.command == MAV_CMD_NAV_LAND
+            else commanded_altitude_m
+        )
         if command.params[6] != expected_altitude_m:
             return False
         autopilot_coordinates.append([longitude, latitude])
         expected_frame = (
             MAV_FRAME_GLOBAL_TERRAIN_ALT
             if mission.altitude_reference is AltitudeReference.AGL
-            else MAV_FRAME_GLOBAL_RELATIVE_ALT
+            else MAV_FRAME_GLOBAL
         )
         if command.frame != expected_frame:
             return False
@@ -145,7 +158,27 @@ def _mission_exports_match(mission: Mission) -> bool:
         captures_match
         and geojson_matches
         and kml_matches
+        and _qgc_altitudes_match(mission)
         and _deduplicate(autopilot_coordinates) == _deduplicate(expected_autopilot)
+    )
+
+
+def _qgc_altitudes_match(mission: Mission) -> bool:
+    plan = _qgroundcontrol_plan([mission], AutopilotProfile()).mission
+    expected_mode = 4 if mission.altitude_reference is AltitudeReference.AGL else 2
+    expected_home = (
+        mission.vertical_profile[0].terrain_elevation_m
+        if mission.vertical_profile
+        else mission.flat_ground_elevation_m
+    )
+    return (
+        plan.global_plan_altitude_mode == expected_mode
+        and plan.planned_home_position[2] == expected_home
+        and all(
+            item.altitude_mode == expected_mode and item.altitude == item.params[6]
+            for item in plan.items
+            if item.command in {16, 21, 22}
+        )
     )
 
 
@@ -243,14 +276,14 @@ def _qgroundcontrol_plan(
             cruise_speed=initial_mission.cruise_speed_kmh / 3.6,
             firmware_type=FIRMWARE_TYPES[autopilot_profile.firmware],
             global_plan_altitude_mode=(
-                4 if initial_mission.altitude_reference is AltitudeReference.AGL else 1
+                4 if initial_mission.altitude_reference is AltitudeReference.AGL else 2
             ),
             hover_speed=autopilot_profile.hover_speed_mps,
             items=[
                 QGroundControlSimpleItem(
                     type="SimpleItem",
                     altitude=_command_altitude(command),
-                    altitude_mode=(4 if command.frame == MAV_FRAME_GLOBAL_TERRAIN_ALT else 0),
+                    altitude_mode=AutopilotAltitudePolicy().qgc_altitude_mode(command.frame),
                     command=command.command,
                     do_jump_id=index + 1,
                     frame=command.frame,
@@ -261,7 +294,7 @@ def _qgroundcontrol_plan(
             planned_home_position=[
                 route[0].latitude,
                 route[0].longitude,
-                _planned_home_altitude_m(initial_mission),
+                AutopilotAltitudePolicy().home_elevation_msl_m(initial_mission),
             ],
             vehicle_type=VEHICLE_TYPES[autopilot_profile.airframe],
             version=2,
@@ -269,12 +302,6 @@ def _qgroundcontrol_plan(
         rally_points=QGroundControlEmptyCollection(points=[], version=2),
         version=1,
     )
-
-
-def _planned_home_altitude_m(mission: Mission) -> float:
-    if mission.vertical_profile:
-        return mission.vertical_profile[0].terrain_elevation_m
-    return mission.route[0].altitude_m or 0
 
 
 def _mission_planner_lines(missions: list[Mission]) -> list[str]:
@@ -313,8 +340,9 @@ def _autopilot_commands(missions: list[Mission]) -> list[AutopilotCommand]:
 
 
 def _mission_commands(mission: Mission) -> list[AutopilotCommand]:
-    position_frame = _position_frame(mission)
-    commanded_altitude_m = _commanded_altitude_m(mission)
+    altitude_policy = AutopilotAltitudePolicy()
+    position_frame = altitude_policy.position_frame(mission)
+    commanded_altitude_m = altitude_policy.flight_altitude_m(mission)
     commands = [
         _position_command(
             MAV_CMD_NAV_TAKEOFF,
@@ -421,14 +449,15 @@ def _mission_commands(mission: Mission) -> list[AutopilotCommand]:
                     params=[1, speed, -1, 0, 0, 0, 0],
                 )
             )
-    commands.append(_position_command(MAV_CMD_NAV_LAND, mission.route[-1], 0, position_frame))
+    commands.append(
+        _position_command(
+            MAV_CMD_NAV_LAND,
+            mission.route[-1],
+            altitude_policy.landing_altitude_m(mission),
+            position_frame,
+        )
+    )
     return commands
-
-
-def _commanded_altitude_m(mission: Mission) -> float:
-    if mission.altitude_reference is AltitudeReference.AGL:
-        return mission.altitude_m + mission.terrain_vertical_uncertainty_m
-    return mission.altitude_m
 
 
 def _append_waypoint_commands(
@@ -436,7 +465,7 @@ def _append_waypoint_commands(
     coordinates: list[Coordinate],
     altitude_m: float,
     last_coordinate: Coordinate,
-    frame: Literal[3, 10],
+    frame: Literal[0, 10],
 ) -> Coordinate:
     current = last_coordinate
     for coordinate in coordinates:
@@ -451,19 +480,13 @@ def _position_command(
     command: Literal[16, 21, 22],
     coordinate: Coordinate,
     altitude_m: float,
-    frame: Literal[3, 10],
+    frame: Literal[0, 10],
 ) -> AutopilotCommand:
     return AutopilotCommand(
         command=command,
         frame=frame,
         params=[0, 0, 0, None, coordinate.latitude, coordinate.longitude, altitude_m],
     )
-
-
-def _position_frame(mission: Mission) -> Literal[3, 10]:
-    if mission.altitude_reference is AltitudeReference.AGL:
-        return MAV_FRAME_GLOBAL_TERRAIN_ALT
-    return MAV_FRAME_GLOBAL_RELATIVE_ALT
 
 
 def _camera_trigger_command(distance_m: float) -> AutopilotCommand:

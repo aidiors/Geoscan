@@ -27,4 +27,16 @@ test("plans survey height above an explicit surface while exporting absolute MSL
   expect(exported.features.length).toBeGreaterThan(0);
   expect(exported.features[0].properties.altitude_m).toBe(250);
   expect(exported.features[0].properties.flat_ground_elevation_m).toBe(150);
+  const autopilotPending = page.waitForResponse((r) => r.url().endsWith("/v1/exports/qgroundcontrol"));
+  await page.getByRole("button", { name: "QGroundControl", exact: true }).click();
+  const autopilot = JSON.parse((await (await autopilotPending).json()).content).mission;
+  expect(autopilot.plannedHomePosition[2]).toBe(150);
+  expect(autopilot.globalPlanAltitudeMode).toBe(2);
+  const positions = autopilot.items.filter((item: { command: number }) => [16, 21, 22].includes(item.command));
+  expect(positions.length).toBeGreaterThan(0);
+  for (const item of positions) {
+    expect(item.frame).toBe(0);
+    expect(item.AltitudeMode).toBe(2);
+    expect(item.params[6]).toBe(item.command === 21 ? 150 : 250);
+  }
 });

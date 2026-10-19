@@ -234,11 +234,11 @@ class QGroundControlSimpleItem(BaseModel):
         alias="AMSLAltAboveTerrain",
     )
     altitude: float = Field(default=0, alias="Altitude")
-    altitude_mode: Literal[0, 4] = Field(default=0, alias="AltitudeMode")
+    altitude_mode: Literal[0, 2, 4] = Field(default=0, alias="AltitudeMode")
     auto_continue: bool = Field(default=True, alias="autoContinue")
     command: Literal[16, 21, 22, 178, 206, 2000]
     do_jump_id: int = Field(ge=1, alias="doJumpId")
-    frame: Literal[2, 3, 10]
+    frame: Literal[0, 2, 3, 10]
     params: list[float | None] = Field(min_length=7, max_length=7)
 
 
@@ -247,7 +247,7 @@ class QGroundControlMission(BaseModel):
 
     cruise_speed: float = Field(gt=0, alias="cruiseSpeed")
     firmware_type: Literal[0, 3, 12] = Field(alias="firmwareType")
-    global_plan_altitude_mode: Literal[1, 4] = Field(alias="globalPlanAltitudeMode")
+    global_plan_altitude_mode: Literal[1, 2, 4] = Field(alias="globalPlanAltitudeMode")
     hover_speed: float = Field(gt=0, alias="hoverSpeed")
     items: list[QGroundControlSimpleItem]
     planned_home_position: list[float] = Field(
