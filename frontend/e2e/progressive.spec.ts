@@ -12,6 +12,11 @@ test("can stop after the first audited result and keep its export", async ({ pag
   await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
   await expect(page.getByRole("button", { name: "GeoJSON", exact: true })).toBeEnabled();
   await expect(page.getByRole("region", { name: "История улучшений плана" })).toContainText("Поиск остановлен");
+  const exported = page.waitForResponse((r) => /\/v1\/exports\/(qgroundcontrol|flight-package)$/.test(r.url()));
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "QGroundControl", exact: true }).click();
+  expect((await exported).status()).toBe(200);
+  await downloaded;
 });
 
 test("demonstrates a joint sortie with a nonzero turn radius", async ({ page }, testInfo) => {

@@ -37,7 +37,15 @@ def test_execution_export_requires_unchanged_audited_server_result(released, for
     client, plan = released
     payload = {"plan": plan, "drone_id": "fast", "sortie_index": 0}
     assert client.post(f"/v1/exports/{format}", json=payload).status_code == 200
-    for change in ("unsigned", "forged-audit", "route", "battery", "deadline", "firmware"):
+    for change in (
+        "unsigned",
+        "forged-audit",
+        "route",
+        "battery",
+        "deadline",
+        "firmware",
+        "source",
+    ):
         edited = copy.deepcopy(plan)
         if change == "unsigned":
             edited["export_authorization"] = None
@@ -60,8 +68,10 @@ def test_execution_export_requires_unchanged_audited_server_result(released, for
             edited["drone_plans"][0]["missions"][0]["estimated_battery_percent"] = 1
         elif change == "deadline":
             edited["feasibility"]["status"] = "infeasible"
-        else:
+        elif change == "firmware":
             edited["drone_plans"][0]["autopilot_profile"]["hover_speed_mps"] = 4
+        else:
+            edited["search"]["request_fingerprint"] = "0" * 64
         response = client.post(f"/v1/exports/{format}", json={**payload, "plan": edited})
         assert response.status_code == 422, change
         assert response.json()["code"] == "export_release_required", change

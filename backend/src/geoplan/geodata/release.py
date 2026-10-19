@@ -75,9 +75,11 @@ class PlanReleaseAuthority:
         )
 
     def _signature(self, plan: PlanResponse, expires: int) -> str:
-        # Search progress is presentation metadata and may change on cancellation.
+        # Search status may change on cancellation; input provenance must remain bound.
+        document = plan.model_dump(mode="json", exclude={"export_authorization", "search"})
+        document["request_fingerprint"] = plan.search.request_fingerprint if plan.search else None
         payload = json.dumps(
-            plan.model_dump(mode="json", exclude={"export_authorization", "search"}),
+            document,
             sort_keys=True,
             separators=(",", ":"),
             allow_nan=False,
