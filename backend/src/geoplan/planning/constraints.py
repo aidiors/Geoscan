@@ -75,7 +75,8 @@ def _obstacle_requires_avoidance(
     mission_altitude_m: float,
 ) -> bool:
     vertical_clearance_m = 30
-    return mission_altitude_m <= obstacle.height_m + vertical_clearance_m
+    top = obstacle.known_top_msl_m
+    return top is None or mission_altitude_m <= top + vertical_clearance_m
 
 
 def _obstacle_is_near_segment(obstacle: FlightObstacle, segment: WorkSegment) -> bool:

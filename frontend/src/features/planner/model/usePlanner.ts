@@ -9,7 +9,7 @@ import { cloneSites, scenarios } from "@/features/demos/data/scenarios";
 import { activeNoFlyZones, activeWorkAreas, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
 import { radiusSamples } from "@/features/planner/model/radii";
 import type { Coordinate } from "@/shared/geo/types";
-import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
+import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask, PlanResponse, TurnRadiusAnalysisResult, ZoneType } from "@/shared/api/types";
 import { defaultSurvey, planningSettings } from "@/features/planner/model/defaults";
 import type { SavedScenario } from "@/features/planner/storage/scenario";
@@ -30,6 +30,7 @@ export function usePlanner() {
   const [selectedDroneId, setSelectedDroneId] = useState("201");
   const [sites, setSites] = useState<FlightSiteState[]>(() => cloneSites(initialScenario));
   const [importedZones, setImportedZones] = useState<ImportedZone[]>([]);
+  const [workAreaSource, setWorkAreaSource] = useState<WorkAreaSource>("scenario");
   const [survey, setSurvey] = useState<SurveySettings>(defaultSurvey);
   const [settings, setSettings] = useState<PlanningSettings>(() => planningSettings(initialScenario.altitude));
   const [plan, setPlan] = useState<PlanResponse | null>(null);
@@ -51,8 +52,8 @@ export function usePlanner() {
   const scenario = scenarios.find((candidate) => candidate.id === scenarioId) ?? initialScenario;
   const mapZones = useMemo(() => {
     const supplemental = importedZones.filter((zone) => zone.zone_type !== "work_area" && zone.zone_type !== "no_fly_zone");
-    return [...activeWorkAreas(importedZones, scenario), ...activeNoFlyZones(importedZones, scenario), ...supplemental];
-  }, [importedZones, scenario]);
+    return [...activeWorkAreas(importedZones, scenario, workAreaSource), ...activeNoFlyZones(importedZones, scenario, workAreaSource), ...supplemental];
+  }, [importedZones, scenario, workAreaSource]);
   const fitKey = `${scenarioId}:${importedZones.map((zone) => zone.zone_id).join(",")}:${revision}`;
 
 
@@ -76,6 +77,7 @@ export function usePlanner() {
     setTask(nextScenario.task);
     setSites(cloneSites(nextScenario));
     setImportedZones([]);
+    setWorkAreaSource("scenario");
     setPendingSiteRole(null);
     setSettings((current) => ({ ...current, altitude: nextScenario.altitude }));
     const capable = drones.find((drone) => drone.tasks.includes(nextScenario.task));
@@ -108,6 +110,7 @@ export function usePlanner() {
     setDrones(nextDrones);
     setSites(nextSites);
     setImportedZones([]);
+    setWorkAreaSource("scenario");
     setSurvey(nextSurvey);
     setSettings(nextSettings);
     setSelectedDroneId(nextSelectedDroneId);
@@ -202,6 +205,7 @@ export function usePlanner() {
     try {
       const result = await importGeodata(file.name, zoneType, content);
       setImportedZones((current) => mergeZones(current, result.zones));
+      if (result.zones.some((zone) => zone.zone_type === "work_area")) setWorkAreaSource("imported");
       const invalidCount = result.zones.filter((zone) => zone.metadata?.geometry_issue).length;
       invalidate(`Импортировано зон: ${result.zones.length}${invalidCount ? `. Без площади: ${invalidCount}; проверьте список геоданных` : ""}`);
     } catch (error: unknown) {
@@ -255,7 +259,7 @@ export function usePlanner() {
 
   async function handleAdvise(allowAltitudeChange = false): Promise<void> {
     try {
-      const request = lastRequest ?? buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings);
+      const request = lastRequest ?? buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource);
       setLastRequest(request);
       await insights.advise(request, allowAltitudeChange);
     } catch (error) { setStatus(errorMessage(error)); }
@@ -282,7 +286,7 @@ export function usePlanner() {
     setAnalyzingRadii(false);
     let request;
     try {
-      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings);
+      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource);
     } catch (error: unknown) {
       setStatus(errorMessage(error));
       return;
@@ -319,7 +323,7 @@ export function usePlanner() {
   async function handleAnalyzeRadii(areaId: string, minimumRadius: number, maximumRadius: number): Promise<void> {
     let request;
     try {
-      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings);
+      request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource);
     } catch (error: unknown) {
       setStatus(errorMessage(error));
       return;
@@ -378,15 +382,18 @@ export function usePlanner() {
       drones,
       selectedDroneId,
       sites,
-      importedZones: importedZones.length <= 500 ? importedZones : [],
+      importedZones,
+      workAreaSource: importedZones.some((zone) => zone.zone_type === "work_area") ? "imported" : workAreaSource,
       survey,
       settings,
     };
     try {
       window.localStorage.setItem("geoplan-scenario", JSON.stringify(snapshot));
-      setStatus(importedZones.length <= 500 ? "Сценарий сохранён" : "Сценарий сохранён без большого набора геоданных");
+      setStatus("Сценарий сохранён");
     } catch (error: unknown) {
-      setStatus(errorMessage(error));
+      setStatus(error instanceof DOMException && error.name === "QuotaExceededError"
+        ? "Недостаточно места в браузере для полного сценария. Предыдущее сохранение не изменено."
+        : errorMessage(error));
     }
   }
 
@@ -418,6 +425,7 @@ export function usePlanner() {
     setSelectedDroneId(restoredDrones.some((drone) => drone.id === snapshot.selectedDroneId) ? snapshot.selectedDroneId : restoredDrones[0].id);
     setSites(snapshot.sites);
     setImportedZones(snapshot.importedZones);
+    setWorkAreaSource(snapshot.workAreaSource === "imported" || snapshot.importedZones.some((zone) => zone.zone_type === "work_area") ? "imported" : "scenario");
     setSurvey({ ...defaultSurvey, ...snapshot.survey });
     setSettings({
       ...snapshot.settings,
@@ -437,7 +445,9 @@ export function usePlanner() {
       fastHeuristic: snapshot.settings.fastHeuristic ?? false,
       productiveRouting: snapshot.settings.productiveRouting ?? true,
     });
-    invalidate("Сценарий восстановлен — требуется новый расчёт");
+    invalidate(snapshot.workAreaSource === undefined && !snapshot.importedZones.some((zone) => zone.zone_type === "work_area")
+      ? "Старое сохранение не содержит импортированных рабочих областей. Используется выбранный демосценарий; при необходимости импортируйте исходный файл повторно."
+      : "Сценарий восстановлен — требуется новый расчёт");
   }
 
   return {
@@ -459,6 +469,7 @@ export function usePlanner() {
     setSites,
     importedZones,
     setImportedZones,
+    workAreaSource,
     survey,
     setSurvey,
     settings,

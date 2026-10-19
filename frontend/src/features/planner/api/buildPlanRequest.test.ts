@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { cloneFleet, cloneSites, scenarios } from "@/features/demos/data/scenarios";
 import type { PlanningSettings, SurveySettings } from "@/features/planner/model/types";
+import type { ImportedZone } from "@/shared/api/types";
 import { activeNoFlyZones, activeWorkAreas, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
 
 const survey: SurveySettings = {
@@ -47,6 +48,34 @@ const settings: PlanningSettings = {
 };
 
 describe("plan request", () => {
+  it("does not contaminate an imported job with demonstration restrictions", () => {
+    const scenario = scenarios[0];
+    const work = { ...scenario.workAreas[0], zone_id: "own-work" };
+    expect(activeNoFlyZones([], scenario)).toEqual(scenario.noFlyZones);
+    expect(activeNoFlyZones([work], scenario)).toEqual([]);
+    const request = buildPlanRequest("flight", scenario.task, scenario, cloneFleet(),
+      cloneSites(scenario), [work], survey, settings);
+    expect(request.no_fly_zones).toEqual([]);
+    expect(request.coverage_areas.map((a) => a.area_id)).toEqual(["own-work"]);
+  });
+
+  it("does not silently replace imported work lines or ignore non-polygon restrictions", () => {
+    const scenario = scenarios[0];
+    for (const zone_type of ["work_area", "no_fly_zone", "allowed_airspace"] as const) {
+      const line: ImportedZone = { ...scenario.workAreas[0], zone_type,
+        geometry_type: "line_string", coordinates: scenario.workAreas[0].coordinates.slice(0, 2) };
+      expect(() => buildPlanRequest("flight", scenario.task, scenario, cloneFleet(),
+        cloneSites(scenario), [line], survey, settings)).toThrow("нужен полигон");
+    }
+  });
+
+  it("does not fill holes in imported allowed airspace", () => {
+    const scenario = scenarios[0];
+    const airspace: ImportedZone = { ...scenario.workAreas[0], zone_type: "allowed_airspace",
+      interior_rings: [scenario.workAreas[0].coordinates] };
+    expect(() => buildPlanRequest("flight", scenario.task, scenario, cloneFleet(),
+      cloneSites(scenario), [airspace], survey, settings)).toThrow("вырезами");
+  });
   it("selects an imported batch without substituting demo geometry or demo segments", () => {
     const scenario = scenarios[0];
     const first = { ...scenario.workAreas[0], zone_id: "first" };

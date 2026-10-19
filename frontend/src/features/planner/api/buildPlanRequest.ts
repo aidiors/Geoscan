@@ -1,18 +1,24 @@
-import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings } from "@/features/planner/model/types";
+import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask, PlanRequest } from "@/shared/api/types";
+import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
 
-export function activeWorkAreas(importedZones: ImportedZone[], scenario: Scenario): ImportedZone[] {
+const obstacleMapper = new ImportedObstacleMapper();
+
+export function activeWorkAreas(importedZones: ImportedZone[], scenario: Scenario, source?: WorkAreaSource): ImportedZone[] {
   const imported = importedZones.filter(
     (zone) => zone.zone_type === "work_area" && zone.geometry_type === "polygon",
   );
-  return imported.length > 0 ? imported.filter((zone) => zone.enabled !== false) : scenario.workAreas;
+  return source === "imported" || importedZones.some((zone) => zone.zone_type === "work_area")
+    ? imported.filter((zone) => zone.enabled !== false) : scenario.workAreas;
 }
 
-export function activeNoFlyZones(importedZones: ImportedZone[], scenario: Scenario): ImportedZone[] {
+export function activeNoFlyZones(importedZones: ImportedZone[], scenario: Scenario, source?: WorkAreaSource): ImportedZone[] {
   const imported = importedZones.filter(
     (zone) => zone.zone_type === "no_fly_zone" && zone.geometry_type === "polygon",
   );
-  return imported.length > 0 ? imported : scenario.noFlyZones;
+  const hasImportedWork = source === "imported" || importedZones.some((zone) => zone.zone_type === "work_area");
+  const hasImportedRestrictions = importedZones.some((zone) => zone.zone_type === "no_fly_zone");
+  return hasImportedRestrictions || hasImportedWork ? imported : scenario.noFlyZones;
 }
 
 export function objectiveToCriterion(objective: Objective): PlanRequest["criterion"] {
@@ -34,7 +40,14 @@ export function buildPlanRequest(
   importedZones: ImportedZone[],
   survey: SurveySettings,
   settings: PlanningSettings,
+  source?: WorkAreaSource,
 ): PlanRequest {
+  const unsupported = importedZones.find((zone) => zone.zone_type !== "obstacle"
+    && !(zone.zone_type === "work_area" && zone.enabled === false) && zone.geometry_type !== "polygon");
+  if (unsupported) throw new Error(`«${unsupported.name}»: для рабочей зоны или ограничения нужен полигон. Линия или точка не заменяют область.`);
+  const airspaceWithHoles = importedZones.find((zone) => zone.zone_type === "allowed_airspace"
+    && zone.interior_rings.length > 0);
+  if (airspaceWithHoles) throw new Error(`«${airspaceWithHoles.name}»: разрешённое пространство с внутренними вырезами пока не поддерживается. Вырезы нельзя игнорировать.`);
   const enabledDrones = drones.filter((drone) => drone.enabled);
   const budget = settings.planningTimeLimitSeconds ?? 270;
   if (!Number.isFinite(budget) || budget < 1 || budget > 270) throw new Error("Задайте бюджет расчёта от 1 до 270 секунд.");
@@ -73,10 +86,10 @@ export function buildPlanRequest(
   if (settings.turnRadius > 0 && scenario.segments.length > 0) {
     throw new Error("Радиус разворота поддерживается для генерируемых галсов.");
   }
-  const workAreas = activeWorkAreas(importedZones, scenario);
-  const hasImportedWork = importedZones.some((zone) => zone.zone_type === "work_area" && zone.geometry_type === "polygon");
+  const workAreas = activeWorkAreas(importedZones, scenario, source);
+  const hasImportedWork = source === "imported" || importedZones.some((zone) => zone.zone_type === "work_area");
   if (hasImportedWork && workAreas.length === 0) throw new Error("Выберите хотя бы одну рабочую область из импортированных данных.");
-  const noFlyZones = activeNoFlyZones(importedZones, scenario);
+  const noFlyZones = activeNoFlyZones(importedZones, scenario, source);
   const allowedAirspaces = importedZones.filter(
     (zone) => zone.zone_type === "allowed_airspace" && zone.geometry_type === "polygon",
   );
@@ -185,14 +198,7 @@ export function buildPlanRequest(
     })),
     obstacles: importedZones
       .filter((zone) => zone.zone_type === "obstacle")
-      .map((zone) => ({
-        obstacle_id: zone.zone_id,
-        geometry_type: zone.geometry_type,
-        coordinates: zone.coordinates,
-        height_m: Math.max(0, ...zone.coordinates.map((coordinate) => coordinate.altitude_m ?? 0)),
-        altitude_mode: zone.altitude_mode ?? "unknown",
-        safety_radius_m: 30,
-      })),
+      .map((zone) => obstacleMapper.toRequest(zone)),
     mission_altitude_m: settings.altitude,
     altitude_reference: "msl",
     task,

@@ -8,6 +8,7 @@ from geoplan.coverage.sweep import BoustrophedonCoveragePlanner
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone, RestrictionValidity
 from geoplan.domain.enums import (
     AirframeType,
+    AltitudeMode,
     AltitudeReference,
     AutopilotFirmware,
     CoverageAngleCost,
@@ -1469,7 +1470,21 @@ def test_build_plan_returns_stable_error_when_wind_exceeds_drone_limit() -> None
     assert error.value.recommendations[0].required_value == 10
 
 
-def test_build_plan_detours_around_obstacle_above_mission_altitude() -> None:
+@pytest.mark.parametrize(
+    "height,mode,altitude,detour",
+    [
+        (100, AltitudeMode.ABSOLUTE, 60, True),
+        (None, AltitudeMode.ABSOLUTE, 100, True),
+        (5, AltitudeMode.RELATIVE_TO_GROUND, 100, True),
+        (0, AltitudeMode.ABSOLUTE, 100, False),
+    ],
+)
+def test_build_plan_detours_around_obstacles_without_assuming_relative_heights_are_msl(
+    height,
+    mode,
+    altitude,
+    detour,
+) -> None:
     request = PlanRequest(
         criterion=OptimizationCriterion.TOTAL_FLIGHT_TIME,
         drones=[
@@ -1497,18 +1512,20 @@ def test_build_plan_detours_around_obstacle_above_mission_altitude() -> None:
                 obstacle_id="tower",
                 geometry_type=ImportedGeometryType.POINT,
                 coordinates=[Coordinate(longitude=37.41, latitude=55.7)],
-                height_m=100,
+                height_m=height,
+                altitude_mode=mode,
             )
         ],
-        mission_altitude_m=60,
+        mission_altitude_m=altitude,
         task=MissionTask.RGB,
     )
 
     response = create_plan(request)
 
     mission = response.drone_plans[0].missions[0]
-    assert len(mission.stages[2].coordinates) == 4
-    assert mission.distance_km > 2
+    assert len(mission.stages[2].coordinates) == (4 if detour else 2)
+    if detour:
+        assert mission.distance_km > 2
 
 
 def test_build_plan_generates_coverage_route_from_target_polygon() -> None:

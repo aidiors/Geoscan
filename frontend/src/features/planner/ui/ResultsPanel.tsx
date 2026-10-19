@@ -157,7 +157,11 @@ export function ResultsPanel({
               </div>
             ))}
           </div>
-          <small>Проверено миссий: {plan.safety_audit.audited_mission_count}. Допущения явно перечислены в ответе API.</small>
+          <small>Проверено миссий: {plan.safety_audit.audited_mission_count}.</small>
+          {plan.safety_audit.assumptions.length > 0 && <details>
+            <summary>Допущения и границы проверки</summary>
+            {plan.safety_audit.assumptions.map((assumption) => <p className="hint" key={assumption}>{assumption}</p>)}
+          </details>}
         </section>
       )}
 

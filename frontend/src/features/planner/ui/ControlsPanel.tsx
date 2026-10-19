@@ -2,6 +2,7 @@ import { BatteryCharging, Database, ShieldCheck, Wind } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { scenarios } from "@/features/demos/data/scenarios";
+import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
 import { InstalledCameraFields } from "@/features/planner/ui/InstalledCameraFields";
 import { FleetActions } from "@/features/planner/ui/FleetActions";
 import { fleetCatalog } from "@/features/planner/model/fleetCatalog";
@@ -73,7 +74,11 @@ const airframeLabels: Record<AirframeType, string> = {
   generic_multirotor: "Мультиротор",
 };
 
+const obstacleMapper = new ImportedObstacleMapper();
+
 export function ControlsPanel(props: ControlsPanelProps) {
+  const horizontalObstacles = props.importedZones.filter((zone) => zone.zone_type === "obstacle"
+    && obstacleMapper.requiresHorizontalAvoidance(zone)).length;
   const [zoneType, setZoneType] = useState<ZoneType>("work_area");
   const [zoneSearch, setZoneSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -319,7 +324,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
       </PanelSection>
 
       <PanelSection title="Геоданные" badge="KML / GeoJSON">
-        <select value={zoneType} onChange={(event) => setZoneType(event.target.value as ZoneType)}>
+        <select aria-label="Тип импортируемых геоданных" value={zoneType} onChange={(event) => setZoneType(event.target.value as ZoneType)}>
           {Object.entries(zoneTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
         {zoneType === "allowed_airspace" && (
@@ -333,6 +338,8 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <input ref={fileInput} type="file" accept=".geojson,.json,.kml" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
         </label>
         <button className="secondary-button import-button" type="button" disabled={props.importing} onClick={() => void handleImport()}>{props.importing ? "Импортируем…" : selectedFile ? "Импортировать зону" : "Выбрать геоданные"}</button>
+        {horizontalObstacles > 0 && <p className="hint" role="status">Препятствий без абсолютной отметки вершины: {horizontalObstacles}. Они обходятся по горизонтали на всех высотах; недостающие высоты не заменяются нулём.</p>}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Рабочие области взяты из импорта; демозапреты исключены. Парк и площадки сохранены — проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
         {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
           <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
         )}

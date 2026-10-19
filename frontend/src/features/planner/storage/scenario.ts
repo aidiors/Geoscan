@@ -1,5 +1,5 @@
 import { cloneFleet } from "@/features/planner/model/fleetCatalog";
-import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SurveySettings } from "@/features/planner/model/types";
+import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask } from "@/shared/api/types";
 
 export interface SavedScenario {
@@ -11,6 +11,7 @@ export interface SavedScenario {
   selectedDroneId: string;
   sites: FlightSiteState[];
   importedZones: ImportedZone[];
+  workAreaSource?: WorkAreaSource;
   survey: SurveySettings;
   settings: PlanningSettings;
 }

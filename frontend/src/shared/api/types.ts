@@ -441,7 +441,7 @@ export interface PlanRequest {
     obstacle_id: string;
     geometry_type: GeometryType;
     coordinates: Coordinate[];
-    height_m: number;
+    height_m: number | null;
     altitude_mode: string;
     safety_radius_m: number;
   }>;

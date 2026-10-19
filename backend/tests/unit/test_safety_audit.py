@@ -1,9 +1,13 @@
 from dataclasses import dataclass
 
+import pytest
+
 from geoplan.coverage.models import WorkSegment
-from geoplan.domain.airspace import NoFlyZone
+from geoplan.domain.airspace import FlightObstacle, NoFlyZone
 from geoplan.domain.diagnostics import SafetyAuditCheck, SafetyAuditReport
 from geoplan.domain.enums import (
+    AltitudeMode,
+    ImportedGeometryType,
     MissionTask,
     OptimizationCriterion,
     SafetyAuditStatus,
@@ -12,6 +16,7 @@ from geoplan.domain.enums import (
 from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
+from geoplan.planning.constraints import _obstacle_requires_avoidance
 from geoplan.planning.models import PlanRequest
 from geoplan.safety.audit import ExportVerificationResult, IndependentPlanSafetyAuditor
 
@@ -31,6 +36,40 @@ def test_audit_reports_all_independent_checks_for_safe_plan() -> None:
     assert {check.code for check in report.checks} == set(SafetyCheckCode)
     assert report.audited_mission_count == 1
     assert report.assumptions
+
+
+@pytest.mark.parametrize(
+    "mode,height,required",
+    [
+        (AltitudeMode.ABSOLUTE, 0, False),
+        (AltitudeMode.ABSOLUTE, -100, False),
+        (AltitudeMode.ABSOLUTE, 90, True),
+        (AltitudeMode.ABSOLUTE, None, True),
+        (AltitudeMode.RELATIVE_TO_GROUND, 5, True),
+        (AltitudeMode.CLAMP_TO_GROUND, 0, True),
+        (AltitudeMode.RELATIVE_TO_SEA_FLOOR, 5, True),
+        (AltitudeMode.UNKNOWN, 0, True),
+    ],
+)
+def test_obstacle_avoidance_respects_altitude_reference_in_both_planner_and_audit(
+    mode, height, required
+):
+    obstacle = FlightObstacle(
+        obstacle_id="tower",
+        geometry_type=ImportedGeometryType.POINT,
+        coordinates=[Coordinate(longitude=37.005, latitude=55)],
+        height_m=height,
+        altitude_mode=mode,
+    )
+    assert _obstacle_requires_avoidance(obstacle, 100) is required
+    request = _request().model_copy(update={"obstacles": [obstacle]})
+    report = _auditor().audit(request, [_segment()], [_mission()])
+    check = _check(report, SafetyCheckCode.OBSTACLE_CLEARANCE)
+    assert check.status is (
+        SafetyAuditStatus.FAILED if required else SafetyAuditStatus.NOT_APPLICABLE
+    )
+    if obstacle.known_top_msl_m is None:
+        assert any("горизонтальный" in assumption for assumption in report.assumptions)
 
 
 def test_audit_detects_route_inside_no_fly_zone() -> None:

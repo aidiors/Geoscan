@@ -3,6 +3,7 @@ import type { Coordinate } from "@/shared/geo/types";
 import type { SensorProfile } from "@/shared/api/types";
 
 export type Objective = "time" | "flight" | "balanced";
+export type WorkAreaSource = "scenario" | "imported";
 
 export type SiteRole = "takeoff" | "landing" | "alternate";
 

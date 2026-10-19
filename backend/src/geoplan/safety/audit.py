@@ -317,7 +317,9 @@ def _obstacle_clearance_check(
         (mission, obstacle)
         for mission in missions
         for obstacle in obstacles
-        if min(_mission_altitudes_msl(mission)) <= obstacle.height_m + VERTICAL_OBSTACLE_CLEARANCE_M
+        if obstacle.known_top_msl_m is None
+        or min(_mission_altitudes_msl(mission))
+        <= obstacle.known_top_msl_m + VERTICAL_OBSTACLE_CLEARANCE_M
     ]
     if not relevant:
         return _not_applicable(
@@ -1326,6 +1328,11 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
         "Доступная энергия масштабируется по здоровью АКБ и коэффициенту "
         "энергопотребления; это консервативная модель, не телеметрическая кривая разряда."
     )
+    if any(obstacle.known_top_msl_m is None for obstacle in request.obstacles):
+        assumptions.append(
+            "Для препятствий без абсолютной отметки вершины MSL применяется горизонтальный "
+            "обход на всех высотах. Относительные высоты не преобразуются без данных рельефа."
+        )
     if request.minimum_turn_radius_m == 0:
         assumptions.append(
             "Минимальный радиус разворота отключён и маршрут проверяется как ломаная."
