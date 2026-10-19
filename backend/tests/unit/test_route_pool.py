@@ -32,6 +32,26 @@ def test_route_assignment_and_partial_scoring_preserve_finite_battery_inventory(
 
 @pytest.mark.parametrize("criterion", list(OptimizationCriterion))
 @pytest.mark.parametrize("fleet_limit", [1, 2])
+def test_route_pool_excludes_catalogs_that_exhaust_aircraft_batteries(criterion, fleet_limit):
+    original = model(criterion)
+    aircraft = tuple(
+        replace(a, available_minutes=20, resource_limit=DroneResourceLimit(maximum_sorties=1))
+        for a in original.problem.aircraft
+    )
+    costs = CostModel(
+        replace(
+            original.problem,
+            aircraft=aircraft,
+            deadline_minutes=25 if criterion is OptimizationCriterion.BALANCED else None,
+        )
+    )
+    pool = ProductiveRoutePool().generate(costs, maximum_active_drones=fleet_limit).all
+    assert bool(pool) == (fleet_limit == 2)
+    assert all(costs.metrics(solution) is not None for _, solution in pool)
+
+
+@pytest.mark.parametrize("criterion", list(OptimizationCriterion))
+@pytest.mark.parametrize("fleet_limit", [1, 2])
 def test_incremental_assignment_matches_full_physical_prefix_scores(criterion, fleet_limit):
     from geoplan.routing.allocation import assign_trips
     from geoplan.routing.model import RoutingSearchObjective, Trip, variants

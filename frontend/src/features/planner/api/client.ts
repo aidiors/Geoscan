@@ -2,6 +2,7 @@ import type { PlanRequest, PlanResponse, TurnRadiusAnalysisRequest, TurnRadiusAn
 import { requestJson } from "@/shared/api/http";
 import { ApiError } from "@/shared/api/http";
 import { requestProgressivePlan } from "./progressive";
+import { maximumPlanningSeconds } from "@/features/planner/model/planningBudget";
 import type { AdvisorResponse, SurveyQualityReport } from "@/shared/api/types";
 
 export function getFeasibilityAdvice(request: PlanRequest, allowAltitudeChange = false): Promise<AdvisorResponse> {
@@ -24,7 +25,8 @@ export async function createPlan(request: PlanRequest,
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) controller.abort();
-  const timeout = setTimeout(() => controller.abort(), 300_000);
+  const timeout = setTimeout(() => controller.abort(),
+    ((request.planning_time_limit_seconds ?? maximumPlanningSeconds) + 30) * 1000);
   try {
     if (onPlan) return await requestProgressivePlan(request, onPlan, controller.signal);
     return await requestJson<PlanResponse>("/v1/plans", {

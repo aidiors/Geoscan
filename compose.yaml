@@ -10,6 +10,11 @@ services:
       - "${GEOPLAN_PORT:-8000}:8000"
     restart: unless-stopped
     init: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # Use the same persistent secret (32+ bytes) across replicas/restarts.
     # If absent, export attestations last only for the current server process.
     environment:

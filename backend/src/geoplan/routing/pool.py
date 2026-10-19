@@ -153,6 +153,7 @@ class ProductiveRoutePool:
                     candidate
                     and candidate not in seen
                     and len({trip.aircraft for trip in candidate}) <= fleet_limit
+                    and model.metrics(candidate) is not None
                 ):
                     seen.add(candidate)
                     pool.append((name, candidate))

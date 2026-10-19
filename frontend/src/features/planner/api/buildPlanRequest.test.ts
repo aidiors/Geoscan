@@ -48,6 +48,16 @@ const settings: PlanningSettings = {
 };
 
 describe("plan request", () => {
+  it("defaults to thirty minutes and preserves explicitly selected smaller budgets", () => {
+    const scenario = scenarios[0];
+    const build = (planningTimeLimitSeconds?: number) => buildPlanRequest("flight", scenario.task,
+      scenario, cloneFleet(), cloneSites(scenario), [], survey, { ...settings, planningTimeLimitSeconds });
+    expect(build().planning_time_limit_seconds).toBe(1800);
+    expect(build(60).planning_time_limit_seconds).toBe(60);
+    expect(build(1800).planning_time_limit_seconds).toBe(1800);
+    expect(() => build(1801)).toThrow();
+  });
+
   it("validates fixed-wing phase configuration and preserves alternate-site requirements", () => {
     const scenario = scenarios[0];
     const drone = { ...cloneFleet()[0], minimumTurnRadius:50, fixedWingPhaseProfile: {

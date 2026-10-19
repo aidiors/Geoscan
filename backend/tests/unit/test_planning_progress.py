@@ -171,6 +171,55 @@ def test_all_pipeline_variants_share_the_request_deadline(audited_plan, monkeypa
     budget.check_planning_budget()
 
 
+def test_slow_initial_search_leaves_time_for_the_main_pipeline(audited_plan, monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(budget, "monotonic", lambda: now[0])
+
+    def initial(request, observer):
+        now[0] = 31
+        budget.check_planning_budget()
+        return audited_plan
+
+    request = productive_survey_request(planning_time_limit_seconds=1800)
+    result = AuditedPlanningService(
+        primary=lambda request, observer: audited_plan,
+        initial=initial,
+    ).plan(request)
+    assert result.search is not None
+    assert result.search.time_limit_seconds == 1800
+    assert result.search.pipelines[0].status == "time_limit"
+    assert result.search.pipelines[1].status == "improved"
+    assert result.metrics == audited_plan.metrics
+
+
+def test_short_parent_budget_still_stops_the_initial_search(audited_plan, monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(budget, "monotonic", lambda: now[0])
+
+    def initial(request, observer):
+        now[0] = 11
+        budget.check_planning_budget()
+        return audited_plan
+
+    def primary(request, observer):
+        raise AssertionError("The main pipeline must not run past the request deadline")
+
+    with pytest.raises(budget.PlanningTimeExceeded):
+        AuditedPlanningService(primary=primary, initial=initial).plan(
+            productive_survey_request(planning_time_limit_seconds=10)
+        )
+
+
+def test_request_accepts_thirty_minutes_and_rejects_a_longer_budget():
+    assert productive_survey_request().planning_time_limit_seconds == 1800
+    assert (
+        productive_survey_request(planning_time_limit_seconds=1800).planning_time_limit_seconds
+        == 1800
+    )
+    with pytest.raises(ValueError, match="1800"):
+        productive_survey_request(planning_time_limit_seconds=1801)
+
+
 def test_stream_has_bounded_admission_and_disconnect_releases_worker(audited_plan):
     entered, stopped = Event(), Event()
 

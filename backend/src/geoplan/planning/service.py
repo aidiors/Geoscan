@@ -26,6 +26,7 @@ class AuditedPlanningService:
     alternative: PlanRunner | None = None
     initial: PlanRunner | None = None
     alternative_seconds: float = 90
+    initial_seconds: float = 30
 
     def plan(self, request: PlanRequest, observer: PlanObserver | None = None) -> PlanResponse:
         progress = AuditedPlanProgress(request, observer)
@@ -38,12 +39,18 @@ class AuditedPlanningService:
                     and request.optimization_mode is OptimizationMode.OPTIMIZED
                 ):
                     try:
-                        with progress.pipeline("initial") as observe:
+                        with (
+                            progress.pipeline("initial") as observe,
+                            planning_budget(self.initial_seconds),
+                        ):
                             initial = self.initial(request, observe)
                             observe("result", initial)
                             check_planning_budget()
-                    except PlanningTimeExceeded, PlanningCancelled:
+                    except PlanningCancelled:
                         raise
+                    except PlanningTimeExceeded:
+                        # A seed timeout must not consume the whole improvement budget.
+                        check_planning_budget()
                     except PlanningError:
                         pass
                 with progress.pipeline("primary") as observe:

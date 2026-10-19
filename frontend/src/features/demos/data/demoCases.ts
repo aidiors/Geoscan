@@ -111,7 +111,7 @@ export const demoCases: DemoCase[] = [
     highlights: ["Съёмка двух областей", "Камера выключена между полями", "История проверенных улучшений"],
     expectedEvidence: ["Принадлежность галсов сохранена", "Проверены ресурс и камера", "Итог можно экспортировать"],
     recommendedObjective: "flight", settings: { productiveRouting: true, fastHeuristic: false,
-      turnRadius: 40, maximumActiveDrones: "1", windSpeed: 0, planningTimeLimitSeconds: 60 },
+      turnRadius: 40, maximumActiveDrones: "1", windSpeed: 0 },
   },
 
 ];

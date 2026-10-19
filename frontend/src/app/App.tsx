@@ -67,6 +67,7 @@ export default function App() {
     handleExport,
     saveScenario,
     loadScenario,
+    forgetSavedScenario,
     captureProject,
     restoreProject,
     archivedPlan,
@@ -119,6 +120,7 @@ export default function App() {
           onSelectAllWorkAreas={(enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
           onSave={saveScenario}
           onLoad={loadScenario}
+          onForgetSavedScenario={forgetSavedScenario}
         />
         <MissionMap
           key={fitKey}

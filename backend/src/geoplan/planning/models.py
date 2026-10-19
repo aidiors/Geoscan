@@ -5,6 +5,7 @@ from math import isfinite
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from geoplan.budget import PLANNING_SECONDS
 from geoplan.coverage.models import CoverageArea, CoveragePlanRequest, SurveyParameters, WorkSegment
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone
 from geoplan.domain.altitude import HeightAboveGround
@@ -77,7 +78,7 @@ class PlanRequest(BaseModel):
     optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
     assignment_strategy: AssignmentStrategy = AssignmentStrategy.AUTOMATIC
     productive_routing: bool = False
-    planning_time_limit_seconds: float = Field(default=270, ge=1, le=270)
+    planning_time_limit_seconds: float = Field(default=PLANNING_SECONDS, ge=1, le=PLANNING_SECONDS)
     planning_start_time: datetime | None = None
     planning_end_time: datetime | None = None
 

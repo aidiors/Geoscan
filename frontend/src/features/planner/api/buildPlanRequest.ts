@@ -2,6 +2,7 @@ import type { TerrainAsset } from "@/features/terrain/model/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask, PlanRequest } from "@/shared/api/types";
 import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
+import { maximumPlanningSeconds } from "@/features/planner/model/planningBudget";
 
 const obstacleMapper = new ImportedObstacleMapper();
 
@@ -68,8 +69,8 @@ export function buildPlanRequest(
     && zone.interior_rings.length > 0);
   if (airspaceWithHoles) throw new Error(`«${airspaceWithHoles.name}»: разрешённое пространство с внутренними вырезами пока не поддерживается. Вырезы нельзя игнорировать.`);
   const enabledDrones = drones.filter((drone) => drone.enabled);
-  const budget = settings.planningTimeLimitSeconds ?? 270;
-  if (!Number.isFinite(budget) || budget < 1 || budget > 270) throw new Error("Задайте бюджет расчёта от 1 до 270 секунд.");
+  const budget = settings.planningTimeLimitSeconds ?? maximumPlanningSeconds;
+  if (!Number.isFinite(budget) || budget < 1 || budget > maximumPlanningSeconds) throw new Error("Задайте бюджет расчёта от 1 до 1800 секунд (30 минут).");
   if (enabledDrones.length === 0) {
     throw new Error("Включите хотя бы один БВС.");
   }
@@ -176,7 +177,7 @@ export function buildPlanRequest(
   }
   return {
     criterion: objectiveToCriterion(objective),
-    planning_time_limit_seconds: settings.planningTimeLimitSeconds ?? 270,
+    planning_time_limit_seconds: budget,
     drones: enabledDrones.map((drone) => ({
       drone_id: drone.id,
       name: drone.name,

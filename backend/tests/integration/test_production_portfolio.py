@@ -99,10 +99,36 @@ def test_timeout_before_audited_baseline_returns_diagnostic_and_does_not_leak(mo
             budget.check_planning_budget()
             return super().plan(request)
 
-    request = productive_survey_request()
+    request = productive_survey_request(planning_time_limit_seconds=270)
     dependencies = replace(create_default_dependencies(), coverage_planner=SlowCoverage())
     with TestClient(create_app(dependencies, serve_frontend=False)) as client:
         response = client.post("/v1/plans", json=request.model_dump(mode="json"))
     assert response.status_code == 422
     assert response.json()["code"] == "planning_time_limit"
+    budget.check_planning_budget()
+
+
+def test_candidate_batch_stops_before_evaluating_the_next_drone_or_segment(monkeypatch):
+    from geoplan.navigation.optimizer import BidirectionalRouteOptimizer
+
+    now, calls = [0.0], [0]
+    monkeypatch.setattr(budget, "monotonic", lambda: now[0])
+
+    class SlowRoutes(BidirectionalRouteOptimizer):
+        def optimize(self, request):
+            calls[0] += 1
+            now[0] = 2
+            return super().optimize(request)
+
+    request = productive_survey_request(
+        planning_time_limit_seconds=1,
+        optimization_mode="fast_heuristic",
+        productive_routing=False,
+    )
+    dependencies = replace(create_default_dependencies(), route_optimizer=SlowRoutes())
+    with TestClient(create_app(dependencies, serve_frontend=False)) as client:
+        response = client.post("/v1/plans", json=request.model_dump(mode="json"))
+    assert response.status_code == 422
+    assert response.json()["code"] == "planning_time_limit"
+    assert calls == [1]
     budget.check_planning_budget()

@@ -1,4 +1,5 @@
 import type { PlanningSettings, SurveySettings } from "@/features/planner/model/types";
+import { maximumPlanningSeconds } from "./planningBudget";
 
 export const defaultSurvey: SurveySettings = {
   directionMode: "automatic",
@@ -48,7 +49,7 @@ export function planningSettings(
     turnRadius: 0,
     fastHeuristic: false,
     productiveRouting: true,
-    planningTimeLimitSeconds: 120,
+    planningTimeLimitSeconds: maximumPlanningSeconds,
     ...overrides,
   };
 }

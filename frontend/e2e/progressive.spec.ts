@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("can stop after the first audited result and keep its export", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Бюджет расчёта, с", { exact: true }).fill("270");
+  await page.getByLabel("Бюджет расчёта, мин", { exact: true }).fill("30");
   await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Расчётный план" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Остановить поиск" })).toBeVisible();

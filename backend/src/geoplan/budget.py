@@ -12,7 +12,7 @@ from geoplan.errors import PlanningError
 _deadline: ContextVar[float | None] = ContextVar("planning_deadline", default=None)
 _request_seconds: ContextVar[float | None] = ContextVar("planning_seconds", default=None)
 _cancelled: ContextVar[Callable[[], bool] | None] = ContextVar("planning_cancelled", default=None)
-PLANNING_SECONDS = 270
+PLANNING_SECONDS = 30 * 60
 
 
 class PlanningTimeExceeded(PlanningError):

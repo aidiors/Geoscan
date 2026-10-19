@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import floor
 
 from geoplan.assignment.models import MissionAssignmentCandidate
-from geoplan.budget import PlanningCancelled, PlanningTimeExceeded
+from geoplan.budget import PlanningCancelled, PlanningTimeExceeded, check_planning_budget
 from geoplan.coverage.models import WorkSegment
 from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import NoFlyZone
@@ -119,6 +119,7 @@ def _candidate_evaluation(
     vertical_profile_planner: VerticalProfilePlanner,
     constraints: list[NoFlyZone],
 ) -> tuple[MissionCandidate | None, PlanningError | None]:
+    check_planning_budget()
     try:
         segment, request = MissionSurveyAdapter(transition_planner).prepare(segment, drone, request)
         candidate = _create_candidate(
@@ -131,6 +132,7 @@ def _candidate_evaluation(
             vertical_profile_planner,
             constraints,
         )
+        check_planning_budget()
         if not FlightAltitudeEnvelope().allows(drone, candidate.mission):
             raise PlanningError(
                 code=ErrorCode.FLIGHT_ENVELOPE_EXCEEDED,

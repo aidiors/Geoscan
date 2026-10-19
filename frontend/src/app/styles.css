@@ -189,6 +189,9 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .map-controls { position: absolute; z-index: 3; top: 14px; right: 14px; display: grid; gap: 6px; }
 .map-controls button { display: flex; min-width: 34px; align-items: center; justify-content: center; gap: 6px; border: 1px solid #dce2eb; border-radius: 8px; padding: 7px 9px; color: #3d2a66; background: #fffffff2; font-size: 10px; font-weight: 800; }
 .map-controls button:hover { background: #f7f4ff; }
+.basemap-switch { display: grid; gap: 3px; padding-bottom: 6px; border-bottom: 1px solid #dce2eb; }
+.basemap-switch button[aria-pressed="true"] { border-color: #6d28d9; color: #fff; background: #6d28d9; }
+.map-layer-notice { position: absolute; z-index: 2; left: 14px; top: 58px; max-width: min(300px, 60%); border-radius: 8px; padding: 8px 10px; color: #78350f; background: #fffbebf2; font-size: 11px; }
 .site-label { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; fill: #172033; font-size: 11px; font-weight: 800; }
 .placement-hint { position: absolute; z-index: 3; top: 14px; left: 14px; display: flex; align-items: center; gap: 7px; border-radius: 9px; padding: 9px 11px; color: #fff; background: #2c1558eb; box-shadow: 0 7px 18px #16203622; font-size: 11px; font-weight: 800; }
 .feasibility-card { position: absolute; z-index: 2; bottom: 38px; left: 14px; max-width: 340px; border: 1px solid #fff; border-radius: 11px; padding: 11px; color: #162036; background: #fffffff0; box-shadow: 0 8px 20px #16203616; font-size: 11px; }

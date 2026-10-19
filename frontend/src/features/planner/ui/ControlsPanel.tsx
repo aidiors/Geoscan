@@ -10,6 +10,7 @@ import { FleetActions } from "@/features/planner/ui/FleetActions";
 import { TakeoffLandingFields } from "@/features/planner/ui/TakeoffLandingFields";
 import { FixedWingPhaseFields } from "@/features/planner/ui/FixedWingPhaseFields";
 import { fleetCatalog } from "@/features/planner/model/fleetCatalog";
+import { maximumPlanningSeconds } from "@/features/planner/model/planningBudget";
 import type { AirframeType, AutopilotFirmware, ImportedZone, MissionTask, ZoneType } from "@/shared/api/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
 
@@ -51,6 +52,7 @@ interface ControlsPanelProps {
   onSelectAllWorkAreas: (enabled: boolean) => void;
   onSave: () => void;
   onLoad: () => void;
+  onForgetSavedScenario: () => void;
 }
 
 const taskLabels: Record<MissionTask, string> = {
@@ -223,7 +225,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <span><b>Оптимизация вылетов</b><small>Сравнивать порядок галсов и разбиения между аппаратами по итоговому расписанию</small></span>
         </label>
         {props.settings.productiveRouting && <p className="hint">{props.settings.fastHeuristic ? "Выключите быстрый расчёт, чтобы сравнивать варианты вылетов." : "«Макс. маршрут» задаёт исходное разбиение для сравнения. Новые вылеты ограничены запасом АКБ, дальностью БВС и условиями задания."}</p>}
-        <p className="hint">Сервис автоматически выбирает поиск распределения и сравнивает проверенные расписания. Для нескольких областей оптимизируется общий план.</p>
+        <p className="hint">Первый проверенный план появится по готовности; затем сервис показывает улучшения, до 30 минут. Поиск можно остановить и сохранить найденный результат. Для нескольких областей оптимизируется общий план.</p>
         <label className="solver-option">
           <input
             type="checkbox"
@@ -235,7 +237,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <div className="field-grid">
           <TextNumberField label="Срок, мин" value={props.settings.deadline} placeholder="Без срока" onChange={(deadline) => props.onUpdateSettings({ deadline })} />
           <TextNumberField label="Макс. БВС" value={props.settings.maximumActiveDrones} placeholder="Весь парк" integer onChange={(maximumActiveDrones) => props.onUpdateSettings({ maximumActiveDrones })} />
-          <NumberField label="Бюджет расчёта, с" value={props.settings.planningTimeLimitSeconds ?? 270} min={1} max={270} onChange={(planningTimeLimitSeconds) => props.onUpdateSettings({ planningTimeLimitSeconds })} />
+          <NumberField label="Бюджет расчёта, мин" value={(props.settings.planningTimeLimitSeconds ?? maximumPlanningSeconds) / 60} min={1 / 60} max={maximumPlanningSeconds / 60} step="any" onChange={(minutes) => props.onUpdateSettings({ planningTimeLimitSeconds: Math.round(minutes * 60) })} />
         </div>
       </PanelSection>
 
@@ -385,7 +387,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         </div>
       </PanelSection>
 
-      <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить</button><button type="button" onClick={props.onLoad}>Восстановить</button></div>
+      <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить</button><button type="button" onClick={props.onLoad}>Восстановить</button><button type="button" onClick={props.onForgetSavedScenario}>Удалить локальное сохранение</button></div>
       <p className="hint">Быстрый снимок настроек сохраняется в этом браузере. План, исходные файлы и историю сохраняйте в проекте.</p>
       {props.projects}
     </aside>
@@ -396,7 +398,7 @@ function PanelSection({ title, badge, children }: { title: string; badge?: strin
   return <section className="panel-section"><div className="label-row"><span>{title}</span>{badge && <span className="check">{badge}</span>}</div>{children}</section>;
 }
 
-function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min?: number; max?: number; step?: number; onChange: (value: number) => void }) {
+function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min?: number; max?: number; step?: number | "any"; onChange: (value: number) => void }) {
   return <label className="field"><span>{label}</span><input type="number" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} /></label>;
 }
 

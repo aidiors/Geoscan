@@ -1,4 +1,5 @@
 import type { Coordinate, MapView, Point } from "@/shared/geo/types";
+import { basemaps, type Basemap } from "@/shared/geo/basemaps";
 
 export const MAP_WIDTH = 900;
 export const MAP_HEIGHT = 560;
@@ -21,6 +22,7 @@ export interface Tile {
   href: string;
   x: number;
   y: number;
+  size: number;
 }
 
 export function project(coordinate: Coordinate, zoom: number): Point {
@@ -136,25 +138,29 @@ export function fitCoordinates(
   return { center, zoom: MIN_ZOOM };
 }
 
-export function visibleTiles(view: MapView, size: MapSize = DEFAULT_MAP_SIZE): Tile[] {
-  const center = project(view.center, view.zoom);
-  const minimumX = Math.floor((center.x - size.width / 2) / TILE_SIZE) - 1;
-  const maximumX = Math.floor((center.x + size.width / 2) / TILE_SIZE) + 1;
-  const minimumY = Math.max(0, Math.floor((center.y - size.height / 2) / TILE_SIZE) - 1);
-  const tileCount = 2 ** view.zoom;
+export function visibleTiles(view: MapView, size: MapSize = DEFAULT_MAP_SIZE, basemap: Basemap = "streets"): Tile[] {
+  const source = basemaps[basemap];
+  const zoom = Math.min(view.zoom, source.maximumNativeZoom);
+  const scale = 2 ** (view.zoom - zoom);
+  const center = project(view.center, zoom);
+  const minimumX = Math.floor((center.x - size.width / scale / 2) / TILE_SIZE) - 1;
+  const maximumX = Math.floor((center.x + size.width / scale / 2) / TILE_SIZE) + 1;
+  const minimumY = Math.max(0, Math.floor((center.y - size.height / scale / 2) / TILE_SIZE) - 1);
+  const tileCount = 2 ** zoom;
   const maximumY = Math.min(
     tileCount - 1,
-    Math.floor((center.y + size.height / 2) / TILE_SIZE) + 1,
+    Math.floor((center.y + size.height / scale / 2) / TILE_SIZE) + 1,
   );
   const tiles: Tile[] = [];
   for (let tileY = minimumY; tileY <= maximumY; tileY += 1) {
     for (let tileX = minimumX; tileX <= maximumX; tileX += 1) {
       const wrappedX = ((tileX % tileCount) + tileCount) % tileCount;
       tiles.push({
-        key: `${view.zoom}/${tileX}/${tileY}`,
-        href: `https://tile.openstreetmap.org/${view.zoom}/${wrappedX}/${tileY}.png`,
-        x: tileX * TILE_SIZE - center.x + size.width / 2,
-        y: tileY * TILE_SIZE - center.y + size.height / 2,
+        key: `${basemap}/${zoom}/${tileX}/${tileY}`,
+        href: source.tileUrl(zoom, wrappedX, tileY),
+        x: (tileX * TILE_SIZE - center.x) * scale + size.width / 2,
+        y: (tileY * TILE_SIZE - center.y) * scale + size.height / 2,
+        size: TILE_SIZE * scale,
       });
     }
   }
