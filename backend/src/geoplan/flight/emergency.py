@@ -18,6 +18,7 @@ from geoplan.domain.geo import Coordinate
 from geoplan.errors import PlanningError
 from geoplan.flight.duration import _route_duration_minutes
 from geoplan.flight.energy import _effective_endurance_minutes
+from geoplan.flight.site_clearance import VerticalSiteClearance
 from geoplan.flight.sites import _eligible_alternate_sites
 from geoplan.navigation.connections import _safe_route
 from geoplan.navigation.routing import (
@@ -85,14 +86,32 @@ def _evaluate_emergency_reachability(
     request: PlanRequest,
     constraints: list[NoFlyZone],
     segment_id: str,
+    initial_elapsed_minutes: float = 0,
+    additional_energy_minutes: float = 0,
+    alternate_descent_minutes: float = 0,
 ) -> EmergencyReachability | None:
     alternate_sites = _eligible_alternate_sites(request, drone.drone_id)
     if not request.alternate_landing_sites:
         return None
+    if drone.takeoff_landing_profile is not None:
+        alternate_sites = [
+            site
+            for site in alternate_sites
+            if VerticalSiteClearance().allows(
+                site.coordinate,
+                request.flat_ground_elevation_m,
+                request.mission_altitude_m,
+                request.survey_height_agl.maximum_m,
+                request.terrain_vertical_uncertainty_m,
+                request.allowed_airspaces,
+                request.no_fly_zones,
+                request.obstacles,
+            )
+        ]
     if not alternate_sites:
         raise PlanningError(
             code=ErrorCode.ALTERNATE_LANDING_UNREACHABLE,
-            message=f"Для БВС {drone.drone_id} нет назначенной резервной площадки.",
+            message=f"Для БВС {drone.drone_id} нет назначенной безопасной резервной площадки.",
             recommendations=[
                 FeasibilityRecommendation(
                     code=RecommendationCode.ADD_ALTERNATE_SITE,
@@ -107,7 +126,10 @@ def _evaluate_emergency_reachability(
             ],
         )
 
-    checkpoints = _emergency_route_nodes(phases, drone, request.wind)
+    checkpoints = [
+        EmergencyCheckpoint(p.coordinate, p.elapsed_minutes + initial_elapsed_minutes)
+        for p in _emergency_route_nodes(phases, drone, request.wind)
+    ]
     available_minutes = (
         _effective_endurance_minutes(drone)
         * (drone.initial_charge_percent - drone.battery_reserve_percent)
@@ -137,7 +159,7 @@ def _evaluate_emergency_reachability(
         result = EvaluatedEmergencyCheckpoint(
             checkpoint=checkpoint,
             site=site,
-            diversion_minutes=diversion_minutes,
+            diversion_minutes=diversion_minutes + alternate_descent_minutes,
             diversion_route=diversion_route,
         )
         evaluated.append(result)
@@ -166,7 +188,8 @@ def _evaluate_emergency_reachability(
         critical.required_minutes,
         *(certificate.maximum_required_minutes for certificate in certificates),
     )
-    minimum_margin_minutes = available_minutes - certified_required_minutes
+    required_energy_minutes = certified_required_minutes + additional_energy_minutes
+    minimum_margin_minutes = available_minutes - required_energy_minutes
     certification_error_minutes = certified_required_minutes - critical.required_minutes
     maximum_interval_m = max(
         (certificate.maximum_interval_m for certificate in certificates),
@@ -175,7 +198,7 @@ def _evaluate_emergency_reachability(
     margin_percent = minimum_margin_minutes / _effective_endurance_minutes(drone) * 100
     if margin_percent < 0:
         usable_fraction = (drone.initial_charge_percent - drone.battery_reserve_percent) / 100
-        required_effective_endurance = certified_required_minutes / usable_fraction
+        required_effective_endurance = required_energy_minutes / usable_fraction
         required_endurance = (
             required_effective_endurance
             * drone.energy_consumption_multiplier

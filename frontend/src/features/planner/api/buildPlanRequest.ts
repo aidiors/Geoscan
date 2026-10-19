@@ -64,6 +64,20 @@ export function buildPlanRequest(
     throw new Error("Включите хотя бы один БВС.");
   }
   for (const drone of enabledDrones) {
+    const phase = drone.takeoffLandingProfile;
+    if (phase) {
+      if (["fixed_wing", "vtol_fixed_rotor"].includes(drone.airframeType)) {
+        throw new Error(`${drone.name}: вертикальная модель взлёта и посадки доступна только мультикоптерам.`);
+      }
+      if (![phase.climb_rate_mps, phase.descent_rate_mps].every((v) => Number.isFinite(v) && v > 0 && v <= 100)
+        || ![phase.climb_energy_multiplier, phase.descent_energy_multiplier].every((v) => Number.isFinite(v) && v >= 1 && v <= 10)) {
+        throw new Error(`${drone.name}: проверьте плановые скорости и коэффициенты энергии взлёта и посадки.`);
+      }
+      if ((drone.maximumClimbRate != null && phase.climb_rate_mps > drone.maximumClimbRate)
+        || (drone.maximumDescentRate != null && phase.descent_rate_mps > drone.maximumDescentRate)) {
+        throw new Error(`${drone.name}: плановая вертикальная скорость превышает предел БВС.`);
+      }
+    }
     const sets = drone.availableBatterySets;
     if (sets != null && (!Number.isInteger(sets) || sets < 0 || sets > 10000)) {
       throw new Error(`${drone.name}: число готовых комплектов АКБ должно быть целым от 0 до 10 000.`);
@@ -151,6 +165,7 @@ export function buildPlanRequest(
       completed_flights_since_maintenance: drone.completedFlights,
       flight_hours_since_maintenance: drone.accumulatedHours,
       maximum_climb_rate_mps: drone.maximumClimbRate,
+      takeoff_landing_profile: drone.takeoffLandingProfile ?? null,
       maximum_descent_rate_mps: drone.maximumDescentRate,
       minimum_mission_altitude_m: null,
       maximum_mission_altitude_m: null,

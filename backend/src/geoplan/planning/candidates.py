@@ -24,7 +24,9 @@ from geoplan.flight.emergency import FlightPhase, _evaluate_emergency_reachabili
 from geoplan.flight.energy import _battery_use_percent, _effective_endurance_minutes
 from geoplan.flight.envelope import HorizontalAirspeedEnvelope
 from geoplan.flight.models import MissionDurationRequest
+from geoplan.flight.site_clearance import VerticalSiteClearance
 from geoplan.flight.sites import _eligible_departure_sites, _eligible_landing_sites
+from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
 from geoplan.flight.terrain import VerticalProfilePlanner
 from geoplan.flight.vertical import _validate_vertical_airspace, _vertical_profile
 from geoplan.navigation.curvature import SweepTransitionPlanner
@@ -200,11 +202,13 @@ def _create_candidate(
     )
     _validate_route_envelope(drone, optimized, full_route, segment.segment_id)
     vertical_profile = optimized.vertical_profile
+    phases = optimized.takeoff_landing
+    total_duration = estimate.precise_duration_minutes + phases.duration_minutes
     energy_equivalent_minutes = (
         vertical_profile.vertical_energy_equivalent_minutes if vertical_profile is not None else 0
-    )
+    ) + phases.energy_surcharge_minutes
     battery_percent = round(
-        _battery_use_percent(estimate.precise_duration_minutes + energy_equivalent_minutes, drone),
+        _battery_use_percent(total_duration + energy_equivalent_minutes, drone),
         2,
     )
     remaining_battery_percent = round(max(0, drone.initial_charge_percent - battery_percent), 2)
@@ -217,7 +221,7 @@ def _create_candidate(
         coverage_area_ids=list(segment.area_ids),
         drone_id=drone.drone_id,
         segment_id=segment.segment_id,
-        duration_minutes=estimate.precise_duration_minutes,
+        duration_minutes=total_duration,
         distance_km=round(optimized.total_distance_km, 3),
         route=full_route,
         altitude_m=request.mission_altitude_m,
@@ -246,12 +250,18 @@ def _create_candidate(
             else None
         ),
         vertical_distance_m=(
-            round(vertical_profile.vertical_distance_m, 2) if vertical_profile is not None else 0
+            round(
+                (vertical_profile.vertical_distance_m if vertical_profile is not None else 0)
+                + phases.vertical_distance_m,
+                2,
+            )
         ),
-        vertical_energy_equivalent_minutes=round(energy_equivalent_minutes, 3),
+        vertical_climb_duration_minutes=phases.climb_minutes,
+        vertical_descent_duration_minutes=phases.descent_minutes,
+        vertical_energy_equivalent_minutes=energy_equivalent_minutes,
         terrain_vertical_uncertainty_m=(request.terrain_vertical_uncertainty_m),
         cruise_speed_kmh=drone.cruise_speed_kmh,
-        effective_speed_kmh=optimized.total_distance_km / estimate.precise_duration_minutes * 60,
+        effective_speed_kmh=optimized.total_distance_km / total_duration * 60,
         estimated_battery_percent=battery_percent,
         starting_battery_percent=drone.initial_charge_percent,
         remaining_battery_percent=remaining_battery_percent,
@@ -279,7 +289,7 @@ def _create_candidate(
         survey_distance_km=round(service_distance, 3),
         transit_distance_km=round(optimized.total_distance_km - service_distance, 3),
         survey_duration_minutes=service_minutes,
-        transit_duration_minutes=estimate.precise_duration_minutes - service_minutes,
+        transit_duration_minutes=total_duration - service_minutes,
         useful_flight_percent=round(service_distance / optimized.total_distance_km * 100, 2),
         image_count=(
             sum(
@@ -303,6 +313,7 @@ def _create_candidate(
             MissionStage(
                 stage_type=MissionStageType.TAKEOFF,
                 coordinates=[optimized.transit_route[0]],
+                duration_minutes=phases.climb_minutes,
             ),
             MissionStage(
                 stage_type=MissionStageType.TRANSIT,
@@ -320,7 +331,8 @@ def _create_candidate(
             MissionStage(
                 stage_type=MissionStageType.LANDING,
                 coordinates=optimized.landing_route,
-                duration_minutes=(
+                duration_minutes=phases.descent_minutes
+                + (
                     sum(estimate.landing_leg_durations_minutes)
                     if estimate.landing_leg_durations_minutes is not None
                     else estimate.landing_duration_minutes
@@ -467,6 +479,49 @@ def _best_route_and_sites(
             except PlanningError as error:
                 errors.append(error)
                 continue
+            heights = request.survey_height_agl
+            takeoff_landing = TakeoffLandingEstimator().estimate(
+                drone,
+                (vertical_profile.points[0].target_agl_m + request.terrain_vertical_uncertainty_m)
+                if vertical_profile is not None
+                else heights.maximum_m,
+                (vertical_profile.points[-1].target_agl_m + request.terrain_vertical_uncertainty_m)
+                if vertical_profile is not None
+                else heights.maximum_m,
+            )
+            if drone.takeoff_landing_profile is not None:
+                clear = True
+                for index in (0, -1):
+                    point = full_route[index]
+                    ground = (
+                        vertical_profile.points[index].terrain_elevation_m
+                        if vertical_profile
+                        else request.flat_ground_elevation_m
+                    )
+                    altitude = (
+                        vertical_profile.points[index].target_altitude_msl
+                        if vertical_profile
+                        else request.mission_altitude_m
+                    )
+                    clear &= VerticalSiteClearance().allows(
+                        point,
+                        ground,
+                        altitude,
+                        heights.maximum_m,
+                        request.terrain_vertical_uncertainty_m,
+                        request.allowed_airspaces,
+                        request.no_fly_zones,
+                        request.obstacles,
+                    )
+                if not clear:
+                    errors.append(
+                        PlanningError(
+                            code=ErrorCode.OUTSIDE_ALLOWED_AIRSPACE,
+                            message="Вертикальная колонна взлёта или посадки не подтверждена: "
+                            "проверьте площадки, препятствия и постоянные разрешённые диапазоны.",
+                        )
+                    )
+                    continue
             try:
                 emergency_reachability = _evaluate_emergency_reachability(
                     phases=[
@@ -486,6 +541,16 @@ def _best_route_and_sites(
                     request=request,
                     constraints=constraints,
                     segment_id=segment.segment_id,
+                    initial_elapsed_minutes=takeoff_landing.climb_minutes,
+                    additional_energy_minutes=(
+                        takeoff_landing.energy_surcharge_minutes
+                        + (
+                            vertical_profile.vertical_energy_equivalent_minutes
+                            if vertical_profile
+                            else 0
+                        )
+                    ),
+                    alternate_descent_minutes=takeoff_landing.descent_minutes,
                 )
             except PlanningError as error:
                 errors.append(error)
@@ -503,6 +568,7 @@ def _best_route_and_sites(
                     duration_estimate=duration_estimate,
                     emergency_reachability=emergency_reachability,
                     vertical_profile=vertical_profile,
+                    takeoff_landing=takeoff_landing,
                 )
             )
     if choices:
@@ -531,7 +597,9 @@ def _route_choice_key(choice: OptimizedMissionRoute) -> tuple[float, str, str]:
         else 0
     )
     return (
-        choice.duration_estimate.precise_duration_minutes + vertical_minutes,
+        choice.duration_estimate.precise_duration_minutes
+        + vertical_minutes
+        + choice.takeoff_landing.energy_equivalent_minutes,
         departure_id,
         landing_id,
     )

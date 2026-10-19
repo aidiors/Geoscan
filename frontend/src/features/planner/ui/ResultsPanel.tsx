@@ -234,6 +234,7 @@ export function ResultsPanel({
               {minimumAlternateMargin !== null && <span className="mission-details">Аварийный уход: минимум {format(minimumAlternateMargin)} п.п. сверх резерва · адаптивно проверено {alternateEvaluations} точек · интервал до {format(maximumAlternateInterval)} м · погрешность ≤ {format(maximumAlternateError)} мин</span>}
               {terrainMissions.length > 0 && <span className="mission-details">AGL-профиль: рельеф до {format(maximumTerrain)} м MSL · вертикальный путь {format(verticalDistance)} м</span>}
               {maximumVerticalLayer > 0 && <span className="mission-details">Вертикальное эшелонирование: до +{format(maximumVerticalLayer)} м · набор/снижение {format(verticalPhaseMinutes)} мин включены в расписание и АКБ</span>}
+              {maximumVerticalLayer === 0 && verticalPhaseMinutes > 0 && <span className="mission-details">Взлёт и посадка: {format(verticalPhaseMinutes)} мин включены в расписание и АКБ</span>}
               <span className="battery-bar"><i style={{ width: `${Math.min(maximumBattery, 100)}%`, background: drone?.color ?? "#6d28d9" }} /></span>
               {drone?.availableBatterySets != null && <span className="mission-details">Готовые комплекты АКБ: {dronePlan.mission_count} / {drone.availableBatterySets} использовано</span>}
               {dronePlan.maintenance && <span className="mission-details">{dronePlan.maintenance.message}</span>}

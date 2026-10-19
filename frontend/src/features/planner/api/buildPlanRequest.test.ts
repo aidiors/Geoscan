@@ -48,6 +48,19 @@ const settings: PlanningSettings = {
 };
 
 describe("plan request", () => {
+  it("sends operating phase rates and rejects unsupported airframes or excessive rates", () => {
+    const scenario = scenarios[0];
+    const drone = { ...cloneFleet()[2], takeoffLandingProfile: {
+      climb_rate_mps: 2, descent_rate_mps: 1, climb_energy_multiplier: 1.5, descent_energy_multiplier: 1,
+    } };
+    const build = () => buildPlanRequest("flight", scenario.task, scenario, [drone], cloneSites(scenario), [], survey, { ...settings, maximumActiveDrones: "1" });
+    expect(build().drones[0].takeoff_landing_profile).toEqual(drone.takeoffLandingProfile);
+    drone.maximumClimbRate = 1;
+    expect(build).toThrow("плановая вертикальная скорость превышает предел");
+    drone.maximumClimbRate = 5;
+    drone.airframeType = "fixed_wing";
+    expect(build).toThrow("только мультикоптерам");
+  });
   it("sends the surface datum and uncertainty without converting flight MSL into AGL", () => {
     const scenario = scenarios[0];
     const request = buildPlanRequest("flight", scenario.task, scenario, cloneFleet(),

@@ -31,6 +31,8 @@ def representatives(model: CostModel) -> tuple[int, ...]:
             and (other.survey_speed_kmh or inf) >= (plane.survey_speed_kmh or inf)
             and other.speed_kmh >= plane.speed_kmh
             and other.available_minutes >= plane.available_minutes
+            and other.sortie_overhead_minutes <= plane.sortie_overhead_minutes
+            and other.sortie_energy_surcharge_minutes <= plane.sortie_energy_surcharge_minutes
             and (
                 other.speed_kmh > plane.speed_kmh
                 or other.available_minutes > plane.available_minutes
@@ -70,7 +72,19 @@ def route_catalog(model: CostModel, order: tuple[int, ...], deadline: float) -> 
                     options = []
                     if end == start:
                         departure = model.leg(plane, aircraft.home, first)[0]
-                        options.append((Cost(survey, departure, 0, 0, distance), (token,)))
+                        options.append(
+                            (
+                                Cost(
+                                    survey,
+                                    departure,
+                                    0,
+                                    0,
+                                    distance,
+                                    aircraft.sortie_overhead_minutes,
+                                ),
+                                (token,),
+                            )
+                        )
                     else:
                         for label in labels:
                             if label is None:
@@ -85,6 +99,7 @@ def route_catalog(model: CostModel, order: tuple[int, ...], deadline: float) -> 
                                         cost.connections + duration,
                                         0,
                                         cost.internal_distance + distance + length,
+                                        cost.overhead,
                                     ),
                                     (*visits, token),
                                 )

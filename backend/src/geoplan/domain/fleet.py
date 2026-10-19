@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from geoplan.domain.enums import AirframeType, AltitudeReference, AutopilotFirmware, MissionTask
+from geoplan.domain.flight_phases import VerticalTakeoffLandingProfile
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.survey import SensorProfile
 
@@ -42,6 +43,7 @@ class DroneResourceLimit(BaseModel):
 
 class DroneSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
+    takeoff_landing_profile: VerticalTakeoffLandingProfile | None = None
     installed_sensor: SensorProfile | None = None
     available_battery_sets: int | None = Field(default=None, ge=0, le=10_000)
     minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
@@ -80,6 +82,23 @@ class DroneSpec(BaseModel):
 
     @model_validator(mode="after")
     def flight_envelope_is_consistent(self) -> DroneSpec:
+        profile = self.takeoff_landing_profile
+        if profile is not None:
+            if self.autopilot_profile.airframe in {
+                AirframeType.FIXED_WING,
+                AirframeType.VTOL_FIXED_ROTOR,
+            }:
+                raise ValueError(
+                    "Вертикальная модель взлёта и посадки поддерживает только мультикоптеры."
+                )
+            if (
+                self.maximum_climb_rate_mps is not None
+                and profile.climb_rate_mps > self.maximum_climb_rate_mps
+            ) or (
+                self.maximum_descent_rate_mps is not None
+                and profile.descent_rate_mps > self.maximum_descent_rate_mps
+            ):
+                raise ValueError("Плановая вертикальная скорость превышает предел БВС.")
         if self.initial_charge_percent <= self.battery_reserve_percent:
             raise ValueError("Начальный заряд БВС должен превышать обязательный резерв.")
         if (

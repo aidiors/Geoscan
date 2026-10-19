@@ -5,11 +5,13 @@ from itertools import pairwise
 
 from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import AllowedAirspace, NoFlyZone, RestrictionValidity
-from geoplan.domain.enums import AltitudeReference, ValidityMode
+from geoplan.domain.enums import AirframeType, AltitudeReference, ValidityMode
 from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
 from geoplan.flight.altitude import FlightAltitudeEnvelope
+from geoplan.flight.energy import _battery_use_percent
+from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
 from geoplan.navigation.routing import (
     route_is_clear_of_no_fly_zones,
     route_is_inside_allowed_airspaces,
@@ -40,13 +42,16 @@ def _vertical_layer_options(
         extra_energy_equivalent_minutes=0,
         extra_battery_percent=0,
     )
-    climb_rate = drone.maximum_climb_rate_mps
-    descent_rate = drone.maximum_descent_rate_mps
+    profile = drone.takeoff_landing_profile
+    climb_rate = profile.climb_rate_mps if profile else drone.maximum_climb_rate_mps
+    descent_rate = profile.descent_rate_mps if profile else drone.maximum_descent_rate_mps
     if (
         request.maximum_vertical_deconfliction_m <= 0
         or climb_rate is None
         or descent_rate is None
         or _has_altitude_dependent_temporal_restrictions(request)
+        or drone.autopilot_profile.airframe
+        in {AirframeType.FIXED_WING, AirframeType.VTOL_FIXED_ROTOR}
     ):
         return [baseline]
     options = [baseline]
@@ -55,12 +60,15 @@ def _vertical_layer_options(
         climb_minutes = offset / climb_rate / 60
         descent_minutes = offset / descent_rate / 60
         extra_minutes = climb_minutes + descent_minutes
-        extra_battery = extra_minutes / drone.maximum_flight_minutes * 100
+        surcharge = (
+            TakeoffLandingEstimator().estimate(drone, offset, offset).energy_surcharge_minutes
+        )
+        extra_battery = _battery_use_percent(extra_minutes + surcharge, drone)
         option = VerticalLayerOption(
             offset_m=round(offset, 3),
             climb_duration_minutes=round(climb_minutes, 6),
             descent_duration_minutes=round(descent_minutes, 6),
-            extra_energy_equivalent_minutes=round(extra_minutes, 6),
+            extra_energy_equivalent_minutes=round(surcharge, 6),
             extra_battery_percent=round(extra_battery, 6),
         )
         shifted = apply_vertical_layer(mission, option)
@@ -97,14 +105,11 @@ def _vertical_layer_is_feasible(
     drone = next(drone for drone in request.drones if drone.drone_id == mission.drone_id)
     if not FlightAltitudeEnvelope().allows(drone, mission):
         return False
-    if (
-        mission.battery_reserve_margin_percent is None
-        or mission.battery_reserve_margin_percent < option.extra_battery_percent
-    ):
+    if mission.battery_reserve_margin_percent is None or mission.battery_reserve_margin_percent < 0:
         return False
     if (
         mission.minimum_alternate_margin_percent is not None
-        and mission.minimum_alternate_margin_percent < option.extra_battery_percent
+        and mission.minimum_alternate_margin_percent < 0
     ):
         return False
     return not request.allowed_airspaces or _mission_route_inside_airspaces(

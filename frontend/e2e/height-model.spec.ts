@@ -39,4 +39,34 @@ test("plans survey height above an explicit surface while exporting absolute MSL
     expect(item.AltitudeMode).toBe(2);
     expect(item.params[6]).toBe(item.command === 21 ? 150 : 250);
   }
+  for (const name of ["Геоскан 201", "Геоскан 801"]) {
+    await page.locator(".fleet-row").filter({ hasText: name }).click();
+    await page.getByLabel("Использовать в расчёте", { exact: true }).uncheck();
+  }
+  await page.locator(".fleet-row").filter({ hasText: "Геоскан Gemini" }).click();
+  await page.getByLabel("Учитывать вертикальные взлёт и посадку", { exact: true }).check();
+  await page.getByLabel("Плановый набор, м/с", { exact: true }).fill("2");
+  await page.getByLabel("Плановое снижение, м/с", { exact: true }).fill("1");
+  await page.getByLabel("Расход на наборе / крейсерский", { exact: true }).fill("1.5");
+  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await page.getByLabel("Плановый набор, м/с", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Восстановить", exact: true }).click();
+  await expect(page.getByLabel("Плановый набор, м/с", { exact: true })).toHaveValue("2");
+  const planned = page.waitForResponse((r) => r.url().endsWith("/v1/plans") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
+  const response = await planned;
+  expect(response.status()).toBe(200);
+  expect(response.request().postDataJSON().drones[0].takeoff_landing_profile.climb_rate_mps).toBe(2);
+  await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
+  await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
+  const phasesPending = page.waitForResponse((r) => r.url().endsWith("/v1/exports/geojson"));
+  await page.getByRole("button", { name: "GeoJSON", exact: true }).click();
+  const phases = await (await phasesPending).json();
+  const missions = phases.features.map((feature: { properties: { vertical_climb_duration_minutes: number; vertical_descent_duration_minutes: number } }) => feature.properties);
+  expect(missions.length).toBeGreaterThan(0);
+  for (const mission of missions) {
+    expect(mission.vertical_climb_duration_minutes).toBeCloseTo(100 / 2 / 60);
+    expect(mission.vertical_descent_duration_minutes).toBeCloseTo(100 / 60);
+  }
+  await expect(page.getByText("Взлёт и посадка:", { exact: false })).toBeVisible();
 });

@@ -97,6 +97,15 @@ class PlanRequest(BaseModel):
 
     @model_validator(mode="after")
     def has_route_source(self) -> PlanRequest:
+        if (
+            self.altitude_reference is AltitudeReference.AGL
+            and self.alternate_landing_sites
+            and any(drone.takeoff_landing_profile is not None for drone in self.drones)
+        ):
+            raise ValueError(
+                "Вертикальная посадка на резервную площадку при AGL требует отдельного "
+                "DEM-профиля аварийного маршрута; эта комбинация пока не поддерживается."
+            )
         _ = self.survey_height_agl  # Reject a flat MSL route at/below the assumed surface.
         if self.altitude_reference is AltitudeReference.MSL and (
             self.terrain_source is not None or self.terrain_elevation_samples

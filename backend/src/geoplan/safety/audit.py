@@ -28,8 +28,11 @@ from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
 from geoplan.flight.altitude import FlightAltitudeEnvelope
 from geoplan.flight.camera import DistanceCameraPolicy
+from geoplan.flight.energy import _battery_use_percent
 from geoplan.flight.envelope import HorizontalAirspeedEnvelope
 from geoplan.flight.photography import ExplicitFrameInspector
+from geoplan.flight.site_clearance import VerticalSiteClearance
+from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
 from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import (
     LocalProjection,
@@ -102,7 +105,7 @@ class IndependentPlanSafetyAuditor:
             status=status,
             audited_mission_count=len(missions),
             checks=checks,
-            assumptions=_audit_assumptions(request),
+            assumptions=_audit_assumptions(request, missions),
         )
 
 
@@ -977,6 +980,51 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
     for mission in missions:
         drone = drones[mission.drone_id]
         margins = FlightAltitudeEnvelope().margins(drone, mission)
+        if drone.takeoff_landing_profile is not None:
+            heights = [mission.height_agl.maximum_m] * 2
+            if mission.vertical_profile:
+                heights = [
+                    mission.vertical_profile[i].target_agl_m
+                    + mission.terrain_vertical_uncertainty_m
+                    for i in (0, -1)
+                ]
+            expected = TakeoffLandingEstimator().estimate(drone, *heights)
+            margins.extend(
+                [
+                    mission.vertical_climb_duration_minutes - expected.climb_minutes + 1e-6,
+                    mission.vertical_descent_duration_minutes - expected.descent_minutes + 1e-6,
+                    mission.vertical_energy_equivalent_minutes
+                    - expected.energy_surcharge_minutes
+                    + 1e-6,
+                    mission.estimated_battery_percent
+                    - _battery_use_percent(
+                        mission.duration_minutes + mission.vertical_energy_equivalent_minutes, drone
+                    )
+                    + 0.02,
+                ]
+            )
+            for index in (0, -1):
+                ground = (
+                    mission.vertical_profile[index].terrain_elevation_m
+                    if mission.vertical_profile
+                    else mission.flat_ground_elevation_m
+                )
+                altitude = (
+                    mission.vertical_profile[index].target_altitude_msl
+                    if mission.vertical_profile
+                    else mission.altitude_m
+                )
+                if not VerticalSiteClearance().allows(
+                    mission.route[index],
+                    ground,
+                    altitude,
+                    mission.height_agl.maximum_m,
+                    mission.terrain_vertical_uncertainty_m,
+                    request.allowed_airspaces,
+                    request.no_fly_zones,
+                    request.obstacles,
+                ):
+                    margins.append(-1)
         if drone.minimum_cruise_speed_kmh is not None:
             applicable = True
             margins.append(mission.cruise_speed_kmh - drone.minimum_cruise_speed_kmh)
@@ -1271,7 +1319,7 @@ def _mission_id(mission: Mission) -> str:
     return f"{mission.drone_id}:{mission.segment_id}"
 
 
-def _audit_assumptions(request: PlanRequest) -> list[str]:
+def _audit_assumptions(request: PlanRequest, missions: list[Mission]) -> list[str]:
     if request.altitude_reference is AltitudeReference.AGL:
         source_description = (
             "значения GeoTIFF/DSM по CRS и ближайшей ячейке"
@@ -1322,11 +1370,32 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
         "Доступная энергия масштабируется по здоровью АКБ и коэффициенту "
         "энергопотребления; это консервативная модель, не телеметрическая кривая разряда."
     )
-    assumptions.append(
-        "Базовые набор высоты от площадки и снижение до посадки не включены во время "
-        "и расход АКБ. Учтены только изменения высоты вдоль DEM-профиля и дополнительные "
-        "фазы вертикального разведения; оценка полного вылета требует модели взлёта и посадки."
-    )
+    used = {m.drone_id for m in missions}
+    missing_phases = [
+        d.drone_id
+        for d in request.drones
+        if d.drone_id in used and d.takeoff_landing_profile is None
+    ]
+    if missing_phases:
+        assumptions.append(
+            "Базовые набор и снижение не включены во время и расход АКБ для БВС: "
+            + ", ".join(missing_phases)
+            + ". Нужен профиль взлёта и посадки; "
+            "паспортные максимумы не заменяют плановые скорости."
+        )
+    if any(d.takeoff_landing_profile is not None and d.drone_id in used for d in request.drones):
+        assumptions.append(
+            "Вертикальные взлёт и посадка мультикоптера включены последовательно в расписание "
+            "и АКБ по плановым скоростям оператора и верхней границе высоты над площадкой. "
+            "Энергия оценивается относительно крейсерского расхода; "
+            "разгон и динамика не моделируются. "
+            "Требуется свободная вертикальная колонна; коэффициенты энергии требуют калибровки."
+        )
+        assumptions.append(
+            "Плановые скорости набора и снижения не меняют настройки автопилота при экспорте. "
+            "Перед выполнением задания нужно согласовать их на борту. Временные запреты "
+            "над площадкой считаются активными; для колонны требуются постоянные разрешения."
+        )
     assumptions.append(
         "Автопилот: MSL экспортируется в MAV_FRAME_GLOBAL, AGL — относительно бортового "
         "рельефа. Поддержка конкретной прошивки и выполнение команд в SITL "

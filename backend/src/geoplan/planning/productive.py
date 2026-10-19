@@ -14,6 +14,7 @@ from geoplan.domain.mission import Mission
 from geoplan.errors import PlanningError
 from geoplan.flight.energy import _effective_endurance_minutes
 from geoplan.flight.sites import _eligible_departure_sites, _eligible_landing_sites
+from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
 from geoplan.navigation.routing import route_distance_km
 from geoplan.planning.constraints import _constraints_for_segment
 from geoplan.planning.curved_costs import CurvedConnectionCost
@@ -212,6 +213,9 @@ def _routing_model(
             / 100
         )
         if departure is not None and landing is not None and available > 0:
+            phases = TakeoffLandingEstimator().estimate(
+                drone, physical.survey_height_agl.maximum_m, physical.survey_height_agl.maximum_m
+            )
             aircraft.append(
                 Aircraft(
                     drone.drone_id,
@@ -223,6 +227,8 @@ def _routing_model(
                     survey_speed_kmh=camera_speed,
                     minimum_turn_radius_m=physical.minimum_turn_radius_m,
                     resource_limit=drone.resource_limit(),
+                    sortie_overhead_minutes=phases.duration_minutes,
+                    sortie_energy_surcharge_minutes=phases.energy_surcharge_minutes,
                 )
             )
     if not aircraft:

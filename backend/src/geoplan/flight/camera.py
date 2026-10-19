@@ -27,7 +27,10 @@ class DistanceCameraPolicy:
         """Replay the commanded photographs, including resets between strips."""
         if mission.photo_capture_route_indices is not None:
             clock = mission_route_clock(mission).offsets_minutes
-            return tuple(clock[i] for i in mission.photo_capture_route_indices)
+            return tuple(
+                mission.vertical_climb_duration_minutes + clock[i]
+                for i in mission.photo_capture_route_indices
+            )
         spacing = self.spacing_m(mission)
         if spacing is None:
             return ()

@@ -16,7 +16,9 @@ from geoplan.domain.enums import (
 )
 from geoplan.domain.fleet import DroneSpec, FlightSite
 from geoplan.errors import PlanningError
+from geoplan.flight.energy import _effective_endurance_minutes
 from geoplan.flight.sites import _eligible_departure_sites, _eligible_landing_sites
+from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
 from geoplan.planning.constraints import _constraints_for_segment
 from geoplan.planning.freeform_costs import EndpointCostProtection
 from geoplan.planning.freeform_missions import AuditedMissionPhotography, FreeformMissionFactory
@@ -278,14 +280,25 @@ class AuditedFreeformRouteOptimizer:
             or len(coverage.area.coordinates) > 128
         ):
             return None
+        phases = TakeoffLandingEstimator().estimate(
+            drone, request.survey_height_agl.maximum_m, request.survey_height_agl.maximum_m
+        )
+        available_horizontal = (
+            _effective_endurance_minutes(drone)
+            * (drone.initial_charge_percent - drone.battery_reserve_percent)
+            / 100
+            - phases.energy_equivalent_minutes
+        )
+        if available_horizontal <= 0:
+            return None
         model = GeometryModel(
             replace(
                 probe.case,
                 home=probe.projection.project(home.coordinate),
                 landing=probe.projection.project(landing.coordinate),
                 cruise_speed_kmh=drone.cruise_speed_kmh,
-                endurance_minutes=drone.maximum_flight_minutes,
-                reserve_percent=drone.battery_reserve_percent,
+                endurance_minutes=available_horizontal,
+                reserve_percent=0,
             )
         )
         return FreeformSearchContext(

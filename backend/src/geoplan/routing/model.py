@@ -43,6 +43,8 @@ class Aircraft:
     survey_speed_kmh: float | None = None
     minimum_turn_radius_m: float = 0
     resource_limit: DroneResourceLimit | None = None
+    sortie_overhead_minutes: float = 0
+    sortie_energy_surcharge_minutes: float = 0
 
     @property
     def landing_coordinate(self) -> Coordinate:
@@ -112,10 +114,11 @@ class Cost:
     connections: float = 0
     returning: float = 0
     internal_distance: float = 0
+    overhead: float = 0
 
     @property
     def deadhead(self) -> float:
-        return self.departure + self.connections + self.returning
+        return self.departure + self.connections + self.returning + self.overhead
 
     @property
     def total(self) -> float:
@@ -261,8 +264,10 @@ class CostModel[P: RoutingData]:
 
     def feasible_cost(self, aircraft: int, cost: Cost) -> bool:
         limit = self.problem.maximum_internal_distance_km
-        return cost.total <= self.problem.aircraft[aircraft].available_minutes + 1e-8 and (
-            limit is None or cost.internal_distance <= limit + 1e-8
+        plane = self.problem.aircraft[aircraft]
+        return (
+            cost.total + plane.sortie_energy_surcharge_minutes <= plane.available_minutes + 1e-8
+            and (limit is None or cost.internal_distance <= limit + 1e-8)
         )
 
     def trip(self, trip: Trip) -> Cost | None:
@@ -300,7 +305,14 @@ class CostModel[P: RoutingData]:
             survey += duration
             internal_distance += distance
             previous = token
-        cost = Cost(survey, departure, connections, returning, internal_distance)
+        cost = Cost(
+            survey,
+            departure,
+            connections,
+            returning,
+            internal_distance,
+            plane.sortie_overhead_minutes,
+        )
         valid = self.feasible_cost(trip.aircraft, cost)
         result = cost if valid else None
         if len(self._trips) >= 100_000:
@@ -434,7 +446,8 @@ class CostModel[P: RoutingData]:
         for trip in solution:
             plane = self.problem.aircraft[trip.aircraft]
             previous = plane.home
-            elapsed = internal_distance = 0.0
+            elapsed = plane.sortie_overhead_minutes
+            internal_distance = 0.0
             for index, token in enumerate(trip.visits):
                 start, end = self.endpoints(token)
                 connector = (

@@ -11,6 +11,13 @@ export interface SensorProfile {
   minimum_trigger_interval_s: number;
 }
 
+export interface VerticalTakeoffLandingProfile {
+  climb_rate_mps: number;
+  descent_rate_mps: number;
+  climb_energy_multiplier: number;
+  descent_energy_multiplier: number;
+}
+
 export interface SurveyQualityReport {
   status: "checked" | "issues" | "partial" | "not_evaluated";
   frame_count: number;
@@ -386,6 +393,7 @@ export interface PlanRequest {
     completed_flights_since_maintenance: number;
     flight_hours_since_maintenance: number;
     maximum_climb_rate_mps: number | null;
+    takeoff_landing_profile?: VerticalTakeoffLandingProfile | null;
     maximum_descent_rate_mps: number | null;
     minimum_mission_altitude_m: number | null;
     maximum_mission_altitude_m: number | null;
