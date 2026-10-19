@@ -266,7 +266,7 @@ class AuditedFreeformRouteOptimizer:
         assert request.survey_parameters is not None
         coverage = CoveragePlanRequest(
             area=request.coverage_areas[0],
-            mission_altitude_m=request.mission_altitude_m,
+            mission_altitude_m=request.survey_height_agl.minimum_m,
             parameters=request.survey_parameters,
             wind=request.wind,
             exclusions=_constraints_for_segment(source[0], request),

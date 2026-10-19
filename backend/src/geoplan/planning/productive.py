@@ -195,7 +195,7 @@ def _routing_model(
         physical = FleetSurveyPolicy().for_drone(request, drone)
         survey = physical.survey_parameters
         camera_speed = (
-            physical.mission_altitude_m
+            physical.survey_height_agl.minimum_m
             * survey.sensor.sensor_height_mm
             / survey.sensor.focal_length_mm
             * (1 - survey.forward_overlap_percent / 100)
@@ -268,7 +268,7 @@ def _mission_candidates(
     parameters = request.survey_parameters
     assert parameters is not None
     trigger = (
-        request.mission_altitude_m
+        request.survey_height_agl.minimum_m
         * parameters.sensor.sensor_height_mm
         / parameters.sensor.focal_length_mm
         * (1 - parameters.forward_overlap_percent / 100)

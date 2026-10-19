@@ -31,7 +31,7 @@ class MissionSurveyAdapter:
                 message="Геометрия не содержит полных съёмочных галсов.",
             )
         trigger = (
-            physical.mission_altitude_m
+            physical.survey_height_agl.minimum_m
             * survey.sensor.sensor_height_mm
             / survey.sensor.focal_length_mm
             * (1 - survey.forward_overlap_percent / 100)

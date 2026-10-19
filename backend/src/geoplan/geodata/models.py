@@ -168,6 +168,8 @@ class GeoJsonProperties(BaseModel):
     distance_km: float = Field(gt=0)
     altitude_m: float = Field(gt=0)
     altitude_reference: AltitudeReference = AltitudeReference.MSL
+    flat_ground_elevation_m: float = Field(default=0, ge=-500, le=10_000)
+    maximum_agl_m: float | None = Field(default=None, gt=0)
     minimum_agl_m: float | None = Field(default=None, gt=0)
     minimum_terrain_elevation_m: float | None = Field(default=None, ge=-500, le=10_000)
     maximum_terrain_elevation_m: float | None = Field(default=None, ge=-500, le=10_000)

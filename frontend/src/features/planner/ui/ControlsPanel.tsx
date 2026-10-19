@@ -116,6 +116,11 @@ export function ControlsPanel(props: ControlsPanelProps) {
           {Object.entries(taskLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
         <NumberField label="Высота задания MSL, м" value={props.settings.altitude} min={20} max={10000} onChange={(altitude) => props.onUpdateSettings({ altitude })} />
+        <div className="field-grid">
+          <NumberField label="Отметка поверхности MSL, м" value={props.settings.flatGroundElevation ?? 0} min={-500} max={10000} onChange={(flatGroundElevation) => props.onUpdateSettings({ flatGroundElevation })} />
+          <NumberField label="Погрешность поверхности ±, м" value={props.settings.terrainVerticalUncertainty ?? 0} min={0} max={500} onChange={(terrainVerticalUncertainty) => props.onUpdateSettings({ terrainVerticalUncertainty })} />
+        </div>
+        <p className="hint">Высота над поверхностью: {props.settings.altitude - (props.settings.flatGroundElevation ?? 0)} м, погрешность ±{props.settings.terrainVerticalUncertainty ?? 0} м. Поверхность считается плоской; отметка задаётся оператором и не заменяет реальный рельеф.</p>
       </PanelSection>
 
       <PanelSection title="Параметры съёмки" badge="Галсы">

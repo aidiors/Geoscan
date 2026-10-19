@@ -77,7 +77,11 @@ class CoveragePlanRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     area: CoverageArea
-    mission_altitude_m: float = Field(gt=0, le=100_000)
+    mission_altitude_m: float = Field(
+        gt=0,
+        le=100_000,
+        description="Высота съёмки над поверхностью AGL для геометрического расчёта покрытия.",
+    )
     parameters: SurveyParameters
     exclusions: list[NoFlyZone] = Field(default_factory=list, max_length=1_000)
     departure_candidates: list[Coordinate] = Field(default_factory=list, max_length=100)

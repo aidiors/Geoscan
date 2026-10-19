@@ -498,6 +498,8 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
             distance_km=mission.distance_km,
             altitude_m=mission.altitude_m,
             altitude_reference=mission.altitude_reference,
+            flat_ground_elevation_m=mission.flat_ground_elevation_m,
+            maximum_agl_m=mission.height_agl.maximum_m,
             minimum_agl_m=mission.minimum_agl_m,
             minimum_terrain_elevation_m=mission.minimum_terrain_elevation_m,
             maximum_terrain_elevation_m=mission.maximum_terrain_elevation_m,
@@ -594,6 +596,10 @@ def _create_kml_route_placemark(mission: Mission) -> str:
         f'<Data name="computed_gsd_cm"><value>{mission.computed_gsd_cm or 0}</value></Data>'
         f'<Data name="strip_spacing_m"><value>{mission.strip_spacing_m or 0}</value></Data>'
         f'<Data name="altitude_reference"><value>{mission.altitude_reference.value}</value></Data>'
+        '<Data name="flat_ground_elevation_m">'
+        f"<value>{mission.flat_ground_elevation_m}</value></Data>"
+        '<Data name="maximum_agl_m">'
+        f"<value>{mission.height_agl.maximum_m}</value></Data>"
         f'<Data name="minimum_agl_m"><value>{mission.minimum_agl_m or 0}</value></Data>'
         '<Data name="vertical_energy_equivalent_minutes">'
         f"<value>{mission.vertical_energy_equivalent_minutes}</value></Data>"

@@ -18,6 +18,7 @@ from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission, MissionStage
 from geoplan.errors import PlanningError
+from geoplan.flight.altitude import FlightAltitudeEnvelope
 from geoplan.flight.duration import MissionDurationCalculator
 from geoplan.flight.emergency import FlightPhase, _evaluate_emergency_reachability
 from geoplan.flight.energy import _battery_use_percent, _effective_endurance_minutes
@@ -127,6 +128,11 @@ def _candidate_evaluation(
             vertical_profile_planner,
             constraints,
         )
+        if not FlightAltitudeEnvelope().allows(drone, candidate.mission):
+            raise PlanningError(
+                code=ErrorCode.FLIGHT_ENVELOPE_EXCEEDED,
+                message=f"Маршрут БВС {drone.drone_id} нарушает пределы AGL/MSL.",
+            )
         if request.survey_parameters is not None and not SurveyResolution().allows(
             candidate.mission,
             request.survey_parameters.sensor,
@@ -216,8 +222,13 @@ def _create_candidate(
         route=full_route,
         altitude_m=request.mission_altitude_m,
         altitude_reference=request.altitude_reference,
+        flat_ground_elevation_m=request.flat_ground_elevation_m,
         vertical_profile=(vertical_profile.points if vertical_profile is not None else []),
-        minimum_agl_m=(vertical_profile.minimum_agl_m if vertical_profile is not None else None),
+        minimum_agl_m=(
+            vertical_profile.minimum_agl_m
+            if vertical_profile is not None
+            else request.survey_height_agl.minimum_m
+        ),
         minimum_terrain_elevation_m=(
             vertical_profile.minimum_terrain_elevation_m if vertical_profile is not None else None
         ),
@@ -238,9 +249,7 @@ def _create_candidate(
             round(vertical_profile.vertical_distance_m, 2) if vertical_profile is not None else 0
         ),
         vertical_energy_equivalent_minutes=round(energy_equivalent_minutes, 3),
-        terrain_vertical_uncertainty_m=(
-            request.terrain_vertical_uncertainty_m if vertical_profile is not None else 0
-        ),
+        terrain_vertical_uncertainty_m=(request.terrain_vertical_uncertainty_m),
         cruise_speed_kmh=drone.cruise_speed_kmh,
         effective_speed_kmh=optimized.total_distance_km / estimate.precise_duration_minutes * 60,
         estimated_battery_percent=battery_percent,

@@ -23,6 +23,8 @@ export function planningSettings(
 ): PlanningSettings {
   return {
     altitude,
+    flatGroundElevation: 0,
+    terrainVerticalUncertainty: 0,
     windSpeed: 5,
     windDirection: 315,
     ambientTemperature: 20,

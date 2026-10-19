@@ -42,6 +42,15 @@ export function buildPlanRequest(
   settings: PlanningSettings,
   source?: WorkAreaSource,
 ): PlanRequest {
+  const ground = settings.flatGroundElevation ?? 0;
+  const groundUncertainty = settings.terrainVerticalUncertainty ?? 0;
+  if (!Number.isFinite(ground) || ground < -500 || ground > 10000
+    || !Number.isFinite(groundUncertainty) || groundUncertainty < 0 || groundUncertainty > 500) {
+    throw new Error("Задайте отметку поверхности от −500 до 10 000 м и погрешность от 0 до 500 м.");
+  }
+  if (!Number.isFinite(settings.altitude) || settings.altitude <= ground + groundUncertainty) {
+    throw new Error("Высота полёта MSL должна превышать отметку поверхности с учётом погрешности.");
+  }
   const unsupported = importedZones.find((zone) => zone.zone_type !== "obstacle"
     && !(zone.zone_type === "work_area" && zone.enabled === false) && zone.geometry_type !== "polygon");
   if (unsupported) throw new Error(`«${unsupported.name}»: для рабочей зоны или ограничения нужен полигон. Линия или точка не заменяют область.`);
@@ -201,6 +210,8 @@ export function buildPlanRequest(
       .map((zone) => obstacleMapper.toRequest(zone)),
     mission_altitude_m: settings.altitude,
     altitude_reference: "msl",
+    flat_ground_elevation_m: ground,
+    terrain_vertical_uncertainty_m: groundUncertainty,
     task,
     departure_sites: departureSites.map(apiSite),
     landing_sites: landingSites.map(apiSite),

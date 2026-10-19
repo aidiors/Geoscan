@@ -9,6 +9,7 @@ from geoplan.domain.enums import AltitudeReference, ValidityMode
 from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
+from geoplan.flight.altitude import FlightAltitudeEnvelope
 from geoplan.navigation.routing import (
     route_is_clear_of_no_fly_zones,
     route_is_inside_allowed_airspaces,
@@ -94,8 +95,7 @@ def _vertical_layer_is_feasible(
     ):
         return False
     drone = next(drone for drone in request.drones if drone.drone_id == mission.drone_id)
-    maximum_altitude = drone.maximum_altitude_for(mission.altitude_reference)
-    if maximum_altitude is not None and mission.altitude_m > maximum_altitude:
+    if not FlightAltitudeEnvelope().allows(drone, mission):
         return False
     if (
         mission.battery_reserve_margin_percent is None

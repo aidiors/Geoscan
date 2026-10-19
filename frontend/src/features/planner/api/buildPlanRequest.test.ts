@@ -48,6 +48,19 @@ const settings: PlanningSettings = {
 };
 
 describe("plan request", () => {
+  it("sends the surface datum and uncertainty without converting flight MSL into AGL", () => {
+    const scenario = scenarios[0];
+    const request = buildPlanRequest("flight", scenario.task, scenario, cloneFleet(),
+      cloneSites(scenario), [], survey, { ...settings, altitude: 250,
+        flatGroundElevation: 150, terrainVerticalUncertainty: 10 });
+    expect(request.mission_altitude_m).toBe(250);
+    expect(request.altitude_reference).toBe("msl");
+    expect(request.flat_ground_elevation_m).toBe(150);
+    expect(request.terrain_vertical_uncertainty_m).toBe(10);
+    expect(() => buildPlanRequest("flight", scenario.task, scenario, cloneFleet(),
+      cloneSites(scenario), [], survey, { ...settings, altitude: 160,
+        flatGroundElevation: 150, terrainVerticalUncertainty: 10 })).toThrow("поверхности");
+  });
   it("does not contaminate an imported job with demonstration restrictions", () => {
     const scenario = scenarios[0];
     const work = { ...scenario.workAreas[0], zone_id: "own-work" };

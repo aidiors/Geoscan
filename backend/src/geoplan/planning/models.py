@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from geoplan.coverage.models import CoverageArea, CoveragePlanRequest, SurveyParameters, WorkSegment
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone
+from geoplan.domain.altitude import HeightAboveGround
 from geoplan.domain.diagnostics import FeasibilityReport, SafetyAuditReport
 from geoplan.domain.enums import (
     AltitudeReference,
@@ -43,6 +44,7 @@ class PlanRequest(BaseModel):
     obstacles: list[FlightObstacle] = Field(default_factory=list, max_length=20_000)
     mission_altitude_m: float = Field(gt=0, le=100_000)
     altitude_reference: AltitudeReference = AltitudeReference.MSL
+    flat_ground_elevation_m: float = Field(default=0, ge=-500, le=10_000)
     terrain_elevation_samples: list[TerrainElevationSample] = Field(
         default_factory=list,
         max_length=100_000,
@@ -79,8 +81,32 @@ class PlanRequest(BaseModel):
     planning_start_time: datetime | None = None
     planning_end_time: datetime | None = None
 
+    @property
+    def survey_height_agl(self) -> HeightAboveGround:
+        return HeightAboveGround.for_target(
+            self.mission_altitude_m,
+            self.altitude_reference,
+            self.flat_ground_elevation_m,
+            self.terrain_vertical_uncertainty_m,
+        )
+
+    def altitude_for_maximum_agl(self, height_m: float) -> float:
+        if self.altitude_reference is AltitudeReference.MSL:
+            return self.flat_ground_elevation_m + height_m - self.terrain_vertical_uncertainty_m
+        return height_m - 2 * self.terrain_vertical_uncertainty_m
+
     @model_validator(mode="after")
     def has_route_source(self) -> PlanRequest:
+        _ = self.survey_height_agl  # Reject a flat MSL route at/below the assumed surface.
+        if self.altitude_reference is AltitudeReference.MSL and (
+            self.terrain_source is not None or self.terrain_elevation_samples
+        ):
+            raise ValueError(
+                "DEM в режиме постоянной MSL пока не поддерживается. "
+                "Выберите режим AGL и загрузите рельеф или задайте отметку плоской поверхности."
+            )
+        if self.altitude_reference is AltitudeReference.AGL and self.flat_ground_elevation_m != 0:
+            raise ValueError("Отметка плоской поверхности применяется только к режиму MSL.")
         known_areas = {area.area_id for area in self.coverage_areas}
         if any(
             s.survey_track_area_ids is not None and set(s.area_ids) - known_areas
@@ -292,6 +318,7 @@ class TurnRadiusAnalysisRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     coverage: CoveragePlanRequest
+    flight_altitude_msl_m: float | None = Field(default=None, gt=0, le=100_000)
     allowed_airspaces: list[AllowedAirspace] = Field(default_factory=list, max_length=1_000)
     radii_m: list[float] = Field(min_length=1, max_length=5)
 

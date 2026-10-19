@@ -9,6 +9,7 @@ from geoplan.coverage.models import CoverageArea, CoveragePlanRequest, WorkSegme
 from geoplan.coverage.sweep import CoveragePlanner, CoveragePlanningError
 from geoplan.domain.diagnostics import FeasibilityRecommendation
 from geoplan.domain.enums import (
+    AltitudeReference,
     CoverageAngleCost,
     ErrorCode,
     RecommendationCode,
@@ -81,7 +82,7 @@ def _resolve_segments(
         check_planning_budget()
         plan_request = CoveragePlanRequest(
             area=area,
-            mission_altitude_m=request.mission_altitude_m,
+            mission_altitude_m=request.survey_height_agl.minimum_m,
             parameters=parameters,
             exclusions=request.no_fly_zones,
             departure_candidates=[site.coordinate for site in _configured_departure_sites(request)],
@@ -105,7 +106,9 @@ def _resolve_segments(
             raise PlanningError(
                 code=error.code,
                 message=error.message,
-                recommendations=_coverage_failure_recommendations(error.code, plan_request),
+                recommendations=_coverage_failure_recommendations(
+                    error.code, plan_request, request
+                ),
             ) from error
         # Preserve transferable straight strips. Aircraft-specific curves are
         # constructed inside candidate evaluation, so a failed reference grouping
@@ -117,26 +120,50 @@ def _resolve_segments(
 def _coverage_failure_recommendations(
     code: ErrorCode,
     request: CoveragePlanRequest,
+    flight_request: PlanRequest,
 ) -> list[FeasibilityRecommendation]:
     if code is ErrorCode.GSD_REQUIREMENT_UNSATISFIED:
         sensor = request.parameters.sensor
-        maximum_altitude_m = (
+        maximum_height_m = (
             request.parameters.maximum_gsd_cm
             / 100
-            * sensor.image_width_px
             * sensor.focal_length_mm
-            / sensor.sensor_width_mm
+            / max(
+                sensor.sensor_width_mm / sensor.image_width_px,
+                sensor.sensor_height_mm / sensor.image_height_px,
+            )
         )
+        maximum_altitude_m = flight_request.altitude_for_maximum_agl(maximum_height_m)
+        floor = (
+            flight_request.flat_ground_elevation_m + flight_request.terrain_vertical_uncertainty_m
+            if flight_request.altitude_reference is AltitudeReference.MSL
+            else 0
+        )
+        if maximum_altitude_m <= floor:
+            return [
+                FeasibilityRecommendation(
+                    code=RecommendationCode.REVISE_GEOSPATIAL_CONSTRAINTS,
+                    message=(
+                        "Требование GSD недостижимо при заданной погрешности поверхности. "
+                        "Уточните высоты или параметры камеры."
+                    ),
+                    confidence=RecommendationConfidence.ESTIMATE,
+                    parameter="terrain_vertical_uncertainty_m",
+                    current_value=flight_request.terrain_vertical_uncertainty_m,
+                    unit="m",
+                    affected_ids=[request.area.area_id],
+                )
+            ]
         return [
             FeasibilityRecommendation(
                 code=RecommendationCode.ADJUST_MISSION_ALTITUDE,
                 message=(
-                    f"Снизьте высоту задания до {maximum_altitude_m:.1f} м или ниже, "
-                    "чтобы выполнить требование GSD для выбранной камеры."
+                    f"Предел высоты для выбранной камеры: {maximum_altitude_m:.1f} м "
+                    f"{flight_request.altitude_reference.value.upper()}. Нужен пересчёт плана."
                 ),
-                confidence=RecommendationConfidence.EXACT,
+                confidence=RecommendationConfidence.ESTIMATE,
                 parameter="mission_altitude_m",
-                current_value=request.mission_altitude_m,
+                current_value=flight_request.mission_altitude_m,
                 required_value=round(maximum_altitude_m, 2),
                 unit="m",
                 affected_ids=[request.area.area_id],

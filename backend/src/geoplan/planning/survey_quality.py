@@ -99,12 +99,8 @@ class SurveyQualityAnalyzer:
                 ):
                     incomplete = True
                     continue
-                height_min = min(
-                    (p.target_agl_m for p in mission.vertical_profile), default=mission.altitude_m
-                )
-                height_max = max(
-                    (p.target_agl_m for p in mission.vertical_profile), default=mission.altitude_m
-                )
+                height_min = mission.height_agl.minimum_m
+                height_max = mission.height_agl.maximum_m
                 if mission.vertical_profile:
                     incomplete = True
                 width = height_min * sensor.sensor_width_mm / sensor.focal_length_mm

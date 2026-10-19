@@ -125,6 +125,7 @@ export interface Mission {
   route: Coordinate[];
   altitude_m: number;
   altitude_reference: "msl" | "agl";
+  flat_ground_elevation_m?: number;
   vertical_profile: Array<{
     coordinate: Coordinate;
     distance_from_start_m: number;
@@ -447,6 +448,7 @@ export interface PlanRequest {
   }>;
   mission_altitude_m: number;
   altitude_reference?: "msl" | "agl";
+  flat_ground_elevation_m?: number;
   terrain_elevation_samples?: Array<{
     coordinate: Coordinate;
     elevation_m: number;
@@ -495,6 +497,7 @@ export interface PlanRequest {
 }
 
 export interface TurnRadiusAnalysisRequest {
+  flight_altitude_msl_m?: number;
   coverage: {
     area: PlanRequest["coverage_areas"][number];
     mission_altitude_m: number;

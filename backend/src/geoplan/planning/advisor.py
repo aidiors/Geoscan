@@ -6,7 +6,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from geoplan.domain.enums import OptimizationCriterion
+from geoplan.domain.enums import AltitudeReference, OptimizationCriterion
 from geoplan.domain.fleet import FlightSite
 from geoplan.errors import PlanningError
 from geoplan.planning.models import PlanRequest, PlanResponse
@@ -107,13 +107,19 @@ class FeasibilityAdvisor:
                 / max(c.sensor_width_mm / c.image_width_px, c.sensor_height_mm / c.image_height_px)
                 for c in cameras
             )
-            if max_height < request.mission_altitude_m:
+            target = request.altitude_for_maximum_agl(max_height * 0.99)
+            minimum = (
+                request.flat_ground_elevation_m + request.terrain_vertical_uncertainty_m
+                if request.altitude_reference is AltitudeReference.MSL
+                else 0
+            )
+            if max_height < request.survey_height_agl.maximum_m and target > minimum:
                 candidates.insert(
                     0,
                     (
-                        f"Высота {max_height * 0.99:.1f} м",
+                        f"Высота {target:.1f} м {request.altitude_reference.value.upper()}",
                         ["mission_altitude_m"],
-                        request.model_copy(update={"mission_altitude_m": max_height * 0.99}),
+                        request.model_copy(update={"mission_altitude_m": target}),
                     ),
                 )
         variants = []

@@ -125,8 +125,18 @@ def _drones_capable_of_environment(
 def _drone_supports_altitude(drone: DroneSpec, request: PlanRequest) -> bool:
     minimum = drone.minimum_altitude_for(request.altitude_reference)
     maximum = drone.maximum_altitude_for(request.altitude_reference)
-    return (minimum is None or request.mission_altitude_m >= minimum) and (
-        maximum is None or request.mission_altitude_m <= maximum
+    height = request.survey_height_agl
+    return (
+        (minimum is None or request.mission_altitude_m >= minimum)
+        and (maximum is None or request.mission_altitude_m <= maximum)
+        and (
+            drone.minimum_mission_altitude_agl_m is None
+            or height.minimum_m >= drone.minimum_mission_altitude_agl_m
+        )
+        and (
+            drone.maximum_mission_altitude_agl_m is None
+            or height.maximum_m <= drone.maximum_mission_altitude_agl_m
+        )
     )
 
 

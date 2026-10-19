@@ -125,11 +125,13 @@ def test_gemini_uses_separate_agl_and_msl_ceiling() -> None:
             segments=[segment],
             mission_altitude_m=1_200,
             altitude_reference=AltitudeReference.MSL,
+            flat_ground_elevation_m=1_000,
             task=MissionTask.RGB,
         )
     )
 
     assert msl_response.drone_plans[0].missions[0].altitude_m == 1_200
+    assert msl_response.drone_plans[0].missions[0].minimum_agl_m == 200
     with pytest.raises(PlanningError) as error:
         create_plan(
             PlanRequest(

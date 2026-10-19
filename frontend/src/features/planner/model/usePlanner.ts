@@ -79,7 +79,8 @@ export function usePlanner() {
     setImportedZones([]);
     setWorkAreaSource("scenario");
     setPendingSiteRole(null);
-    setSettings((current) => ({ ...current, altitude: nextScenario.altitude }));
+    setSettings((current) => ({ ...current, altitude: nextScenario.altitude,
+      flatGroundElevation: 0, terrainVerticalUncertainty: 0 }));
     const capable = drones.find((drone) => drone.tasks.includes(nextScenario.task));
     if (capable) setSelectedDroneId(capable.id);
     invalidate("Тестовый сценарий загружен");
@@ -341,10 +342,12 @@ export function usePlanner() {
       const result = await analyzeTurnRadii({
         coverage: {
           area,
-          mission_altitude_m: request.mission_altitude_m,
+          mission_altitude_m: request.mission_altitude_m - (request.flat_ground_elevation_m ?? 0)
+            - (request.terrain_vertical_uncertainty_m ?? 0),
           parameters: request.survey_parameters,
           exclusions: request.no_fly_zones,
         },
+        flight_altitude_msl_m: request.mission_altitude_m,
         allowed_airspaces: request.allowed_airspaces,
         radii_m: radiusSamples(minimumRadius, maximumRadius),
       });

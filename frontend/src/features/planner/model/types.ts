@@ -99,6 +99,8 @@ export interface SurveySettings {
 }
 
 export interface PlanningSettings {
+  flatGroundElevation?: number;
+  terrainVerticalUncertainty?: number;
   planningTimeLimitSeconds?: number;
   altitude: number;
   windSpeed: number;

@@ -26,6 +26,7 @@ from geoplan.domain.enums import (
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
+from geoplan.flight.altitude import FlightAltitudeEnvelope
 from geoplan.flight.camera import DistanceCameraPolicy
 from geoplan.flight.envelope import HorizontalAirspeedEnvelope
 from geoplan.flight.photography import ExplicitFrameInspector
@@ -975,15 +976,7 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
     applicable = False
     for mission in missions:
         drone = drones[mission.drone_id]
-        margins: list[float] = []
-        minimum_altitude = drone.minimum_altitude_for(mission.altitude_reference)
-        maximum_altitude = drone.maximum_altitude_for(mission.altitude_reference)
-        if minimum_altitude is not None:
-            applicable = True
-            margins.append(mission.altitude_m - minimum_altitude)
-        if maximum_altitude is not None:
-            applicable = True
-            margins.append(maximum_altitude - mission.altitude_m)
+        margins = FlightAltitudeEnvelope().margins(drone, mission)
         if drone.minimum_cruise_speed_kmh is not None:
             applicable = True
             margins.append(mission.cruise_speed_kmh - drone.minimum_cruise_speed_kmh)
@@ -1111,7 +1104,7 @@ def _coverage_check(
         )
     sensor = request.survey_parameters.sensor
     footprint_width_m = min(
-        request.mission_altitude_m * sensor.sensor_width_mm / sensor.focal_length_mm,
+        request.survey_height_agl.minimum_m * sensor.sensor_width_mm / sensor.focal_length_mm,
         request.survey_parameters.strip_width_m,
     )
     if any(drone.installed_sensor is not None for drone in request.drones):
@@ -1193,10 +1186,7 @@ def _coverage_ratio(
         if segment.strip_spacing_m is None:
             continue
         if mission.photo_capture_route_indices is not None and mission.sensor is not None:
-            height = min(
-                (point.target_agl_m for point in mission.vertical_profile),
-                default=mission.altitude_m,
-            )
+            height = mission.height_agl.minimum_m
             width = min(
                 height * mission.sensor.sensor_width_mm / mission.sensor.focal_length_mm,
                 footprint_width_m,
@@ -1210,10 +1200,7 @@ def _coverage_ratio(
             if stage.stage_type is MissionStageType.SURVEY and len(stage.coordinates) >= 2:
                 width = footprint_width_m
                 if mission.sensor is not None:
-                    height = min(
-                        (point.target_agl_m for point in mission.vertical_profile),
-                        default=mission.altitude_m,
-                    )
+                    height = mission.height_agl.minimum_m
                     width = min(
                         height * mission.sensor.sensor_width_mm / mission.sensor.focal_length_mm,
                         footprint_width_m,
@@ -1294,6 +1281,8 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
         )
         assumptions = [
             f"Профиль AGL использует {source_description} и постоянный гарантированный просвет.",
+            "Отметки рельефа предполагаются в системе MSL; преобразование вертикального датума "
+            "GeoTIFF/DSM и поправка геоида автоматически не выполняются.",
             "Расход энергии по вертикали оценён консервативно по времени, без модели двигателя.",
             "Экспорт в системе высот рельефа требует поддержки протокола автопилотом "
             "и данных рельефа на борту.",
@@ -1304,7 +1293,12 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
                 f"{request.terrain_vertical_uncertainty_m:g} м."
             )
     else:
-        assumptions = ["Режим MSL не моделирует рельеф; высота задания остаётся постоянной."]
+        assumptions = [
+            f"Режим MSL: плоская поверхность {request.flat_ground_elevation_m:g} м MSL "
+            f"Погрешность ±{request.terrain_vertical_uncertainty_m:g} м; "
+            "реальный DEM не загружен. "
+            "GSD и покрытие рассчитаны по высоте над этой моделью поверхности."
+        ]
     if (
         request.position_uncertainty_m > 0
         or request.start_time_uncertainty_seconds > 0

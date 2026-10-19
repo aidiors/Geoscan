@@ -38,7 +38,7 @@ class FleetSurveyPolicy:
             ),
         )
         narrowest_swath = min(
-            request.mission_altitude_m * camera.sensor_width_mm / camera.focal_length_mm
+            request.survey_height_agl.minimum_m * camera.sensor_width_mm / camera.focal_length_mm
             for camera in cameras
         )
         return survey.model_copy(

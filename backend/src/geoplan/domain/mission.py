@@ -6,6 +6,7 @@ from math import isfinite
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from geoplan.domain.altitude import HeightAboveGround
 from geoplan.domain.enums import AltitudeReference, MissionStageType
 from geoplan.domain.fleet import AutopilotProfile, FlightSite
 from geoplan.domain.geo import Coordinate
@@ -24,6 +25,7 @@ class Mission(BaseModel):
     route: list[Coordinate] = Field(min_length=2)
     altitude_m: float = Field(gt=0)
     altitude_reference: AltitudeReference = AltitudeReference.MSL
+    flat_ground_elevation_m: float = Field(default=0, ge=-500, le=10_000)
     vertical_profile: list[VerticalProfilePoint] = Field(default_factory=list, max_length=100_000)
     minimum_agl_m: float | None = Field(default=None, gt=0)
     minimum_terrain_elevation_m: float | None = Field(default=None, ge=-500, le=10_000)
@@ -74,6 +76,22 @@ class Mission(BaseModel):
     )
 
     @property
+    def height_agl(self) -> HeightAboveGround:
+        if self.vertical_profile:
+            return HeightAboveGround(
+                min(p.target_agl_m for p in self.vertical_profile)
+                - self.terrain_vertical_uncertainty_m,
+                max(p.target_agl_m for p in self.vertical_profile)
+                + self.terrain_vertical_uncertainty_m,
+            )
+        return HeightAboveGround.for_target(
+            self.altitude_m,
+            self.altitude_reference,
+            self.flat_ground_elevation_m,
+            self.terrain_vertical_uncertainty_m,
+        )
+
+    @property
     def route_leg_durations_minutes(self) -> list[float] | None:
         """Validate a complete explicit horizontal clock; None denotes legacy input."""
         if not any(s.leg_durations_minutes is not None for s in self.stages):
@@ -117,6 +135,7 @@ class Mission(BaseModel):
 
     @model_validator(mode="after")
     def schedule_offsets_are_complete(self) -> Mission:
+        _ = self.height_agl
         _ = self.route_leg_durations_minutes
         captures = self.photo_capture_route_indices
         if captures is not None:

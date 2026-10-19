@@ -3,18 +3,13 @@
 from dataclasses import dataclass
 
 from geoplan.coverage.models import SensorProfile
-from geoplan.domain.enums import AltitudeReference
 from geoplan.domain.mission import Mission
 
 
 @dataclass(frozen=True)
 class SurveyResolution:
     def gsd_cm(self, mission: Mission, sensor: SensorProfile) -> float:
-        # With terrain profiles, use a conservative maximum height over ground.
-        # Flat MSL missions use the same ground-zero convention as coverage generation.
-        height = max((p.target_agl_m for p in mission.vertical_profile), default=mission.altitude_m)
-        if mission.altitude_reference is AltitudeReference.AGL and not mission.vertical_profile:
-            height = mission.altitude_m
+        height = mission.height_agl.maximum_m
         return (
             height
             / sensor.focal_length_mm

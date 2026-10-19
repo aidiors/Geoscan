@@ -50,7 +50,11 @@ def analyze_turn_radii(
         for airspace in request.allowed_airspaces
         if airspace.altitude_reference is AltitudeReference.MSL
         and airspace.minimum_altitude_m
-        <= coverage_request.mission_altitude_m
+        <= (
+            request.flight_altitude_msl_m
+            if request.flight_altitude_msl_m is not None
+            else coverage_request.mission_altitude_m
+        )
         <= airspace.maximum_altitude_m
     ]
     scenarios: list[TurnRadiusScenario] = []
