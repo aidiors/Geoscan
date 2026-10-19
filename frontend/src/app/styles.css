@@ -152,6 +152,11 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .checkbox-row input { width: 18px !important; height: 18px; flex: 0 0 18px; margin: 0 !important; accent-color: var(--pink); box-shadow: none; }
 .mini-actions { display: flex; gap: 7px; margin-top: 9px; }
 .mini-actions button { flex: 1; }
+.project-panel { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--surface); }
+.project-panel summary { cursor: pointer; color: var(--soft-violet-text); font-size: 13px; font-weight: 700; }
+.project-panel > label { display: flex; min-width: 0; flex-direction: column; gap: 6px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+.project-panel input, .project-panel select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px; color: var(--ink); background: var(--surface); font-size: 12px; }
+.project-panel .hint { overflow-wrap: anywhere; }
 .scenario-actions { margin-top: 22px; padding-bottom: 4px; }
 
 .file-picker { display: flex; width: 100%; align-items: center; gap: 9px; margin-top: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 6px; background: var(--surface); cursor: pointer; }

@@ -27,6 +27,7 @@ from geoplan.navigation.optimizer import BidirectionalRouteOptimizer, RouteOptim
 from geoplan.planning.cross_area import AuditedCrossAreaPlanner, CrossAreaOptimizer
 from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
 from geoplan.planning.freeform_ports import FreeformRouteOptimizer
+from geoplan.projects.repository import ProjectRepository, SqliteProjectRepository
 from geoplan.routing.pool import ProductiveRoutePool, RoutePoolGenerator
 from geoplan.safety.audit import IndependentPlanSafetyAuditor, PlanSafetyAuditor
 from geoplan.scheduling.scheduler import ConflictAwareMissionScheduler, MissionScheduler
@@ -40,6 +41,9 @@ class AppDependencies:
     assignment_optimizer: AssignmentOptimizer
     mission_scheduler: MissionScheduler
     frontend_directory: Path
+    project_repository: ProjectRepository = field(
+        default_factory=SqliteProjectRepository.from_environment
+    )
     cross_area_optimizer: CrossAreaOptimizer = field(default_factory=AuditedCrossAreaPlanner)
     alternative_coverage_planner: CoveragePlanner | None = field(
         default_factory=AdaptiveCoveragePlanner

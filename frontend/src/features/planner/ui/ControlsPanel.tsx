@@ -12,6 +12,8 @@ import type { AirframeType, AutopilotFirmware, ImportedZone, MissionTask, ZoneTy
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
 
 interface ControlsPanelProps {
+  scenario?: import("@/features/planner/model/types").Scenario;
+  projects?: import("react").ReactNode;
   scenarioId: string;
   task: MissionTask;
   objective: Objective;
@@ -86,7 +88,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const selectedDrone = props.drones.find((drone) => drone.id === props.selectedDroneId) ?? props.drones[0];
-  const selectedScenario = scenarios.find((scenario) => scenario.id === props.scenarioId) ?? scenarios[0];
+  const selectedScenario = props.scenario ?? scenarios.find((scenario) => scenario.id === props.scenarioId) ?? scenarios[0];
 
   async function handleImport(): Promise<void> {
     if (selectedFile === null) {
@@ -108,6 +110,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
 
       <PanelSection title="Тестовый сценарий" badge={`${scenarios.length} конфигураций`}>
         <select value={props.scenarioId} onChange={(event) => props.onScenarioChange(event.target.value)}>
+          {!scenarios.some((entry) => entry.id === props.scenarioId) && <option value={props.scenarioId}>{selectedScenario.title}</option>}
           {scenarios.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.title}</option>)}
         </select>
         <p className="hint">{selectedScenario.workAreas.length} рабочих зон · {selectedScenario.noFlyZones.length} запретных зон</p>
@@ -365,6 +368,8 @@ export function ControlsPanel(props: ControlsPanelProps) {
       </PanelSection>
 
       <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить</button><button type="button" onClick={props.onLoad}>Восстановить</button></div>
+      <p className="hint">Быстрый снимок настроек сохраняется в этом браузере. План, исходные файлы и историю сохраняйте в проекте.</p>
+      {props.projects}
     </aside>
   );
 }

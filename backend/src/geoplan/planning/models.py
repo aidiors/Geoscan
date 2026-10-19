@@ -319,6 +319,8 @@ class PlanSearchSummary(BaseModel):
 class PlanResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    engine_version: str | None = Field(default=None, max_length=64)
+    engine_build_revision: str | None = Field(default=None, max_length=128)
     export_authorization: str | None = Field(
         default=None,
         max_length=128,

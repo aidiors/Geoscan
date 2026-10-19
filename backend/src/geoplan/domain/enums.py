@@ -184,6 +184,10 @@ class AltitudeReference(StrEnum):
 
 
 class ErrorCode(StrEnum):
+    PROJECT_CONFLICT = "project_conflict"
+    PROJECT_NOT_FOUND = "project_not_found"
+    PROJECT_INVALID = "project_invalid"
+    PROJECT_STORAGE_UNAVAILABLE = "project_storage_unavailable"
     EXPORT_RELEASE_REQUIRED = "export_release_required"
     EXPORT_SORTIE_REQUIRED = "export_sortie_required"
     AUTOPILOT_PHASE_EXPORT_UNSUPPORTED = "autopilot_phase_export_unsupported"

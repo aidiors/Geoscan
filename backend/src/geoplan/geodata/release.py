@@ -9,6 +9,7 @@ import json
 import os
 import secrets
 from dataclasses import dataclass, field
+from importlib.metadata import version
 from time import time
 
 from geoplan.domain.enums import ErrorCode, FeasibilityStatus, SafetyAuditStatus
@@ -16,6 +17,7 @@ from geoplan.errors import PlanningError
 from geoplan.planning.models import PlanResponse
 
 _PROCESS_KEY = secrets.token_bytes(32)
+_ENGINE_VERSION = version("geoplan-optimizer")
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,13 @@ class PlanReleaseAuthority:
         return cls(key=configured.encode())
 
     def issue(self, plan: PlanResponse) -> PlanResponse:
+        revision = os.environ.get("GEOPLAN_BUILD_REVISION")
+        plan = plan.model_copy(
+            update={
+                "engine_version": _ENGINE_VERSION,
+                "engine_build_revision": revision if revision != "unknown" else None,
+            }
+        )
         token = None
         if self.eligible(plan):
             expires = int(time()) + self.lifetime_seconds

@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GEOPLAN_BUILD_REVISION: ${GEOPLAN_BUILD_REVISION:-unknown}
     image: geoplan:local
     ports:
       - "${GEOPLAN_PORT:-8000}:8000"
@@ -12,3 +14,9 @@ services:
     # If absent, export attestations last only for the current server process.
     environment:
       - GEOPLAN_EXPORT_SIGNING_KEY
+      - GEOPLAN_DATA_DIR=/app/work/server-data
+    volumes:
+      - geoplan-data:/app/work/server-data
+
+volumes:
+  geoplan-data:

@@ -238,6 +238,8 @@ export interface DronePlan {
 }
 
 export interface PlanResponse {
+  engine_version?: string | null;
+  engine_build_revision?: string | null;
   export_authorization?: string | null;
   search?: {
     status: string;

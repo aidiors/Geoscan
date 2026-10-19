@@ -9,6 +9,7 @@ import { PlanSearchProgress } from "./PlanSearchProgress";
 import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/shared/api/types";
 
 interface ResultsPanelProps {
+  archived?: boolean;
   insights?: ReactNode;
   plan: PlanResponse | null;
   drones: DroneProfile[];
@@ -50,6 +51,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
 };
 
 export function ResultsPanel({
+  archived = false,
   insights,
   plan,
   drones,
@@ -88,6 +90,7 @@ export function ResultsPanel({
     <aside className="panel results-panel">
       <div className="eyebrow"><Route size={15} /> Результат оптимизации</div>
       <h2>{plan ? "Расчётный план" : "Ожидает расчёта"}</h2>
+      {archived && <p className="hint" role="note">Архивный результат: условия и качество не перепроверялись при открытии. Для экспорта в автопилот выполните новый расчёт.</p>}
       <p className="lead">{plan?.feasibility?.message ?? "Настройте сценарий и запустите расчёт — демонстрационные цифры не используются."}</p>
       {plan && <p className="hint">{plan.criterion === "balanced"
         ? "Приоритет: минимальный налёт в заданный срок. Если срок недостижим — минимальное превышение."

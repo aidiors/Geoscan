@@ -17,11 +17,16 @@ import { migrateLegacyDroneProfile, normalizeDroneProfile } from "@/features/pla
 import { errorMessage } from "@/shared/api/errorMessage";
 import { useMissionInsights } from "@/features/planner/model/useMissionInsights";
 import type { PlanRequest } from "@/shared/api/types";
+import type { ProjectDocument, SourceFile } from "@/features/projects/model/types";
+import type { Scenario } from "@/features/planner/model/types";
+import { parseSavedScenario } from "@/features/planner/storage/validateScenario";
 
 export function usePlanner() {
   const initialScenario = scenarios[0];
   const initialDemoCase = demoCases[0];
   const [scenarioId, setScenarioId] = useState(initialScenario.id);
+  const [scenarioOverride, setScenarioOverride] = useState<Scenario | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([]);
   const [demoCaseId, setDemoCaseId] = useState(initialDemoCase.id);
   const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [task, setTask] = useState<MissionTask>(initialScenario.task);
@@ -34,6 +39,7 @@ export function usePlanner() {
   const [survey, setSurvey] = useState<SurveySettings>(defaultSurvey);
   const [settings, setSettings] = useState<PlanningSettings>(() => planningSettings(initialScenario.altitude));
   const [plan, setPlan] = useState<PlanResponse | null>(null);
+  const [archivedPlan, setArchivedPlan] = useState(false);
   const [lastRequest, setLastRequest] = useState<PlanRequest | null>(null);
   const planRevision = useRef(0);
   const planningController = useRef<AbortController | null>(null);
@@ -49,7 +55,7 @@ export function usePlanner() {
   const [exporting, setExporting] = useState(false);
   const insights = useMissionInsights(lastRequest, plan, setStatus);
 
-  const scenario = scenarios.find((candidate) => candidate.id === scenarioId) ?? initialScenario;
+  const scenario = scenarioOverride?.id === scenarioId ? scenarioOverride : scenarios.find((candidate) => candidate.id === scenarioId) ?? initialScenario;
   const mapZones = useMemo(() => {
     const supplemental = importedZones.filter((zone) => zone.zone_type !== "work_area" && zone.zone_type !== "no_fly_zone");
     return [...activeWorkAreas(importedZones, scenario, workAreaSource), ...activeNoFlyZones(importedZones, scenario, workAreaSource), ...supplemental];
@@ -64,6 +70,7 @@ export function usePlanner() {
     setLastRequest(null);
     radiusAnalysisRevision.current += 1;
     setPlan(null);
+    setArchivedPlan(false);
     setRadiusAnalysis(null);
     setAnalyzingRadii(false);
     setStatus(nextStatus);
@@ -73,6 +80,8 @@ export function usePlanner() {
     const nextScenario = scenarios.find((candidate) => candidate.id === nextScenarioId);
     if (!nextScenario) return;
     setScenarioId(nextScenario.id);
+    setScenarioOverride(null);
+    setSourceFiles([]);
     setDemoCaseId(defaultDemoCaseForScenario(nextScenario.id)?.id ?? initialDemoCase.id);
     setTask(nextScenario.task);
     setSites(cloneSites(nextScenario));
@@ -105,6 +114,8 @@ export function usePlanner() {
     const nextSelectedDroneId = nextDrones.find((drone) => drone.tasks.includes(nextScenario.task))?.id
       ?? nextDrones[0].id;
     setDemoCaseId(demoCase.id);
+    setScenarioOverride(null);
+    setSourceFiles([]);
     setScenarioId(nextScenario.id);
     setTask(nextScenario.task);
     setObjective(demoCase.recommendedObjective);
@@ -193,6 +204,7 @@ export function usePlanner() {
   }
 
   async function handleImport(file: File, zoneType: ZoneType): Promise<void> {
+    const targetRevision = planRevision.current;
     setImporting(true);
     setStatus("Проверяем геоданные…");
     let content: string;
@@ -205,7 +217,9 @@ export function usePlanner() {
     }
     try {
       const result = await importGeodata(file.name, zoneType, content);
+      if (targetRevision !== planRevision.current) return;
       setImportedZones((current) => mergeZones(current, result.zones));
+      setSourceFiles((current) => [...current, { name: file.name, zone_type: zoneType, content }]);
       if (result.zones.some((zone) => zone.zone_type === "work_area")) setWorkAreaSource("imported");
       const invalidCount = result.zones.filter((zone) => zone.metadata?.geometry_issue).length;
       invalidate(`Импортировано зон: ${result.zones.length}${invalidCount ? `. Без площади: ${invalidCount}; проверьте список геоданных` : ""}`);
@@ -226,6 +240,7 @@ export function usePlanner() {
     const version = ++planRevision.current;
     let received = false;
     setLastRequest(request);
+    setArchivedPlan(false);
     setPlan(null);
     try {
       setCalculating(true);
@@ -272,6 +287,7 @@ export function usePlanner() {
     planRevision.current += 1;
     setLastRequest(variant.request);
     setPlan(variant.plan);
+    setArchivedPlan(false);
     setObjective(variant.request.criterion === "completion_time" ? "time" : variant.request.criterion === "balanced" ? "balanced" : "flight");
     setSettings((current) => ({ ...current, altitude: variant.request.mission_altitude_m,
       deadline: variant.request.completion_deadline_minutes?.toString() ?? "",
@@ -376,9 +392,10 @@ export function usePlanner() {
     }
   }
 
-  function saveScenario(): void {
-    const snapshot: SavedScenario = {
+  function scenarioSnapshot(): SavedScenario {
+    return {
       version: 3,
+      baseScenario: scenario,
       scenarioId,
       task,
       objective,
@@ -390,6 +407,10 @@ export function usePlanner() {
       survey,
       settings,
     };
+  }
+
+  function saveScenario(): void {
+    const snapshot = scenarioSnapshot();
     try {
       window.localStorage.setItem("geoplan-scenario", JSON.stringify(snapshot));
       setStatus("Сценарий сохранён");
@@ -408,16 +429,23 @@ export function usePlanner() {
     }
     let snapshot: SavedScenario;
     try {
-      snapshot = JSON.parse(serialized) as SavedScenario;
+      snapshot = parseSavedScenario(JSON.parse(serialized));
     } catch (error: unknown) {
       setStatus(error instanceof Error ? "Сохранённый сценарий повреждён" : "Не удалось восстановить сценарий");
       return;
     }
-    if (!scenarios.some((candidate) => candidate.id === snapshot.scenarioId) || snapshot.drones.length === 0) {
+    applyScenarioSnapshot(snapshot);
+  }
+
+  function applyScenarioSnapshot(snapshot: SavedScenario): void {
+    if ((!snapshot.baseScenario && !scenarios.some((candidate) => candidate.id === snapshot.scenarioId)) || snapshot.drones.length === 0) {
       setStatus("Сохранённый сценарий имеет неподдерживаемый формат");
       return;
     }
     setScenarioId(snapshot.scenarioId);
+    setScenarioOverride(snapshot.baseScenario ?? null);
+    setSourceFiles([]);
+    setPendingSiteRole(null);
     setDemoCaseId(defaultDemoCaseForScenario(snapshot.scenarioId)?.id ?? initialDemoCase.id);
     setTask(snapshot.task);
     setObjective(snapshot.objective);
@@ -431,6 +459,7 @@ export function usePlanner() {
     setWorkAreaSource(snapshot.workAreaSource === "imported" || snapshot.importedZones.some((zone) => zone.zone_type === "work_area") ? "imported" : "scenario");
     setSurvey({ ...defaultSurvey, ...snapshot.survey });
     setSettings({
+      ...planningSettings(snapshot.baseScenario?.altitude ?? 120),
       ...snapshot.settings,
       minimumSeparation: snapshot.settings.minimumSeparation ?? 50,
       ambientTemperature: snapshot.settings.ambientTemperature ?? 20,
@@ -451,6 +480,33 @@ export function usePlanner() {
     invalidate(snapshot.workAreaSource === undefined && !snapshot.importedZones.some((zone) => zone.zone_type === "work_area")
       ? "Старое сохранение не содержит импортированных рабочих областей. Используется выбранный демосценарий; при необходимости импортируйте исходный файл повторно."
       : "Сценарий восстановлен — требуется новый расчёт");
+  }
+
+  function captureProject(): ProjectDocument {
+    return {
+      schema_version: 1,
+      editor_state: scenarioSnapshot(),
+      source_files: sourceFiles,
+      request: lastRequest,
+      plan,
+      survey_quality: insights.quality,
+      turn_radius_analysis: radiusAnalysis,
+    };
+  }
+
+  function restoreProject(document: ProjectDocument): void {
+    const snapshot = parseSavedScenario(document.editor_state);
+    if (!snapshot.baseScenario && !scenarios.some((candidate) => candidate.id === snapshot.scenarioId)) throw new Error("Не найдена исходная геометрия сценария");
+    applyScenarioSnapshot(snapshot);
+    const restoredPlan = document.plan ? { ...document.plan, export_authorization: null } : null;
+    setSourceFiles(document.source_files);
+    setLastRequest(document.request);
+    setPlan(restoredPlan);
+    setArchivedPlan(restoredPlan !== null);
+    setRadiusAnalysis(document.turn_radius_analysis);
+    insights.restore(document.request, restoredPlan, document.survey_quality);
+    setRevision((current) => current + 1);
+    setStatus("Проект восстановлен. Сохранённый план доступен для анализа; экспорт в автопилот требует нового расчёта.");
   }
 
   return {
@@ -508,5 +564,8 @@ export function usePlanner() {
     handleExport,
     saveScenario,
     loadScenario,
+    captureProject,
+    restoreProject,
+    archivedPlan,
   };
 }

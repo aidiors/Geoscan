@@ -125,7 +125,12 @@ def planning_error_handler(_: Request, error: Exception) -> JSONResponse:
         recommendations=error.recommendations,
     )
     return JSONResponse(
-        status_code=503 if error.code is ErrorCode.PLANNING_BUSY else 422,
+        status_code={
+            ErrorCode.PLANNING_BUSY: 503,
+            ErrorCode.PROJECT_CONFLICT: 409,
+            ErrorCode.PROJECT_NOT_FOUND: 404,
+            ErrorCode.PROJECT_STORAGE_UNAVAILABLE: 503,
+        }.get(error.code, 422),
         content=response.model_dump(mode="json"),
     )
 

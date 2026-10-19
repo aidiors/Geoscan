@@ -6,6 +6,27 @@ import { usePlanner } from "./usePlanner";
 describe("planner workspace", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("rejects malformed saved state without changing the current workspace", () => {
+    const { result } = renderHook(usePlanner);
+    const before = result.current.captureProject();
+    window.localStorage.setItem("geoplan-scenario", JSON.stringify({ ...before.editor_state, drones: null }));
+    act(() => result.current.loadScenario());
+    expect(result.current.status).toContain("повреждён");
+    expect(result.current.captureProject().editor_state).toEqual(before.editor_state);
+  });
+
+  it("restores the embedded scenario instead of falling back to a current demo", () => {
+    const { result } = renderHook(usePlanner);
+    const document = structuredClone(result.current.captureProject());
+    document.editor_state.scenarioId = "retired-scenario";
+    document.editor_state.baseScenario!.id = "retired-scenario";
+    document.editor_state.baseScenario!.title = "Original archived geometry";
+    act(() => result.current.restoreProject(document));
+    expect(result.current.scenario.id).toBe("retired-scenario");
+    expect(result.current.scenario.title).toBe("Original archived geometry");
+    expect(result.current.scenario.workAreas).toEqual(document.editor_state.baseScenario!.workAreas);
+  });
+
   it("saves and restores the existing scenario format and selected aircraft", () => {
     const { result } = renderHook(usePlanner);
     const droneId = result.current.drones[0].id;

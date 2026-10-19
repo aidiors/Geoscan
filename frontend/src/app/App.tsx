@@ -7,6 +7,7 @@ import { ResultsPanel } from "@/features/planner/ui/ResultsPanel";
 import { activeWorkAreas } from "@/features/planner/api/buildPlanRequest";
 import { usePlanner } from "@/features/planner/model/usePlanner";
 import { MissionInsights } from "@/features/planner/ui/MissionInsights";
+import { ProjectPanel } from "@/features/projects/ui/ProjectPanel";
 
 export default function App() {
   const [theme, setTheme] = useTheme();
@@ -65,6 +66,9 @@ export default function App() {
     handleExport,
     saveScenario,
     loadScenario,
+    captureProject,
+    restoreProject,
+    archivedPlan,
   } = usePlanner();
   return (
     <div className="app-shell">
@@ -80,6 +84,8 @@ export default function App() {
       />
       <main className="workspace">
         <ControlsPanel
+          scenario={scenario}
+          projects={<ProjectPanel capture={captureProject} restore={restoreProject} onStatus={setStatus} />}
           scenarioId={scenarioId}
           task={task}
           objective={objective}
@@ -125,7 +131,7 @@ export default function App() {
           onAddSite={handleAddSite}
           onClearZones={() => { setImportedZones([]); invalidate("Импортированные зоны очищены"); }}
         />
-        <ResultsPanel insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
+        <ResultsPanel archived={archivedPlan} insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
       </main>
     </div>
   );

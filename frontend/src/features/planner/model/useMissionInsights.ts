@@ -30,6 +30,10 @@ export function useMissionInsights(request: PlanRequest | null, plan: PlanRespon
     quality: qualityResult?.request === request && qualityResult.plan === plan ? qualityResult.report : null,
     advice: adviceResult?.request === request ? adviceResult.report : null,
     busy: request !== null && pending === request,
+    restore: (restoredRequest: PlanRequest | null, restoredPlan: PlanResponse | null, report: SurveyQualityReport | null) => {
+      setQuality(restoredRequest && restoredPlan && report ? { request: restoredRequest, plan: restoredPlan, report } : null);
+      setAdvice(null);
+    },
     inspect, advise,
   };
 }
