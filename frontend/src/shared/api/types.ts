@@ -238,6 +238,7 @@ export interface DronePlan {
 }
 
 export interface PlanResponse {
+  export_authorization?: string | null;
   search?: {
     status: string;
     elapsed_seconds: number;

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from geoplan.api.models import ErrorResponse, HealthReport
 from geoplan.api.planning_transport import PlanningTransport
@@ -18,9 +18,11 @@ from geoplan.geodata.exporters import (
     build_mission_planner_export,
     build_qgroundcontrol_export,
 )
+from geoplan.geodata.flight_package import FlightPackageBuilder
 from geoplan.geodata.importers import import_geojson, import_kml
 from geoplan.geodata.models import (
     ExportRequest,
+    FlightPackageRequest,
     GeoJsonFeatureCollection,
     GeoJsonImportRequest,
     ImportResponse,
@@ -29,6 +31,7 @@ from geoplan.geodata.models import (
     MissionPlannerExport,
     QGroundControlExport,
 )
+from geoplan.geodata.release import PlanReleaseAuthority
 from geoplan.navigation.curvature import SweepTransitionPlanner
 from geoplan.navigation.optimizer import RouteOptimizer
 from geoplan.planning.advisor import AdvisorRequest, AdvisorResponse, FeasibilityAdvisor
@@ -194,7 +197,10 @@ def create_router(
         )
         return run(seed, observer)
 
-    transport = PlanningTransport(AuditedPlanningService(run, alternative, initial))
+    authority = PlanReleaseAuthority.from_environment()
+    transport = PlanningTransport(
+        AuditedPlanningService(run, alternative, initial), release_authority=authority
+    )
 
     @router.get("/health", response_model=HealthReport)
     def get_health() -> HealthReport:
@@ -268,6 +274,7 @@ def create_router(
         responses={422: {"model": ErrorResponse}},
     )
     def post_qgroundcontrol_export(request: ExportRequest) -> QGroundControlExport:
+        authority.verify(request.plan)
         return create_qgroundcontrol_export(request)
 
     @router.post(
@@ -276,7 +283,21 @@ def create_router(
         responses={422: {"model": ErrorResponse}},
     )
     def post_mission_planner_export(request: ExportRequest) -> MissionPlannerExport:
+        authority.verify(request.plan)
         return create_mission_planner_export(request)
+
+    @router.post("/v1/exports/flight-package", responses={422: {"model": ErrorResponse}})
+    def post_flight_package(request: FlightPackageRequest) -> Response:
+        authority.verify(request.plan)
+        content = FlightPackageBuilder().build(request)
+        return Response(
+            content,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": 'attachment; filename="flight-package.zip"',
+                "Cache-Control": "no-store",
+            },
+        )
 
     @router.post(
         "/v1/imports/geojson",

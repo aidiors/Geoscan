@@ -36,5 +36,5 @@ test("creates a physical fleet, retains individual state and submits it to the r
   const card = page.locator(".mission-card").filter({ hasText: copied.name });
   const count = await card.locator("em").innerText();
   if (count !== "Не используется") expect(parseInt(count)).toBeLessThanOrEqual(2);
-  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Расчётный план" })).toBeVisible();
 });

@@ -48,7 +48,7 @@ test("runs a real plan from a demo case and exposes its safety evidence", async 
   await page.getByRole("button", { name: /Безопасная городская съёмка/ }).click();
   await page.getByRole("button", { name: "Загрузить и рассчитать" }).click();
 
-  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole("heading", { name: "Расчётный план" })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText("Независимый аудит плана")).toBeVisible();
   await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
   await expect(page.getByRole("button", { name: /GeoJSON/ })).toBeEnabled();
@@ -76,7 +76,7 @@ test("inspects real frame footprints and applies a replanned deadline alternativ
   expect((await imported).status()).toBe(200);
   await page.getByLabel("Срок, мин", { exact: true }).fill("1");
   await page.getByRole("button", { name: /Рассчитать план/ }).click();
-  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Расчётный план" })).toBeVisible();
   const qualityResponse = page.waitForResponse((response) => response.url().endsWith("/v1/survey-quality"));
   await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
   await page.getByRole("button", { name: "Проверить отпечатки кадров" }).click();
@@ -93,7 +93,7 @@ test("inspects real frame footprints and applies a replanned deadline alternativ
   const verified = advice.variants.find((variant: { status: string }) => variant.status === "verified");
   expect(verified).toBeTruthy();
   await page.getByRole("button", { name: "Применить проверенный вариант" }).first().click();
-  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Расчётный план" })).toBeVisible();
   await expect(page.getByLabel("Срок, мин", { exact: true })).toHaveValue(String(verified.request.completion_deadline_minutes));
   await expect(page.getByRole("button", { name: /GeoJSON/ })).toBeEnabled();
 });

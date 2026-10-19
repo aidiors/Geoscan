@@ -8,3 +8,7 @@ services:
       - "${GEOPLAN_PORT:-8000}:8000"
     restart: unless-stopped
     init: true
+    # Use the same persistent secret (32+ bytes) across replicas/restarts.
+    # If absent, export attestations last only for the current server process.
+    environment:
+      - GEOPLAN_EXPORT_SIGNING_KEY

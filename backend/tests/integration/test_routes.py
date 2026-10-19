@@ -307,10 +307,11 @@ def test_export_routes_return_planner_compatible_contracts() -> None:
     assert geojson_response.json()["features"][0]["geometry"]["type"] == "LineString"
     assert kml_response.status_code == 200
     assert kml_response.json()["file_name"] == "mission-201.kml"
-    assert qgroundcontrol_response.status_code == 200
-    assert qgroundcontrol_response.json()["file_name"] == "mission-201.plan"
-    assert mission_planner_response.status_code == 200
-    assert mission_planner_response.json()["file_name"] == "mission-201.waypoints"
+    # Arbitrary client-created plans remain inspectable in GIS, but cannot be released.
+    assert qgroundcontrol_response.status_code == 422
+    assert qgroundcontrol_response.json()["code"] == "export_release_required"
+    assert mission_planner_response.status_code == 422
+    assert mission_planner_response.json()["code"] == "export_release_required"
 
 
 def test_frontend_is_served_from_the_same_origin_as_api(tmp_path: Path) -> None:

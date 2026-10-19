@@ -61,7 +61,8 @@ def test_exports_keep_absolute_flight_altitude_and_surface_model(height_plans):
             continue
         for kind in ("geojson", "kml", "qgroundcontrol", "mission-planner"):
             result = client.post(
-                f"/v1/exports/{kind}", json={"plan": plan, "drone_id": drone["drone_id"]}
+                f"/v1/exports/{kind}",
+                json={"plan": plan, "drone_id": drone["drone_id"], "sortie_index": 0},
             )
             assert result.status_code == 200, result.text
             if kind == "geojson":

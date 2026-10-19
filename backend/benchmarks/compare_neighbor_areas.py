@@ -122,17 +122,24 @@ def main() -> None:
                         if not drone.missions:
                             continue
                         for kind in ("geojson", "kml", "qgroundcontrol", "mission-planner"):
-                            exported = client.post(
-                                f"/v1/exports/{kind}",
-                                json={"plan": body, "drone_id": drone.drone_id},
-                            )
-                            exports.append(
-                                {
-                                    "drone": drone.drone_id,
-                                    "format": kind,
-                                    "status": exported.status_code,
-                                }
-                            )
+                            execution = kind in ("qgroundcontrol", "mission-planner")
+                            for sortie_index in range(len(drone.missions)) if execution else [None]:
+                                exported = client.post(
+                                    f"/v1/exports/{kind}",
+                                    json={
+                                        "plan": body,
+                                        "drone_id": drone.drone_id,
+                                        "sortie_index": sortie_index,
+                                    },
+                                )
+                                exports.append(
+                                    {
+                                        "drone": drone.drone_id,
+                                        "format": kind,
+                                        "sortie_index": sortie_index,
+                                        "status": exported.status_code,
+                                    }
+                                )
                     row["exports"] = exports
                 else:
                     row["error"] = body

@@ -238,7 +238,9 @@ def build_kml_export(request: ExportRequest) -> KmlExport:
 def build_qgroundcontrol_export(request: ExportRequest) -> QGroundControlExport:
     drone_plan = _drone_plan_for_request(request)
     _require_executable_phases(drone_plan.missions)
-    plan = _qgroundcontrol_plan(drone_plan.missions, drone_plan.autopilot_profile)
+    missions = _execution_missions(request)
+    _require_executable_phases(missions)
+    plan = _qgroundcontrol_plan(missions, drone_plan.autopilot_profile)
     return QGroundControlExport(
         file_name=f"mission-{request.drone_id}.plan",
         content=plan.model_dump_json(by_alias=True),
@@ -246,7 +248,8 @@ def build_qgroundcontrol_export(request: ExportRequest) -> QGroundControlExport:
 
 
 def build_mission_planner_export(request: ExportRequest) -> MissionPlannerExport:
-    missions = _missions_for_drone(request)
+    _require_executable_phases(_missions_for_drone(request))
+    missions = _execution_missions(request)
     _require_executable_phases(missions)
     content = "\n".join(["QGC WPL 110", *_mission_planner_lines(missions)])
     return MissionPlannerExport(
@@ -266,6 +269,20 @@ def _require_executable_phases(missions: list[Mission]) -> None:
 
 def _missions_for_drone(request: ExportRequest) -> list[Mission]:
     return _drone_plan_for_request(request).missions
+
+
+def _execution_missions(request: ExportRequest) -> list[Mission]:
+    missions = _missions_for_drone(request)
+    if request.sortie_index is not None:
+        if request.sortie_index < len(missions):
+            return [missions[request.sortie_index]]
+    elif len(missions) == 1:
+        return missions
+    raise PlanningError(
+        ErrorCode.EXPORT_SORTIE_REQUIRED,
+        "Выберите существующий вылет по sortie_index или скачайте пакет заданий. "
+        "Несколько вылетов нельзя объединять в одну миссию автопилота.",
+    )
 
 
 def _drone_plan_for_request(request: ExportRequest) -> DronePlan:

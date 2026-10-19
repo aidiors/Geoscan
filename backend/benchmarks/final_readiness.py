@@ -169,25 +169,46 @@ def run(
                 )
                 _write(output / f"{name}-quality.json", quality.json())
                 summary["quality"] = {k: v for k, v in quality.json().items() if k != "features"}
+                summary["exports"] = []
                 for drone in last["drone_plans"]:
                     if not drone["missions"]:
                         continue
                     for format_name in ("kml", "geojson", "qgroundcontrol", "mission-planner"):
-                        exported = client.post(
-                            f"/v1/exports/{format_name}",
-                            json={
-                                "plan": last,
-                                "drone_id": drone["drone_id"],
-                            },
-                        )
-                        if exported.status_code != 200:
-                            raise RuntimeError(
-                                f"Export failed: {name}/{format_name}: {exported.text}"
+                        execution = format_name in ("qgroundcontrol", "mission-planner")
+                        for sortie_index in range(len(drone["missions"])) if execution else [None]:
+                            exported = client.post(
+                                f"/v1/exports/{format_name}",
+                                json={
+                                    "plan": last,
+                                    "drone_id": drone["drone_id"],
+                                    "sortie_index": sortie_index,
+                                },
                             )
-                        _write(
-                            output / f"{name}-{drone['drone_id']}-{format_name}.json",
-                            exported.json(),
-                        )
+                            expected = (
+                                422 if execution and not last.get("export_authorization") else 200
+                            )
+                            if exported.status_code != expected:
+                                raise RuntimeError(
+                                    f"Export failed: {name}/{format_name}: {exported.text}"
+                                )
+                            if (
+                                expected == 422
+                                and exported.json()["code"] != "export_release_required"
+                            ):
+                                raise RuntimeError("Unexpected export refusal")
+                            summary["exports"].append(
+                                {
+                                    "drone_id": drone["drone_id"],
+                                    "format": format_name,
+                                    "sortie_index": sortie_index,
+                                    "http_status": exported.status_code,
+                                }
+                            )
+                            _write(
+                                output
+                                / f"{name}-{drone['drone_id']}-{format_name}-{sortie_index}.json",
+                                exported.json(),
+                            )
             manifest["scenarios"][name] = summary
             _write(output / "manifest.json", manifest)
         advice = client.post(

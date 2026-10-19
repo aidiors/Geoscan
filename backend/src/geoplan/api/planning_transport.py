@@ -14,6 +14,7 @@ from geoplan.api.models import ErrorResponse
 from geoplan.budget import planning_cancellation
 from geoplan.domain.enums import ErrorCode
 from geoplan.errors import PlanningError
+from geoplan.geodata.release import PlanReleaseAuthority
 from geoplan.planning.models import PlanRequest, PlanResponse
 from geoplan.planning.service import AuditedPlanningService
 
@@ -40,6 +41,7 @@ class CancellablePlanningResponse(StreamingResponse):
 class PlanningTransport:
     service: AuditedPlanningService
     maximum_concurrent: int = 2
+    release_authority: PlanReleaseAuthority = field(default_factory=PlanReleaseAuthority)
     _slots: BoundedSemaphore = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -51,7 +53,7 @@ class PlanningTransport:
                 ErrorCode.PLANNING_BUSY, "Сервис занят расчётами. Повторите запрос позже."
             )
         try:
-            return self.service.plan(request)
+            return self.release_authority.issue(self.service.plan(request))
         finally:
             self._slots.release()
 
@@ -97,11 +99,16 @@ class PlanningTransport:
                             {
                                 "kind": "candidate",
                                 "stage": stage,
-                                "plan": plan.model_dump(mode="json"),
+                                "plan": self.release_authority.issue(plan).model_dump(mode="json"),
                             }
                         ),
                     )
-                publish({"kind": "completed", "plan": result.model_dump(mode="json")})
+                publish(
+                    {
+                        "kind": "completed",
+                        "plan": self.release_authority.issue(result).model_dump(mode="json"),
+                    }
+                )
             except PlanningError as error:
                 payload = ErrorResponse(
                     code=error.code, message=error.message, recommendations=error.recommendations

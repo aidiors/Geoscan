@@ -79,6 +79,7 @@ export function ResultsPanel({
   const selectedPlan = plan?.drone_plans.find((dronePlan) => dronePlan.drone_id === selectedDroneId);
   const exportDisabled = exporting || !selectedPlan || selectedPlan.mission_count === 0;
   const forwardExportBlocked = selectedPlan?.missions.some((mission) => mission.forward_flight_phases != null) ?? false;
+  const releaseBlocked = !plan?.export_authorization || plan.safety_audit?.status !== "passed" || plan.feasibility?.status !== "feasible";
   const forwardMission = selectedPlan?.missions.find((mission) => mission.forward_flight_phases != null);
   const coverageAngleSummary = plan?.optimization?.coverage_angle_cost === "wind_adjusted_duration"
     ? `Направление галсов выбрано по времени с учётом ветра · опорная скорость ${format(plan.optimization.coverage_reference_airspeed_kmh ?? 0)} км/ч`
@@ -86,7 +87,7 @@ export function ResultsPanel({
   return (
     <aside className="panel results-panel">
       <div className="eyebrow"><Route size={15} /> Результат оптимизации</div>
-      <h2>{plan ? "План готов" : "Ожидает расчёта"}</h2>
+      <h2>{plan ? "Расчётный план" : "Ожидает расчёта"}</h2>
       <p className="lead">{plan?.feasibility?.message ?? "Настройте сценарий и запустите расчёт — демонстрационные цифры не используются."}</p>
       {plan && <p className="hint">{plan.criterion === "balanced"
         ? "Приоритет: минимальный налёт в заданный срок. Если срок недостижим — минимальное превышение."
@@ -253,9 +254,13 @@ export function ResultsPanel({
       <div className="export-group">
         <button type="button" disabled={exportDisabled} onClick={() => onExport("geojson")}><Download size={15} /> GeoJSON</button>
         <button type="button" disabled={exportDisabled} onClick={() => onExport("kml")}><Download size={15} /> KML</button>
-        <button type="button" disabled={exportDisabled || forwardExportBlocked} onClick={() => onExport("qgroundcontrol")}><Download size={15} /> QGroundControl</button>
-        <button type="button" disabled={exportDisabled || forwardExportBlocked} onClick={() => onExport("mission-planner")}><Download size={15} /> Mission Planner</button>
+        <button type="button" disabled={exportDisabled || forwardExportBlocked || releaseBlocked} onClick={() => onExport("qgroundcontrol")}><Download size={15} /> QGroundControl</button>
+        <button type="button" disabled={exportDisabled || forwardExportBlocked || releaseBlocked} onClick={() => onExport("mission-planner")}><Download size={15} /> Mission Planner</button>
       </div>
+      {plan && <p className="hint">{releaseBlocked
+        ? "Для экспорта в автопилот нужен проверенный план, укладывающийся в заданные условия. При устаревшем подтверждении повторите расчёт. GIS доступен для анализа."
+        : "Целостность расчётного плана подтверждена сервером. Совместимость с прошивкой и готовность к полёту требуют отдельной проверки."}</p>}
+      {selectedPlan && selectedPlan.missions.length > 1 && <p className="hint">Экспорт в автопилот: ZIP с отдельным файлом на каждый вылет. Откройте dispatch.html для просмотра расписания. Оператор запускает вылеты отдельно, соблюдая интервалы и подготовку АКБ.</p>}
       {forwardExportBlocked && <p className="hint">Самолётный профиль доступен в GeoJSON и KML. Автопилотный экспорт требует проверки команд взлёта и посадки под конкретную прошивку.</p>}
     </aside>
   );

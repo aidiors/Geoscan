@@ -88,16 +88,19 @@ def run(output: Path, selected: list[str] | None = None, candidate_limit: int = 
                 if not drone.missions:
                     continue
                 for fmt in ("geojson", "kml", "qgroundcontrol", "mission-planner"):
-                    response = client.post(
-                        f"/v1/exports/{fmt}",
-                        json={
-                            "plan": best.model_dump(mode="json"),
-                            "drone_id": drone.drone_id,
-                        },
-                    )
-                    if response.status_code != 200:
-                        raise ValueError(response.text)
-                    exports += 1
+                    execution = fmt in ("qgroundcontrol", "mission-planner")
+                    for sortie_index in range(len(drone.missions)) if execution else [None]:
+                        response = client.post(
+                            f"/v1/exports/{fmt}",
+                            json={
+                                "plan": best.model_dump(mode="json"),
+                                "drone_id": drone.drone_id,
+                                "sortie_index": sortie_index,
+                            },
+                        )
+                        if response.status_code != 200:
+                            raise ValueError(response.text)
+                        exports += 1
                 for mission in drone.missions:
                     if mission.photo_capture_route_indices is not None:
                         offsets = mission_route_clock(mission).offsets_minutes

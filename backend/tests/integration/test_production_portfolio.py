@@ -67,7 +67,11 @@ def test_multi_area_pool_protects_complete_audited_plan_and_all_exports(criterio
             for kind in ("geojson", "kml", "qgroundcontrol", "mission-planner"):
                 exported = client.post(
                     f"/v1/exports/{kind}",
-                    json={"plan": plans[1].model_dump(mode="json"), "drone_id": drone.drone_id},
+                    json={
+                        "plan": plans[1].model_dump(mode="json"),
+                        "drone_id": drone.drone_id,
+                        "sortie_index": 0,
+                    },
                 )
                 assert exported.status_code == 200, exported.text
 

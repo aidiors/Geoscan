@@ -150,6 +150,11 @@ class ExportRequest(BaseModel):
 
     plan: PlanResponse
     drone_id: str = Field(min_length=1, max_length=64)
+    sortie_index: int | None = Field(default=None, ge=0, le=10_000)
+
+
+class FlightPackageRequest(ExportRequest):
+    format: Literal["qgroundcontrol", "mission-planner"]
 
 
 class GeoJsonGeometry(BaseModel):

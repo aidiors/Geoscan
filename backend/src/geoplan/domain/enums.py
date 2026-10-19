@@ -184,6 +184,8 @@ class AltitudeReference(StrEnum):
 
 
 class ErrorCode(StrEnum):
+    EXPORT_RELEASE_REQUIRED = "export_release_required"
+    EXPORT_SORTIE_REQUIRED = "export_sortie_required"
     AUTOPILOT_PHASE_EXPORT_UNSUPPORTED = "autopilot_phase_export_unsupported"
     PLANNING_CANCELLED = "planning_cancelled"
     PLANNING_BUSY = "planning_busy"

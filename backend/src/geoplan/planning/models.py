@@ -319,6 +319,12 @@ class PlanSearchSummary(BaseModel):
 class PlanResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    export_authorization: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Server attestation of unchanged audited calculation, valid for 8 hours. "
+        "Not flight approval. Recalculation required on expiry or server key change.",
+    )
     criterion: OptimizationCriterion
     drone_plans: list[DronePlan]
     metrics: PlanMetrics

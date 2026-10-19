@@ -4,11 +4,11 @@ test("can stop after the first audited result and keep its export", async ({ pag
   await page.goto("/");
   await page.getByLabel("Бюджет расчёта, с", { exact: true }).fill("270");
   await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Расчётный план" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Остановить поиск" })).toBeVisible();
   await page.getByRole("button", { name: "Остановить поиск" }).click();
   await expect(page.getByRole("status")).toContainText("остановлен");
-  await expect(page.getByRole("heading", { name: "План готов" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Расчётный план" })).toBeVisible();
   await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
   await expect(page.getByRole("button", { name: "GeoJSON", exact: true })).toBeEnabled();
   await expect(page.getByRole("region", { name: "История улучшений плана" })).toContainText("Поиск остановлен");

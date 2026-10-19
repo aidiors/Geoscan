@@ -187,6 +187,9 @@ describe("ResultsPanel radius assumptions", () => {
 
     expect(screen.getByText(/100%.*35%.*45/)).toBeVisible();
     expect(screen.getByText(/Аварийный уход: минимум 30 п\.п\. сверх резерва/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "GeoJSON" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "QGroundControl" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Mission Planner" })).toBeDisabled();
   });
 
   it("labels a positive radius as applying to the complete route", () => {

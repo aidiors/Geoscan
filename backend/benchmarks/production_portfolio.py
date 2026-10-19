@@ -198,6 +198,7 @@ def pipeline_rows(
                             if verify_exports and row["audit"] == "passed":
                                 exports_started = perf_counter()
                                 verified = 0
+                                release_blocked = 0
                                 for drone in body["drone_plans"]:
                                     if not drone["missions"]:
                                         continue
@@ -207,14 +208,36 @@ def pipeline_rows(
                                         "qgroundcontrol",
                                         "mission-planner",
                                     ):
-                                        exported = client.post(
-                                            f"/v1/exports/{kind}",
-                                            json={"plan": body, "drone_id": drone["drone_id"]},
-                                        )
-                                        if exported.status_code != 200:
-                                            raise ValueError(f"Export {kind}: {exported.text}")
-                                        verified += 1
+                                        execution = kind in ("qgroundcontrol", "mission-planner")
+                                        for sortie_index in (
+                                            range(len(drone["missions"])) if execution else [None]
+                                        ):
+                                            exported = client.post(
+                                                f"/v1/exports/{kind}",
+                                                json={
+                                                    "plan": body,
+                                                    "drone_id": drone["drone_id"],
+                                                    "sortie_index": sortie_index,
+                                                },
+                                            )
+                                            expected = (
+                                                422
+                                                if execution
+                                                and not body.get("export_authorization")
+                                                else 200
+                                            )
+                                            if exported.status_code != expected:
+                                                raise ValueError(f"Export {kind}: {exported.text}")
+                                            if (
+                                                expected == 422
+                                                and exported.json()["code"]
+                                                != "export_release_required"
+                                            ):
+                                                raise ValueError("Unexpected export refusal")
+                                            verified += int(exported.status_code == 200)
+                                            release_blocked += int(exported.status_code == 422)
                                 row["exports_verified"] = verified
+                                row["exports_release_blocked"] = release_blocked
                                 row["exports_seconds"] = perf_counter() - exports_started
                         else:
                             row["error"] = body
