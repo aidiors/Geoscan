@@ -19,11 +19,12 @@ test("draws a concave area, preserves layer flags and assigns a subset of ten ai
   await page.getByRole("button", { name: /Управлять объектами/ }).click();
   await page.getByLabel("Найти объект", { exact: true }).fill("Контур финала");
   await page.locator(".geo-object-row").first().click();
-  const layer = page.locator(".zone-item").filter({ hasText: "Контур финала" });
+  const objects = page.getByRole("dialog", { name: "Зоны и площадки", exact: true });
+  const layer = page.locator(".object-dialog .zone-item").filter({ hasText: "Контур финала" });
   await expect(layer).toBeVisible();
-  await page.getByRole("button", { name: "Защитить Контур финала", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Удалить Контур финала", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Скрыть Контур финала", exact: true }).click();
+  await objects.getByRole("button", { name: "Защитить Контур финала", exact: true }).click();
+  await expect(objects.getByRole("button", { name: "Удалить Контур финала", exact: true })).toBeDisabled();
+  await objects.getByRole("button", { name: "Скрыть Контур финала", exact: true }).click();
   await page.getByRole("button", { name: "Закрыть зоны и площадки" }).click();
   await expect(map.locator(".zone-layer title").filter({ hasText: "Контур финала" })).toHaveCount(0);
   await page.getByRole("button", { name: /Управлять парком/ }).click();
@@ -55,14 +56,14 @@ test("draws a concave area, preserves layer flags and assigns a subset of ten ai
   await page.getByLabel("Найти объект", { exact: true }).fill("Контур финала");
   await page.locator(".geo-object-row").first().click();
   await expect(layer).toBeVisible();
-  await page.getByRole("button", { name: "Показать Контур финала", exact: true }).click();
+  await objects.getByRole("button", { name: "Показать Контур финала", exact: true }).click();
   await page.getByRole("button", { name: "Закрыть зоны и площадки" }).click();
   await expect(map.locator(".zone-layer title").filter({ hasText: "Контур финала" })).toHaveCount(1);
   await page.getByRole("button", { name: "Открыть черновик", exact: true }).click();
   await page.getByRole("button", { name: /Управлять объектами/ }).click();
   await page.getByLabel("Найти объект", { exact: true }).fill("Контур финала");
   await page.locator(".geo-object-row").first().click();
-  await expect(page.getByRole("button", { name: "Показать Контур финала", exact: true })).toBeVisible();
+  await expect(objects.getByRole("button", { name: "Показать Контур финала", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("map-layers-satellite.png"), fullPage: true });
 });
 

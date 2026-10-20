@@ -1,3 +1,4 @@
+import { QuickObjects } from "./QuickObjects";
 import { useState } from "react";
 import { ChevronRight, Layers, X } from "lucide-react";
 import { useModalDialog } from "@/shared/ui/useModalDialog";
@@ -41,6 +42,7 @@ export function GeoObjectManager(props: Props) {
       <Layers size={22} aria-hidden="true" /><span><strong>Управлять объектами</strong><small>Зон: {props.zones.length} · площадок: {props.sites.length}</small></span><ChevronRight size={18} aria-hidden="true" />
     </button>
     <p className="hint">Области, ограничения и площадки: названия, настройки, назначение БВС и удаление. Новые контуры и площадки добавляются на карте.</p>
+    <QuickObjects zones={props.zones} onUpdate={props.onUpdateZone} onSelect={props.onSelectZone} onRemove={props.onRemoveZone} onManage={() => setOpen(true)} />
     <dialog ref={dialog} className="fleet-dialog object-dialog" aria-labelledby="object-dialog-title" onClose={() => setOpen(false)} onClick={(event) => {
       if (event.target !== event.currentTarget) return;
       const bounds = event.currentTarget.getBoundingClientRect();

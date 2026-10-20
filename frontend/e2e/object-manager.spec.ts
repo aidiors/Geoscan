@@ -45,10 +45,10 @@ test("renames, protects and removes zones while keeping restrictions distinct", 
   await page.locator(".geo-object-row").first().click();
   await page.getByLabel("Название объекта").fill("Участок А");
   await page.getByRole("button", { name: "Применить название", exact: true }).click();
-  await page.getByRole("button", { name: "Защитить Участок А", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Удалить Участок А", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Скрыть Участок А", exact: true }).click();
-  await page.getByRole("checkbox", { name: "Включить область Участок А", exact: true }).uncheck();
+  await dialog.getByRole("button", { name: "Защитить Участок А", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Удалить Участок А", exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Скрыть Участок А", exact: true }).click();
+  await dialog.getByRole("checkbox", { name: "Включить область Участок А", exact: true }).uncheck();
   await expect(page.locator(".geo-object-row").first()).toContainText("исключена");
   await page.getByLabel("Тип объектов", { exact: true }).selectOption("restriction");
   await page.locator(".geo-object-row").first().click();
@@ -58,8 +58,24 @@ test("renames, protects and removes zones while keeping restrictions distinct", 
   await page.screenshot({ path: testInfo.outputPath("restriction-manager.png"), fullPage: true });
   await page.getByLabel("Тип объектов", { exact: true }).selectOption("work_area");
   await page.locator(".geo-object-row").first().click();
-  await page.getByRole("button", { name: "Разблокировать Участок А", exact: true }).click();
+  await dialog.getByRole("button", { name: "Разблокировать Участок А", exact: true }).click();
   const count = await page.locator(".geo-object-row").count();
-  await page.getByRole("button", { name: "Удалить Участок А", exact: true }).click();
+  await dialog.getByRole("button", { name: "Удалить Участок А", exact: true }).click();
   await expect(page.locator(".geo-object-row")).toHaveCount(count - 1);
+});
+
+
+test("uses quick layer actions without opening the manager", async ({ page }) => {
+  await page.goto("/");
+  const quick = page.getByLabel("Быстрые действия с зонами", { exact: true });
+  const row = quick.locator(".zone-item").first();
+  await row.getByRole("button", { name: /^Защитить / }).click();
+  await expect(row.getByRole("button", { name: /^Удалить / })).toBeDisabled();
+  await row.getByRole("button", { name: /^Скрыть / }).click();
+  await expect(row.getByRole("button", { name: /^Показать / })).toBeVisible();
+  await row.getByRole("button", { name: /^Разблокировать / }).click();
+  const before = await quick.locator(".zone-item").count();
+  await row.getByRole("button", { name: /^Удалить / }).click();
+  await expect(quick.locator(".zone-item")).toHaveCount(before - 1);
+  await expect(page.getByRole("dialog", { name: "Зоны и площадки" })).not.toBeVisible();
 });

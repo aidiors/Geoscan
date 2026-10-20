@@ -459,3 +459,8 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
 .object-feedback { color: var(--green); font-size: 13px; }
 .object-dialog .fleet-browser > .field + .field { margin-top: 12px; }
 .object-dialog .zone-item { margin-top: 12px; }
+
+.quick-objects .zone-item { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; padding: 7px; }
+.quick-objects .zone-layer-actions { gap: 1px; }
+.quick-objects .zone-layer-actions button { padding: 4px; }
+.quick-more { width: 100%; margin-top: 6px; border: 1px solid var(--line); border-radius: 7px; padding: 7px; color: var(--ink); background: var(--surface); cursor: pointer; }
