@@ -6,6 +6,22 @@ import { usePlanner } from "./usePlanner";
 describe("planner workspace", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("changes presentation flags without changing the request or replacing scenario work", () => {
+    const { result } = renderHook(usePlanner);
+    const initial = result.current.captureProject().editor_state;
+    const id = result.current.mapZones[0].zone_id;
+    act(() => result.current.handleUpdateLayer(id, { visible: false, locked: true }));
+    expect(result.current.workAreaSource).toBe(initial.workAreaSource);
+    expect(result.current.revision).toBe(0);
+    expect(result.current.scenario.segments).toEqual(initial.baseScenario!.segments);
+    expect(result.current.mapZones.find((zone) => zone.zone_id === id)?.visible).toBe(false);
+    act(() => result.current.saveScenario());
+    act(() => result.current.loadScenario());
+    expect(result.current.mapZones.find((zone) => zone.zone_id === id)?.locked).toBe(true);
+    act(() => result.current.handleClearZones());
+    expect(result.current.mapZones.map((zone) => zone.zone_id)).toEqual([id]);
+  });
+
   it("rejects malformed saved state without changing the current workspace", () => {
     const { result } = renderHook(usePlanner);
     const before = result.current.captureProject();

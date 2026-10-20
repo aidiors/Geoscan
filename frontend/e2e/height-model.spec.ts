@@ -9,7 +9,7 @@ test("plans survey height above an explicit surface while exporting absolute MSL
   }] };
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name: "elevated-field.geojson", mimeType: "application/geo+json", buffer: Buffer.from(JSON.stringify(field)) });
   await page.getByRole("button", { name: "Импортировать зону" }).click();
-  await expect(page.getByText("Рабочие области взяты из импорта", { exact: false })).toBeVisible();
+  await expect(page.getByText("Используется собственная геометрия задания", { exact: false })).toBeVisible();
   await page.getByLabel("Высота задания MSL, м", { exact: true }).fill("250");
   await page.getByLabel("Отметка поверхности MSL, м", { exact: true }).fill("150");
   await expect(page.getByText("Высота над поверхностью: 100 м", { exact: false })).toBeVisible();

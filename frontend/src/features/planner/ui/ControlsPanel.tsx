@@ -1,3 +1,5 @@
+import { ZoneLayers } from "./ZoneLayers";
+import { SiteAssignment } from "./SiteAssignment";
 import { FleetManager } from "./FleetManager";
 import { NumberField } from "./NumberFields";
 import { TerrainFields } from "@/features/terrain/ui/TerrainFields";
@@ -25,6 +27,7 @@ interface ControlsPanelProps {
   selectedDroneId: string;
   sites: FlightSiteState[];
   importedZones: ImportedZone[];
+  layerZones?: ImportedZone[];
   survey: SurveySettings;
   settings: PlanningSettings;
   pendingSiteRole: SiteRole | null;
@@ -39,9 +42,10 @@ interface ControlsPanelProps {
   onUpdateSurvey: (patch: Partial<SurveySettings>) => void;
   onUpdateSettings: (patch: Partial<PlanningSettings>) => void;
   onArmSite: (role: SiteRole) => void;
-  onAssignSite: (siteId: string, droneId: string) => void;
+  onAssignSite: (siteId: string, droneIds: string[]) => void;
   onRemoveSite: (siteId: string) => void;
   onImport: (file: File, zoneType: ZoneType) => Promise<void>;
+  onUpdateLayer?: (id: string, patch: Pick<ImportedZone, "visible" | "locked">) => void;
   onRemoveZone: (zoneId: string) => void;
   onRemoveInvalidZones: () => void;
   onSelectZone: (zoneId: string, enabled: boolean) => void;
@@ -111,7 +115,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         </label>
         <button className="secondary-button import-button" type="button" disabled={props.importing} onClick={() => void handleImport()}>{props.importing ? "Импортируем…" : selectedFile ? "Импортировать зону" : "Выбрать геоданные"}</button>
         {horizontalObstacles > 0 && <p className="hint" role="status">Препятствий без абсолютной отметки вершины: {horizontalObstacles}. Они обходятся по горизонтали на всех высотах; недостающие высоты не заменяются нулём.</p>}
-        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Рабочие области взяты из импорта; демозапреты исключены. Парк и площадки сохранены — проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Используется собственная геометрия задания. Ограничения показаны в списке слоёв. Парк и площадки сохранены — проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
         {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
           <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
         )}
@@ -120,9 +124,9 @@ export function ControlsPanel(props: ControlsPanelProps) {
             <div className="mini-actions"><button type="button" onClick={() => props.onSelectAllWorkAreas(true)}>Выбрать все</button><button type="button" onClick={() => props.onSelectAllWorkAreas(false)}>Снять выбор</button></div>
             <label className="field"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
         )}
-        <div className="zone-list">
-          {props.importedZones.filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase())).map((zone) => <div className="zone-item" key={zone.zone_id}><span className="zone-selection">{zone.zone_type === "work_area" && <input type="checkbox" aria-label={`Включить область ${zone.name}`} checked={zone.enabled !== false} onChange={(event) => props.onSelectZone(zone.zone_id, event.target.checked)} />}<span><b>{zone.name}</b><small>{zone.metadata?.geometry_issue ?? zone.metadata?.geometry_warning ?? zoneTypeLabels[zone.zone_type]}</small></span></span><button type="button" aria-label={`Удалить ${zone.name}`} onClick={() => props.onRemoveZone(zone.zone_id)}>×</button></div>)}
-        </div>
+        <ZoneLayers zones={(props.layerZones ?? props.importedZones).filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase()))}
+          onUpdate={props.onUpdateLayer ?? (() => {})} onSelect={props.onSelectZone} onRemove={props.onRemoveZone} />
+        <p className="hint">Глаз скрывает слой только на карте. Замок защищает от удаления. Флажок рабочей области управляет участием в расчёте.</p>
       </PanelSection>
 
       <PanelSection title="Тип работ" badge={taskLabels[props.task]}>
@@ -197,10 +201,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
             <div className="site-item" key={flightSite.site_id}>
               <span><strong>{flightSite.name}</strong><small>{flightSite.coordinate.latitude.toFixed(5)}, {flightSite.coordinate.longitude.toFixed(5)}</small></span>
               <button type="button" aria-label={`Удалить ${flightSite.name}`} onClick={() => props.onRemoveSite(flightSite.site_id)}>×</button>
-              <select value={flightSite.assignedDroneId} onChange={(event) => props.onAssignSite(flightSite.site_id, event.target.value)}>
-                <option value="">Весь парк</option>
-                {props.drones.map((drone) => <option key={drone.id} value={drone.id}>{drone.name}</option>)}
-              </select>
+              <SiteAssignment site={flightSite} drones={props.drones} onChange={(ids) => props.onAssignSite(flightSite.site_id, ids)} />
             </div>
           ))}
         </div>

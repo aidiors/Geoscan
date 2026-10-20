@@ -7,7 +7,7 @@ test("keeps imported inputs separate from demo restrictions and preserves unknow
   }] };
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name: "own-field.geojson", mimeType: "application/geo+json", buffer: Buffer.from(JSON.stringify(field)) });
   await page.getByRole("button", { name: "Импортировать зону" }).click();
-  await expect(page.getByText("Рабочие области взяты из импорта", { exact: false })).toBeVisible();
+  await expect(page.getByText("Используется собственная геометрия задания", { exact: false })).toBeVisible();
   await page.getByLabel("Тип импортируемых геоданных").selectOption("obstacle");
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name: "unknown-top.kml", mimeType: "application/vnd.google-earth.kml+xml",
     buffer: Buffer.from('<kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><name>Unknown top</name><Point><coordinates>37.5,55.8</coordinates></Point></Placemark></kml>') });
@@ -25,7 +25,8 @@ test("keeps imported inputs separate from demo restrictions and preserves unknow
   await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
   await page.getByText("Допущения и границы проверки", { exact: true }).click();
   await expect(page.getByText("Для препятствий без абсолютной отметки вершины MSL", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: "Очистить зоны", exact: true }).click();
+  await page.getByRole("button", { name: "Редактирование", exact: true }).click();
+  await page.getByRole("button", { name: "Удалить незакреплённые", exact: true }).click();
   await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Выберите хотя бы одну рабочую область");
 });

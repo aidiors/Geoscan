@@ -59,6 +59,11 @@ export default function App() {
     handleCloneDrone,
     handleRemoveDrone,
     handleAddSite,
+    handleDrawZone,
+    handleUpdateLayer,
+    handleRemoveZone,
+    handleClearZones,
+    handleSelectZone,
     handleImport,
     handleCalculate,
     handleCancelPlanning,
@@ -97,6 +102,7 @@ export default function App() {
           selectedDroneId={selectedDroneId}
           sites={sites}
           importedZones={importedZones}
+          layerZones={mapZones}
           survey={survey}
           settings={settings}
           pendingSiteRole={pendingSiteRole}
@@ -111,18 +117,20 @@ export default function App() {
           onUpdateSurvey={(patch) => { setSurvey((current) => ({ ...current, ...patch })); invalidate("Параметры съёмки изменены"); }}
           onUpdateSettings={(patch) => { setSettings((current) => ({ ...current, ...patch })); invalidate("Ограничения расчёта изменены"); }}
           onArmSite={(role) => { setPendingSiteRole(role); setStatus("Щёлкните по карте, чтобы добавить площадку"); }}
-          onAssignSite={(siteId, droneId) => { setSites((current) => current.map((flightSite) => flightSite.site_id === siteId ? { ...flightSite, assignedDroneId: droneId } : flightSite)); invalidate("Назначение площадки изменено"); }}
+          onAssignSite={(siteId, droneIds) => { setSites((current) => current.map((flightSite) => flightSite.site_id === siteId ? { ...flightSite, assignedDroneId: "", assignedDroneIds: droneIds } : flightSite)); invalidate("Назначение площадки изменено"); }}
           onRemoveSite={(siteId) => { setSites((current) => current.filter((flightSite) => flightSite.site_id !== siteId)); invalidate("Площадка удалена"); }}
           onImport={handleImport}
-          onRemoveZone={(zoneId) => { setImportedZones((current) => current.filter((zone) => zone.zone_id !== zoneId)); invalidate("Зона удалена"); }}
-          onRemoveInvalidZones={() => { setImportedZones((current) => current.filter((zone) => !zone.metadata?.geometry_issue && !zone.metadata?.geometry_warning)); invalidate("Области без площади и меньше 1 м² удалены из задания"); }}
-          onSelectZone={(zoneId, enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_id === zoneId && zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
+          onUpdateLayer={handleUpdateLayer}
+          onRemoveZone={handleRemoveZone}
+          onRemoveInvalidZones={() => { setImportedZones((current) => current.filter((zone) => zone.locked || (!zone.metadata?.geometry_issue && !zone.metadata?.geometry_warning))); invalidate("Области без площади и меньше 1 м² удалены из задания"); }}
+          onSelectZone={handleSelectZone}
           onSelectAllWorkAreas={(enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
           onSave={saveScenario}
           onLoad={loadScenario}
         />
         <MissionMap
-          key={fitKey}
+          key={scenarioId}
+          fitKey={fitKey}
           zones={mapZones}
           sites={sites}
           drones={drones}
@@ -131,8 +139,10 @@ export default function App() {
           quality={insights.quality}
           selectedDroneId={selectedDroneId}
           pendingSiteRole={pendingSiteRole}
+          onAddZone={handleDrawZone}
+          onCancelSite={() => setPendingSiteRole(null)}
           onAddSite={handleAddSite}
-          onClearZones={() => { setImportedZones([]); invalidate("Импортированные зоны очищены"); }}
+          onClearZones={handleClearZones}
         />
         <ResultsPanel planningIssue={planningIssue} terrainMode={settings.altitudeReference === "agl"} archived={archivedPlan} insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
       </main>

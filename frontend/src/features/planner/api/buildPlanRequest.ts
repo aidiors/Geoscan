@@ -1,3 +1,4 @@
+import { assignedDroneIds } from "../model/siteAssignments";
 import type { TerrainAsset } from "@/features/terrain/model/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask, PlanRequest } from "@/shared/api/types";
@@ -114,6 +115,9 @@ export function buildPlanRequest(
     if (sets != null && (!Number.isInteger(sets) || sets < 0 || sets > 10000)) {
       throw new Error(`${drone.name}: число готовых комплектов АКБ должно быть целым от 0 до 10 000.`);
     }
+  }
+  for (const site of sites) {
+    if (assignedDroneIds(site).some((id) => !drones.some((drone) => drone.id === id))) throw new Error(`Площадка «${site.name}» ссылается на отсутствующий БВС. Обновите назначение.`);
   }
   const departureSites = sites.filter((flightSite) => flightSite.role === "takeoff");
   const landingSites = sites.filter((flightSite) => flightSite.role === "landing");
@@ -317,7 +321,7 @@ function apiSite(site: FlightSiteState): PlanRequest["departure_sites"][number] 
     site_id: site.site_id,
     name: site.name,
     coordinate: site.coordinate,
-    assigned_drone_ids: site.assignedDroneId ? [site.assignedDroneId] : [],
+    assigned_drone_ids: assignedDroneIds(site),
   };
 }
 

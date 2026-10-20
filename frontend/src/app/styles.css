@@ -234,12 +234,12 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .file-picker small { min-width: 0; overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; }
 .file-picker input { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 .import-button { width: 100%; margin-top: 8px; border: 0; color: #4c1d95; background: #ede9fe; }
-.zone-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: 8px; border-radius: 8px; color: #475569; background: var(--editor); }
+.zone-item { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); padding: 8px; border-radius: 8px; color: #475569; background: var(--editor); }
 .zone-selection { display: flex; gap: 7px; align-items: flex-start; min-width: 0; }
 .zone-selection > span { min-width: 0; }
 .zone-selection input { width: auto; flex: none; margin-top: 2px; }
 
-.map-zone { display: flex; min-width: 0; min-height: 0; padding: 22px; flex-direction: column; }
+.map-zone { display: flex; min-width: 0; min-height: 0; overflow-y: auto; padding: 22px; flex-direction: column; }
 .map-title { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .map-title h2 { margin: 4px 0 0; font-size: 21px; }
 .legend { display: flex; gap: 12px; color: var(--muted); font-size: 10px; white-space: nowrap; }
@@ -250,15 +250,15 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .legend-radius { height: 0 !important; border-top: 2px dashed #f97316; border-radius: 0 !important; background: transparent; }
 .legend-target { border: 1px solid #15803d; background: #22c55e; }
 .legend-restricted { border: 1px solid #be123c; background: #f43f5e; }
-.map-frame { position: relative; min-height: 0; flex: 1; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: #d7e2d9; box-shadow: 0 2px 10px #1620360b; }
+.map-frame { position: relative; min-height: 300px; flex: 1; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: #d7e2d9; box-shadow: 0 2px 10px #1620360b; }
 .map-frame > svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
 .map-frame > svg:active { cursor: grabbing; }
 .map-frame.placing-site > svg { cursor: crosshair; }
 .map-tiles, .map-tiles image, .zone-layer, .route-layer, .site-layer { pointer-events: none; }
-.map-controls { position: absolute; z-index: 3; top: 14px; right: 14px; display: grid; gap: 6px; }
+.map-controls { position: absolute; z-index: 3; top: 14px; right: 14px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
 .map-controls button { display: flex; min-width: 34px; align-items: center; justify-content: center; gap: 6px; border: 1px solid #dce2eb; border-radius: 8px; padding: 7px 9px; color: #3d2a66; background: #fffffff2; font-size: 10px; font-weight: 800; }
 .map-controls button:hover { background: #f7f4ff; }
-.basemap-switch { display: grid; gap: 3px; padding-bottom: 6px; border-bottom: 1px solid #dce2eb; }
+.basemap-switch { display: flex; flex-wrap: wrap; gap: 3px; padding-bottom: 6px; border-bottom: 1px solid #dce2eb; }
 .basemap-switch button[aria-pressed="true"] { border-color: #6d28d9; color: #fff; background: #6d28d9; }
 .map-layer-notice { position: absolute; z-index: 2; left: 14px; top: 58px; max-width: min(300px, 60%); border-radius: 8px; padding: 8px 10px; color: #78350f; background: #fffbebf2; font-size: 11px; }
 .site-label { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; fill: #172033; font-size: 11px; font-weight: 800; }
@@ -411,3 +411,31 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
 
 .calculation-timer { flex: 0 0 auto; padding: 8px 10px; border-radius: 8px; background: var(--soft-violet); color: var(--soft-violet-text); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 760px) { .header-actions { flex-wrap: wrap; gap: 5px; } .calculation-timer { font-size: 11px; } }
+
+/* Map editing and independent layer controls. */
+.map-editor-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.map-editor-controls button { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.map-mode-switch { display: flex; gap: 4px; }
+.map-mode-switch button[aria-pressed="true"] { background: #6d28d9; color: white; }
+.drawing-controls { width: 100%; display: flex; align-items: end; flex-wrap: wrap; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.drawing-controls p { flex: 1 1 220px; align-self: center; margin: 0; font-size: 12px; }
+.drawing-controls label { display: grid; flex: 1 1 150px; gap: 4px; font-size: 12px; }
+.drawing-controls input, .drawing-controls select { width: 100%; padding: 6px; }
+.drawing-controls [role="alert"] { color: #dc2626; }
+.map-compass { position: absolute; right: 20px; bottom: 72px; z-index: 3; display: grid; justify-items: center; color: #3d2a66; background: #fffffff2; border-radius: 24px; padding: 8px 12px; font-size: 14px; box-shadow: 0 2px 10px #0002; pointer-events: none; }
+.map-compass span { color: #dc2626; font-size: 22px; line-height: 1; }
+.map-controls > button { width: 34px; height: 34px; padding: 7px; }
+.map-controls button { pointer-events: auto; }
+.map-controls .basemap-switch button { padding: 6px; }
+.map-frame .placement-hint { max-width: 55%; }
+.zone-layer-actions { display: flex; justify-content: flex-end; gap: 5px; }
+.zone-item .zone-layer-actions button { grid-column: auto; grid-row: auto; display: inline-flex; align-items: center; padding: 5px; color: var(--muted); }
+.zone-item .zone-layer-actions button[aria-pressed="true"] { color: #6d28d9; background: #ede9fe; border-radius: 5px; }
+.zone-item button:disabled { opacity: .35; cursor: not-allowed; }
+.site-assignment { grid-column: 1 / -1; font-size: 12px; }
+.site-assignment summary { cursor: pointer; padding: 6px 0; }
+.site-assignment fieldset { max-height: 210px; overflow: auto; margin: 0; padding: 6px; border: 1px solid var(--line); }
+.site-assignment label { display: flex; gap: 7px; align-items: center; padding: 5px; }
+.site-assignment input { width: auto; margin: 0; }
+
+.feasibility-card, .map-layer-notice { pointer-events: none; }

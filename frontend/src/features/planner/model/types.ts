@@ -57,6 +57,7 @@ export interface FlightSiteState {
   role: SiteRole;
   coordinate: Coordinate;
   assignedDroneId: string;
+  assignedDroneIds?: string[];
 }
 
 export interface Scenario {

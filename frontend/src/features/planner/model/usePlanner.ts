@@ -1,3 +1,4 @@
+import { assignedDroneIds } from "./siteAssignments";
 import { TerrainRepository } from "@/features/terrain/api/TerrainRepository";
 import type { TerrainAsset } from "@/features/terrain/model/types";
 import { cloneFleet, fleetCatalog } from "./fleetCatalog";
@@ -8,7 +9,7 @@ import { importGeodata } from "@/features/geodata/api/importGeodata";
 import { mergeZones } from "@/features/geodata/model/mergeZones";
 import { defaultDemoCaseForScenario, demoCaseById, demoCases } from "@/features/demos/data/demoCases";
 import { cloneSites, scenarios } from "@/features/demos/data/scenarios";
-import { activeNoFlyZones, activeWorkAreas, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
+import { activeNoFlyZones, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
 import { radiusSamples } from "@/features/planner/model/radii";
 import type { Coordinate } from "@/shared/geo/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
@@ -65,8 +66,8 @@ export function usePlanner() {
 
   const scenario = scenarioOverride?.id === scenarioId ? scenarioOverride : scenarios.find((candidate) => candidate.id === scenarioId) ?? initialScenario;
   const mapZones = useMemo(() => {
-    const supplemental = importedZones.filter((zone) => zone.zone_type !== "work_area" && zone.zone_type !== "no_fly_zone");
-    return [...activeWorkAreas(importedZones, scenario, workAreaSource), ...activeNoFlyZones(importedZones, scenario, workAreaSource), ...supplemental];
+    const custom = workAreaSource === "imported" || importedZones.some((zone) => zone.zone_type === "work_area");
+    return custom ? importedZones : [...scenario.workAreas, ...activeNoFlyZones(importedZones, scenario, workAreaSource), ...importedZones.filter((zone) => zone.zone_type !== "no_fly_zone")];
   }, [importedZones, scenario, workAreaSource]);
   const fitKey = `${scenarioId}:${importedZones.map((zone) => zone.zone_id).join(",")}:${revision}`;
 
@@ -222,7 +223,12 @@ export function usePlanner() {
     const remaining = drones.filter((drone) => drone.id !== selectedDroneId);
     setDrones(remaining);
     setSelectedDroneId(remaining[0].id);
-    setSites((current) => current.map((flightSite) => flightSite.assignedDroneId === selectedDroneId ? { ...flightSite, assignedDroneId: "" } : flightSite));
+    setSites((current) => current.flatMap((site) => {
+      const ids = assignedDroneIds(site);
+      if (!ids.includes(selectedDroneId)) return [site];
+      const remainingIds = ids.filter((id) => id !== selectedDroneId);
+      return remainingIds.length ? [{ ...site, assignedDroneId: "", assignedDroneIds: remainingIds }] : [];
+    }));
     invalidate("БВС удалён из парка");
   }
 
@@ -607,6 +613,33 @@ export function usePlanner() {
     handleCloneDrone,
     handleRemoveDrone,
     handleAddSite,
+    handleDrawZone: (zone: ImportedZone) => {
+      setImportedZones([...mapZones, zone]);
+      setWorkAreaSource("imported");
+      invalidate("Контур добавлен. Проверьте геометрию и пересчитайте план");
+    },
+    handleUpdateLayer: (id: string, patch: Pick<ImportedZone, "visible" | "locked">) => {
+      const update = (zone: ImportedZone) => zone.zone_id === id ? { ...zone, ...patch } : zone;
+      if (workAreaSource === "scenario" && !importedZones.some((zone) => zone.zone_type === "work_area")) {
+        setScenarioOverride({ ...scenario, workAreas: scenario.workAreas.map(update), noFlyZones: scenario.noFlyZones.map(update) });
+      }
+      setImportedZones((current) => current.map(update));
+    },
+    handleRemoveZone: (id: string) => {
+      setImportedZones(mapZones.filter((zone) => zone.zone_id !== id || zone.locked));
+      setWorkAreaSource("imported");
+      invalidate("Незащищённая зона удалена");
+    },
+    handleClearZones: () => {
+      setImportedZones(mapZones.filter((zone) => zone.locked));
+      setWorkAreaSource("imported");
+      invalidate("Незащищённые зоны удалены");
+    },
+    handleSelectZone: (id: string, enabled: boolean) => {
+      setImportedZones(mapZones.map((zone) => zone.zone_id === id && zone.zone_type === "work_area" ? { ...zone, enabled } : zone));
+      setWorkAreaSource("imported");
+      invalidate("Выбор рабочих областей изменён");
+    },
     handleImport,
     handleCalculate,
     handleCancelPlanning: () => planningController.current?.abort(),

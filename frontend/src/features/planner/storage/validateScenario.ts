@@ -18,6 +18,7 @@ function coordinate(value: unknown): void {
 function sites(value: unknown): void {
   for (const item of array(value)) {
     const site = record(item); text(site.site_id); text(site.name); text(site.assignedDroneId); coordinate(site.coordinate);
+    if (site.assignedDroneIds !== undefined) array(site.assignedDroneIds).forEach(text);
     if (!["takeoff", "landing", "alternate"].includes(String(site.role))) throw new Error("Неизвестная роль площадки");
   }
 }
@@ -27,6 +28,7 @@ function zones(value: unknown): void {
     if (!["work_area", "no_fly_zone", "allowed_airspace", "obstacle"].includes(String(zone.zone_type))) throw new Error("Неизвестный тип зоны проекта");
     array(zone.coordinates).forEach(coordinate);
     if (zone.interior_rings !== undefined) array(zone.interior_rings).forEach((ring) => array(ring).forEach(coordinate));
+    for (const key of ["visible", "locked"]) if (zone[key] !== undefined && typeof zone[key] !== "boolean") throw new Error("Повреждены настройки слоя");
     if (zone.enabled !== undefined && typeof zone.enabled !== "boolean") throw new Error("Повреждён выбор рабочих областей");
   }
 }
