@@ -2,7 +2,7 @@
 
 Здесь зафиксированы ответы и комментарии представителей кейса. Выводы проекта
 из них отдельно изложены в
-[`docs/expert-faq-decisions.md`](../docs/expert-faq-decisions.md).
+[`docs/requirements.md`](../docs/requirements.md).
 
 ## Стоимость привлечения нескольких БВС
 
