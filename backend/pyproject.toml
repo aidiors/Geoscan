@@ -27,7 +27,7 @@ benchmark = [
 ]
 dev = [
   "httpx2>=0.1",
-  "pytest>=8,<9",
+  "pytest>=9.0.3,<10",
   "ruff>=0.11,<1",
   "ty>=0.0.1",
 ]

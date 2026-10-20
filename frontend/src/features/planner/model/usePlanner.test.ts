@@ -87,7 +87,7 @@ describe("planner workspace", () => {
 
     expect(result.current.drones.find((drone) => drone.id === droneId)?.battery).toBe(73);
     expect(result.current.selectedDroneId).toBe(droneId);
-    expect(result.current.status).toBe("Сценарий восстановлен — требуется новый расчёт");
+    expect(result.current.status).toBe("Сценарий восстановлен - требуется новый расчёт");
   });
 
   it("preserves all geometry above the former 500-object threshold", () => {
@@ -155,7 +155,7 @@ describe("planner workspace", () => {
     expect(result.current.drones[0].enabled).toBe(false);
     expect(result.current.drones.slice(1)).toEqual(remaining);
     expect(result.current.plan).toBeNull();
-    expect(result.current.status).toBe("Параметры парка изменены — требуется новый расчёт");
+    expect(result.current.status).toBe("Параметры парка изменены - требуется новый расчёт");
   });
 
   it("adds a model batch and clones the selected aircraft without copying private site bindings", () => {

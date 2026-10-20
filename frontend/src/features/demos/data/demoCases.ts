@@ -68,7 +68,7 @@ export const demoCases: DemoCase[] = [
     scenarioId: "multi-urban-districts",
     title: "Группа БВС над кварталами",
     category: "Групповая оптимизация",
-    description: "Три рабочих района распределяются по парку, после чего scheduler устраняет пространственно-временные конфликты.",
+    description: "Три рабочих района распределяются по парку с безопасным расписанием вылетов.",
     highlights: ["Три рабочие зоны", "Несколько БВС", "Робастное расписание"],
     expectedEvidence: ["Работы распределены по флоту", "Конфликты разведены", "Показан срок всего проекта"],
     recommendedObjective: "time",
@@ -106,7 +106,7 @@ export const demoCases: DemoCase[] = [
     settings: { windSpeed: 25, windDirection: 315 },
   },
   {
-    id: "neighbor-fields-joint", scenarioId: "neighbor-fields", title: "Один вылет — несколько участков",
+    id: "neighbor-fields-joint", scenarioId: "neighbor-fields", title: "Один вылет - несколько участков",
     category: "Совместные вылеты", description: "Синтетический пример: два поля, удалённая база и заданный радиус 40 м. Поиск сравнивает общие вылеты с отдельными возвращениями.",
     highlights: ["Съёмка двух областей", "Камера выключена между полями", "История проверенных улучшений"],
     expectedEvidence: ["Принадлежность галсов сохранена", "Проверены ресурс и камера", "Итог можно экспортировать"],

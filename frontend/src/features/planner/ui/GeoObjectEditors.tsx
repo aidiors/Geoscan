@@ -28,7 +28,7 @@ export function ZoneObjectEditor({ zone, onUpdate, onSelect, onRemove }: ZonePro
     </form>
     <p className="hint">ID: {zone.zone_id} · вершин: {zone.coordinates.length} · внутренних контуров: {zone.interior_rings.length}</p>
     <ZoneLayers zones={[zone]} onUpdate={onUpdate} onSelect={onSelect} onRemove={onRemove} />
-    <p className="hint">Глаз управляет видимостью на карте; скрытые ограничения продолжают действовать. Замок защищает от удаления. Флажок рабочей области управляет участием в расчёте.</p>
+    <p className="hint">Глаз управляет видимостью на карте, скрытые ограничения продолжают действовать. Замок защищает от удаления. Флажок рабочей области управляет участием в расчёте.</p>
   </>;
 }
 

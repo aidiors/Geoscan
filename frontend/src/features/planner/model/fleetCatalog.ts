@@ -153,7 +153,7 @@ export class FleetCatalog {
 
   private validateCount(count: number, current: number): void {
     if (!Number.isInteger(count) || count < 1 || current + count > 100) {
-      throw new Error("Добавьте целое количество БВС; в парке допускается до 100 бортов.");
+      throw new Error("Добавьте целое количество БВС, в парке допускается до 100 бортов.");
     }
   }
 

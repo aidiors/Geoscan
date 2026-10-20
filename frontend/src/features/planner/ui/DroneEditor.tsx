@@ -75,7 +75,7 @@ export function DroneEditor({ drone, survey, onUpdate }: DroneEditorProps) {
               <OptionalNumberField label="Межсервисный ресурс, ч" value={drone.maintenanceHours} min={0.01} max={100000} onChange={(maintenanceHours) => onUpdate({ maintenanceHours })} />
               <NumberField label="Налёт после ТО, ч" value={drone.accumulatedHours} min={0} max={100000} step={0.1} onChange={(accumulatedHours) => onUpdate({ accumulatedHours })} />
             </div>
-            <p className="hint">Один готовый комплект АКБ — один вылет с указанным зарядом и состоянием. Пустое поле означает неограниченное число подготовленных комплектов. Зарядка в ходе задания не рассчитывается; время замены задайте в обслуживании между вылетами. Лимиты ТО ограничивают суммарные вылеты и налёт этого борта.</p>
+            <p className="hint">Один готовый комплект АКБ - один вылет с указанным зарядом и состоянием. Пустое поле означает неограниченное число подготовленных комплектов. Зарядка в ходе задания не рассчитывается, время замены задайте в обслуживании между вылетами. Лимиты ТО ограничивают суммарные вылеты и налёт этого борта.</p>
         </div>
       </details>
       <details className="fleet-settings-group">
@@ -120,7 +120,7 @@ export function DroneEditor({ drone, survey, onUpdate }: DroneEditorProps) {
               <OptionalNumberField label="Предельный набор, м/с" value={drone.maximumClimbRate} min={0.1} max={100} onChange={(maximumClimbRate) => onUpdate({ maximumClimbRate })} />
               <OptionalNumberField label="Предельное снижение, м/с" value={drone.maximumDescentRate} min={0.1} max={100} onChange={(maximumDescentRate) => onUpdate({ maximumDescentRate })} />
             </div>
-            <p className="hint">Профиль используется при экспорте миссии; Generic MAVLink не приписывает аппарату неподтверждённую прошивку.</p>
+            <p className="hint">Профиль используется при экспорте миссии, Generic MAVLink не приписывает аппарату неподтверждённую прошивку.</p>
             <label className="field"><span>Задачи</span><input value={drone.tasks.join(", ")} onChange={(event) => {
               const tasks = parseTasks(event.target.value);
               const payloads = drone.payloads.length === 1 && drone.payloads[0].payload_id.startsWith("custom-")

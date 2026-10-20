@@ -111,16 +111,24 @@ class ProductiveRoutePool:
             maximum_active_drones or len(model.problem.aircraft), len(model.problem.aircraft)
         )
         targets = self.duration_targets(model, fleet_limit, objective)
-        if orders and any(plane.minimum_turn_radius_m > 0 for plane in model.problem.aircraft):
+        curved = any(plane.minimum_turn_radius_m > 0 for plane in model.problem.aircraft)
+        finite_fleet = any(
+            plane.resource_limit is not None and plane.resource_limit.is_bounded
+            for plane in model.problem.aircraft
+        )
+        if orders and (curved or finite_fleet):
             seed_end = min(construction_end, perf_counter() + 2)
             # Long groups save transit; shorter groups expose parallel schedules.
             for target in (targets[0], min(targets, key=lambda value: abs(value - targets[0] / 2))):
+                if len(pool) >= self.maximum_candidates:
+                    break
                 seed = FleetSweepSeed().generate(
                     model, orders[0], target, fleet_limit, seed_end, objective
                 )
                 if seed and seed not in seen:
                     seen.add(seed)
-                    pool.append((f"curved-sweep-seed-{len(pool)}", seed))
+                    label = "curved" if curved else "resource"
+                    pool.append((f"{label}-sweep-seed-{len(pool)}", seed))
         contexts: list[tuple[int, list[list[Arc]], int]] = []
         catalog_limit = min(self.maximum_candidates, self.maximum_catalog_candidates)
 

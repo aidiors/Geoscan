@@ -1,6 +1,7 @@
 """Complete fleet seeds before expensive heading-aware catalogs consume their budget."""
 
 from dataclasses import dataclass
+from math import isfinite
 from time import perf_counter
 
 from geoplan.routing.model import CostModel, RoutingSearchObjective, Solution, Trip
@@ -29,7 +30,9 @@ class FleetSweepSeed:
                     if perf_counter() >= deadline:
                         return ()
                     trip = Trip(plane, (2 * order[cursor] + orientation,))
-                    if model.trip(trip) is not None:
+                    if isfinite(
+                        model.score((*result, trip), complete=False, search_objective=objective)[0]
+                    ):
                         options.append(trip)
             if not options:
                 return ()
@@ -47,7 +50,15 @@ class FleetSweepSeed:
                 for orientation in (0, 1):
                     trip = Trip(chosen.aircraft, (*chosen.visits, 2 * order[cursor] + orientation))
                     cost = model.trip(trip)
-                    if cost is not None and cost.total <= target_minutes:
+                    if (
+                        cost is not None
+                        and cost.total <= target_minutes
+                        and isfinite(
+                            model.score(
+                                (*result, trip), complete=False, search_objective=objective
+                            )[0]
+                        )
+                    ):
                         extensions.append((cost.total, trip.visits, trip))
                 if not extensions:
                     break

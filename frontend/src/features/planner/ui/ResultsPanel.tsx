@@ -1,5 +1,5 @@
 import { TerrainAltitudeProfile } from "@/features/terrain/ui/TerrainAltitudeProfile";
-import { Download, Plane, Route, ShieldCheck, ShieldX, Sparkles } from "lucide-react";
+import { Download, Plane, Route, Shield, ShieldX, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { ForwardFlightAltitudeProfile } from "@/features/planner/ui/ForwardFlightAltitudeProfile";
 import type { ReactNode } from "react";
@@ -102,12 +102,12 @@ export function ResultsPanel({
         <a href="#mission-inputs">Изменить условия задания →</a>
       </section>}
       {archived && <p className="hint" role="note">Архивный результат: условия и качество не перепроверялись при открытии. Для экспорта в автопилот выполните новый расчёт.</p>}
-      <p className="lead">{plan?.feasibility?.message ?? "Настройте сценарий и запустите расчёт — демонстрационные цифры не используются."}</p>
+      <p className="lead">{plan?.feasibility?.message ?? "Настройте сценарий и запустите расчёт - демонстрационные цифры не используются."}</p>
       {plan && <p className="hint">{plan.criterion === "balanced"
-        ? "Приоритет: минимальный налёт в заданный срок. Если срок недостижим — минимальное превышение."
+        ? "Приоритет: минимальный налёт в заданный срок. Если срок недостижим - минимальное превышение."
         : plan.criterion === "completion_time"
-          ? "Приоритет: завершить быстрее; среди равных вариантов — меньше налёта."
-          : "Приоритет: минимальный налёт; среди равных вариантов — завершить быстрее."}</p>}
+          ? "Приоритет: завершить быстрее, среди равных вариантов - меньше налёта."
+          : "Приоритет: минимальный налёт, среди равных вариантов - завершить быстрее."}</p>}
 
       {plan?.feasibility && plan.feasibility.recommendations.length > 0 && (
         <section className="recommendation-card">
@@ -115,24 +115,24 @@ export function ResultsPanel({
           {plan.feasibility.recommendations.map((recommendation) => (
             <div key={`${recommendation.code}-${recommendation.parameter ?? "general"}`}>
               <span>{recommendation.message}</span>
-              <small>{recommendation.confidence === "exact" ? "точный контрфактуал" : "оценка — требуется пересчёт"}</small>
+              <small>{recommendation.confidence === "exact" ? "проверено пересчётом" : "оценка - требуется пересчёт"}</small>
             </div>
           ))}
         </section>
       )}
 
       <div className="metrics">
-        <Metric label="Срок" value={plan ? `${format(plan.metrics.completion_minutes)} мин` : "—"} detail="до завершения" />
-        <Metric label="Налёт" value={plan ? `${format(plan.metrics.total_flight_minutes)} мин` : "—"} detail="по флоту" />
-        <Metric label="Маршрут" value={plan ? `${format(plan.metrics.total_distance_km)} км` : "—"} detail={plan ? `${format(plan.metrics.useful_flight_percent)}% полезного пути` : "общая дистанция"} />
+        <Metric label="Срок" value={plan ? `${format(plan.metrics.completion_minutes)} мин` : "-"} detail="до завершения" />
+        <Metric label="Налёт" value={plan ? `${format(plan.metrics.total_flight_minutes)} мин` : "-"} detail="по флоту" />
+        <Metric label="Маршрут" value={plan ? `${format(plan.metrics.total_distance_km)} км` : "-"} detail={plan ? `${format(plan.metrics.useful_flight_percent)}% полезного пути` : "общая дистанция"} />
       </div>
-      {plan && <p className="fleet-summary"><Plane size={16} /> {plan.metrics.active_drone_count} БВС в работе · {plan.metrics.sortie_count} вылетов <span>Расчётное время полётов; длительность поиска показана отдельно.</span></p>}
+      {plan && <p className="fleet-summary"><Plane size={16} /> {plan.metrics.active_drone_count} БВС в работе · {plan.metrics.sortie_count} вылетов <span>Расчётное время полётов, длительность поиска показана отдельно.</span></p>}
 
       <PlanSearchProgress search={plan?.search} />
       {plan?.optimization && (
         <div className="algorithm-card">
           <Sparkles size={17} />
-          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.algorithm === "productive_route_pool" ? "Сравнение вариантов вылетов после расчёта безопасного расписания" : plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Контуры и прямые проходы; учтены запуск и посадка" : coverageAngleSummary} · обход по графу видимости</small><small>{Object.values(plan.optimization.turn_radii_by_drone ?? {}).some((radius) => radius > 0) ? `Радиусы по бортам: ${Object.entries(plan.optimization.turn_radii_by_drone ?? {}).map(([id, radius]) => `${id}: ${format(radius)} м`).join(", ")}.` : plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
+          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.algorithm === "productive_route_pool" ? "Сравнение вариантов вылетов после расчёта безопасного расписания" : plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Контуры и прямые проходы, учтены запуск и посадка" : coverageAngleSummary} · обход по графу видимости</small><small>{Object.values(plan.optimization.turn_radii_by_drone ?? {}).some((radius) => radius > 0) ? `Радиусы по бортам: ${Object.entries(plan.optimization.turn_radii_by_drone ?? {}).map(([id, radius]) => `${id}: ${format(radius)} м`).join(", ")}.` : plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
         </div>
       )}
 
@@ -158,15 +158,15 @@ export function ResultsPanel({
       {plan?.schedule && (
         <div className="algorithm-card">
           <Route size={17} />
-          <span><b>Робастное расписание вылетов</b><small>Разведение {format(plan.schedule.minimum_separation_m)} м по горизонтали / {format(plan.schedule.minimum_vertical_separation_m ?? 30)} м по вертикали · позиция ±{format(plan.schedule.position_uncertainty_m)} м · старт ±{format(plan.schedule.start_time_uncertainty_seconds)} с · скорость ±{format(plan.schedule.speed_uncertainty_percent)}%</small><small>Площадка {format(plan.schedule.flight_site_occupancy_seconds)} с · подготовка {format(plan.schedule.turnaround_minutes)} мин · эшелонировано миссий: {plan.schedule.vertically_deconflicted_mission_count ?? 0} · устранено конфликтов: {plan.schedule.resolved_conflict_count}</small></span>
+          <span><b>Расписание вылетов</b><small>Разведение {format(plan.schedule.minimum_separation_m)} м по горизонтали / {format(plan.schedule.minimum_vertical_separation_m ?? 30)} м по вертикали · позиция ±{format(plan.schedule.position_uncertainty_m)} м · старт ±{format(plan.schedule.start_time_uncertainty_seconds)} с · скорость ±{format(plan.schedule.speed_uncertainty_percent)}%</small><small>Площадка {format(plan.schedule.flight_site_occupancy_seconds)} с · подготовка {format(plan.schedule.turnaround_minutes)} мин · эшелонировано миссий: {plan.schedule.vertically_deconflicted_mission_count ?? 0}</small></span>
         </div>
       )}
 
       {plan?.safety_audit && (
         <section className={`safety-audit-card ${plan.safety_audit.status}`}>
           <div className="safety-audit-title">
-            {plan.safety_audit.status === "passed" ? <ShieldCheck size={18} /> : <ShieldX size={18} />}
-            <span><b>Независимый аудит плана</b><small>{plan.safety_audit.status === "passed" ? "Все применимые проверки пройдены" : "Обнаружены нарушения — план нельзя выпускать"}</small></span>
+            {plan.safety_audit.status === "passed" ? <Shield size={18} /> : <ShieldX size={18} />}
+            <span><b>Независимый аудит плана</b><small>{plan.safety_audit.status === "passed" ? "Все применимые проверки пройдены" : "Обнаружены нарушения - план нельзя выпускать"}</small></span>
           </div>
           <div className="safety-check-list">
             {plan.safety_audit.checks.map((check) => (
@@ -187,7 +187,7 @@ export function ResultsPanel({
       {insights}
       <section className="radius-analysis-card">
         <b>Допущение о радиусе разворота</b>
-        <p>Это отдельный анализ диапазона радиусов: он не меняет уже рассчитанный план. Радиус основного плана задаётся слева и учитывается при построении и экспорте маршрута; 0 м отключает ограничение.</p>
+        <p>Это отдельный анализ диапазона радиусов: он не меняет уже рассчитанный план. Радиус основного плана задаётся слева и учитывается при построении и экспорте маршрута, 0 м отключает ограничение.</p>
         <label className="field"><span>Рабочая зона</span><select value={selectedAreaId} onChange={(event) => setAreaId(event.target.value)}>{workAreas.map((area) => <option key={area.zone_id} value={area.zone_id}>{area.name}</option>)}</select></label>
         <div className="field-grid">
           <label className="field"><span>От, м</span><input type="number" min="0" max="10000" step="any" value={minimumRadius} onChange={(event) => setMinimumRadius(Number(event.target.value))} /></label>
@@ -195,10 +195,10 @@ export function ResultsPanel({
         </div>
         <button className="secondary-button" type="button" disabled={terrainMode || !plan || !radiusRangeValid || !selectedAreaId || analyzingRadii} onClick={() => onAnalyzeRadii(selectedAreaId, minimumRadius, maximumRadius)}>{analyzingRadii ? "Проверяем…" : "Проверить диапазон"}</button>
         {terrainMode && <p className="hint">Сравнение радиусов доступно для плоской поверхности MSL. Над DEM заданный радиус учитывается в основном расчёте.</p>}
-        {!radiusRangeValid && <small>Укажите радиус от 0 до 10 000 м; нижняя граница не больше верхней.</small>}
+        {!radiusRangeValid && <small>Укажите радиус от 0 до 10 000 м, нижняя граница не больше верхней.</small>}
         {radiusAnalysisMatchesInputs && <div className="radius-analysis-result">
           {radiusAnalysis.scenarios.map((scenario) => <div key={scenario.radius_m}><b>{format(scenario.radius_m)} м</b><span title={scenario.message}>{scenario.status === "feasible" ? `${format(scenario.distance_km ?? 0)} км · построен` : scenario.status === "not_evaluated" ? "Не проверено" : "Для этих галсов не найден"}</span></div>)}
-          <small>{hasPartialRadiusResult ? "Частичный результат: маршрут построен для некоторых меньших радиусов, но не для наибольшего заданного радиуса. Общего маршрута на карте нет; это не доказывает невыполнимость всей задачи." : radiusAnalysis.message}</small>
+          <small>{hasPartialRadiusResult ? "Частичный результат: маршрут построен для некоторых меньших радиусов, но не для наибольшего заданного радиуса. Общего маршрута на карте нет, это не доказывает невыполнимость всей задачи." : radiusAnalysis.message}</small>
         </div>}
       </section>
 
@@ -209,7 +209,7 @@ export function ResultsPanel({
           if (dronePlan.mission_count === 0) return (
             <button type="button" key={dronePlan.drone_id} className={`mission-card ${dronePlan.drone_id === selectedDroneId ? "active" : ""}`} onClick={() => onSelectDrone(dronePlan.drone_id)}>
               <span className="mission-title"><Plane size={16} style={{ color: drone?.color }} /><b>{drone?.name ?? dronePlan.drone_id}</b><em>Не используется</em></span>
-              <span className="mission-details">Борт передан в расчёт; в итоговом плане вылеты не назначены.</span>
+              <span className="mission-details">Борт передан в расчёт, в итоговом плане вылеты не назначены.</span>
             </button>
           );
           const maximumBattery = Math.max(0, ...dronePlan.missions.map((mission) => mission.estimated_battery_percent));
@@ -246,8 +246,8 @@ export function ResultsPanel({
             0,
           );
           const scheduleText = absoluteStarts.length > 0 && absoluteEnds.length > 0
-            ? ` · расписание ${formatDateTime(absoluteStarts.sort()[0])}–${formatDateTime(absoluteEnds.sort().at(-1) ?? absoluteEnds[0])}`
-            : scheduledStarts.length > 0 && scheduledEnds.length > 0 ? ` · расписание ${format(Math.min(...scheduledStarts))}–${format(Math.max(...scheduledEnds))} мин` : "";
+            ? ` · расписание ${formatDateTime(absoluteStarts.sort()[0])}-${formatDateTime(absoluteEnds.sort().at(-1) ?? absoluteEnds[0])}`
+            : scheduledStarts.length > 0 && scheduledEnds.length > 0 ? ` · расписание ${format(Math.min(...scheduledStarts))}-${format(Math.max(...scheduledEnds))} мин` : "";
           return (
             <button type="button" key={dronePlan.drone_id} className={`mission-card ${dronePlan.drone_id === selectedDroneId ? "active" : ""}`} onClick={() => onSelectDrone(dronePlan.drone_id)}>
               <span className="mission-title"><Plane size={16} style={{ color: drone?.color }} /><b>{drone?.name ?? dronePlan.drone_id}</b><em>{dronePlan.mission_count > 0 ? `${dronePlan.mission_count} выл.` : "Не используется"}</em></span>

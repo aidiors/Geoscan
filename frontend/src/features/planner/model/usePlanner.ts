@@ -92,7 +92,7 @@ export function usePlanner() {
     terrainImportVersion.current += 1;
     setTerrainImporting(false);
     setTerrain(asset);
-    invalidate("DEM изменён — требуется новый расчёт");
+    invalidate("DEM изменён - требуется новый расчёт");
   }
 
   async function handleImportTerrain(file: File, band: number): Promise<void> {
@@ -189,12 +189,12 @@ export function usePlanner() {
     setTask(nextTask);
     const capable = drones.find((drone) => drone.tasks.includes(nextTask));
     if (capable) setSelectedDroneId(capable.id);
-    invalidate("Тип работ изменён — требуется новый расчёт");
+    invalidate("Тип работ изменён - требуется новый расчёт");
   }
 
   function handleUpdateDrone(droneId: string, patch: Partial<DroneProfile>): void {
     setDrones((current) => current.map((drone) => drone.id === droneId ? { ...drone, ...patch } : drone));
-    invalidate("Параметры парка изменены — требуется новый расчёт");
+    invalidate("Параметры парка изменены - требуется новый расчёт");
   }
 
   function handleAddDrone(modelId = "custom", count = 1): void {
@@ -269,7 +269,7 @@ export function usePlanner() {
       setSourceFiles((current) => [...current, { name: file.name, zone_type: zoneType, content }]);
       if (result.zones.some((zone) => zone.zone_type === "work_area")) setWorkAreaSource("imported");
       const invalidCount = result.zones.filter((zone) => zone.metadata?.geometry_issue).length;
-      invalidate(`Импортировано зон: ${result.zones.length}${invalidCount ? `. Без площади: ${invalidCount}; проверьте список геоданных` : ""}`);
+      invalidate(`Импортировано зон: ${result.zones.length}${invalidCount ? `. Без площади: ${invalidCount}, проверьте список геоданных` : ""}`);
     } catch (error: unknown) {
       setStatus(errorMessage(error));
     } finally {
@@ -490,7 +490,7 @@ export function usePlanner() {
       }
       const snapshot = parseSavedScenario(JSON.parse(serialized));
       if (!applyScenarioSnapshot(snapshot)) return { success: false, message: "Сохранённый сценарий имеет неподдерживаемый формат" };
-      return { success: true, message: "Черновик открыт. Настройки восстановлены; требуется новый расчёт." };
+      return { success: true, message: "Черновик открыт. Настройки восстановлены, требуется новый расчёт." };
     } catch {
       const message = "Сохранённый сценарий повреждён или недоступен. Текущие настройки сохранены.";
       setStatus(message);
@@ -542,8 +542,8 @@ export function usePlanner() {
       productiveRouting: snapshot.settings.productiveRouting ?? true,
     });
     invalidate(snapshot.workAreaSource === undefined && !snapshot.importedZones.some((zone) => zone.zone_type === "work_area")
-      ? "Старое сохранение не содержит импортированных рабочих областей. Используется выбранный демосценарий; при необходимости импортируйте исходный файл повторно."
-      : "Сценарий восстановлен — требуется новый расчёт");
+      ? "Старое сохранение не содержит импортированных рабочих областей. Используется выбранный демосценарий, при необходимости импортируйте исходный файл повторно."
+      : "Сценарий восстановлен - требуется новый расчёт");
     return true;
   }
 
@@ -572,7 +572,7 @@ export function usePlanner() {
     setRadiusAnalysis(document.turn_radius_analysis);
     insights.restore(document.request, restoredPlan, document.survey_quality);
     setRevision((current) => current + 1);
-    setStatus("Проект восстановлен. Сохранённый план доступен для анализа; экспорт в автопилот требует нового расчёта.");
+    setStatus("Проект восстановлен. Сохранённый план доступен для анализа, экспорт в автопилот требует нового расчёта.");
   }
 
   return {
@@ -625,7 +625,7 @@ export function usePlanner() {
     handleAddSite,
     handleUpdateSite: (id: string, patch: SitePatch) => {
       setSites((current) => current.map((site) => site.site_id === id ? { ...site, ...patch } : site));
-      invalidate("Параметры площадки изменены — требуется новый расчёт");
+      invalidate("Параметры площадки изменены - требуется новый расчёт");
     },
     handleSelectAllWorkAreas: (enabled: boolean) => {
       setImportedZones(mapZones.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone));
@@ -643,7 +643,7 @@ export function usePlanner() {
         setScenarioOverride({ ...scenario, workAreas: scenario.workAreas.map(update), noFlyZones: scenario.noFlyZones.map(update) });
       }
       setImportedZones((current) => current.map(update));
-      if (patch.name !== undefined) invalidate("Название зоны изменено — требуется новый расчёт");
+      if (patch.name !== undefined) invalidate("Название зоны изменено - требуется новый расчёт");
     },
     handleRemoveZone: (id: string) => {
       setImportedZones(mapZones.filter((zone) => zone.zone_id !== id || zone.locked));

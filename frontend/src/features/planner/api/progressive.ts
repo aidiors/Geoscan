@@ -53,7 +53,7 @@ export async function readPlanningStream(
     }
     consume(pending);
     if (!completed) throw new ApiError(delivered
-      ? "Связь прервана; последний проверенный план сохранён."
+      ? "Связь прервана, последний проверенный план сохранён."
       : "Связь прервана до получения проверенного плана.");
     return completed;
   } finally {

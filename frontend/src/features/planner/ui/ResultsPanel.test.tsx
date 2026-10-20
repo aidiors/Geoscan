@@ -67,7 +67,7 @@ describe("ResultsPanel radius assumptions", () => {
 
     expect(screen.getByText("Как сделать план выполнимым")).toBeVisible();
     expect(screen.getByText("Увеличьте срок минимум до 20 минут.")).toBeVisible();
-    expect(screen.getByText("точный контрфактуал")).toBeVisible();
+    expect(screen.getByText("проверено пересчётом")).toBeVisible();
   });
 
   it("shows robust separation uncertainty in the schedule summary", () => {
@@ -89,7 +89,7 @@ describe("ResultsPanel radius assumptions", () => {
 
     render(<ResultsPanel plan={robustPlan} drones={[]} selectedDroneId="201" exporting={false} workAreas={workAreas} radiusAnalysis={null} analyzingRadii={false} onAnalyzeRadii={vi.fn()} onSelectDrone={vi.fn()} onExport={vi.fn()} />);
 
-    expect(screen.getByText("Робастное расписание вылетов")).toBeVisible();
+    expect(screen.getByText("Расписание вылетов")).toBeVisible();
     expect(screen.getByText(/позиция ±10 м · старт ±3 с/)).toBeVisible();
   });
 
@@ -115,7 +115,7 @@ describe("ResultsPanel radius assumptions", () => {
     render(<ResultsPanel plan={auditedPlan} drones={[]} selectedDroneId="201" exporting={false} workAreas={workAreas} radiusAnalysis={null} analyzingRadii={false} onAnalyzeRadii={vi.fn()} onSelectDrone={vi.fn()} onExport={vi.fn()} />);
 
     expect(screen.getByText("Независимый аудит плана")).toBeVisible();
-    expect(screen.getByText("Обнаружены нарушения — план нельзя выпускать")).toBeVisible();
+    expect(screen.getByText("Обнаружены нарушения - план нельзя выпускать")).toBeVisible();
     expect(screen.getByText("Разведение БВС")).toBeVisible();
   });
 

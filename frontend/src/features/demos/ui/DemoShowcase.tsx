@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3, Play, X } from "lucide-react";
+import { Shield, Clock3, Play, X } from "lucide-react";
 
 import { demoCases } from "@/features/demos/data/demoCases";
 import type { PlanResponse } from "@/shared/api/types";
@@ -74,7 +74,7 @@ export function DemoShowcase({
             </div>
             {plan && (
               <div className={`showcase-result ${plan.safety_audit?.status === "failed" ? "failed" : ""}`}>
-                <CheckCircle2 size={18} />
+                <Shield size={18} />
                 <span>
                   <b>Последний расчёт: {plan.metrics.completion_minutes.toFixed(1)} мин · {plan.metrics.total_distance_km.toFixed(1)} км</b>
                   <small>Пройдено применимых проверок: {passedChecks}/{applicableChecks.length}</small>

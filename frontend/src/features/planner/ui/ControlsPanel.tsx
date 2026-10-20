@@ -6,7 +6,7 @@ import { FleetManager } from "./FleetManager";
 import { NumberField } from "./NumberFields";
 import { TerrainFields } from "@/features/terrain/ui/TerrainFields";
 import type { TerrainAsset } from "@/features/terrain/model/types";
-import { BatteryCharging, Database, ShieldCheck, Wind } from "lucide-react";
+import { BatteryCharging, Database, Shield, Wind } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { scenarios } from "@/features/demos/data/scenarios";
@@ -114,10 +114,10 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <input ref={fileInput} type="file" accept=".geojson,.json,.kml" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
         </label>
         <button className="secondary-button import-button" type="button" disabled={props.importing} onClick={() => void handleImport()}>{props.importing ? "Импортируем…" : selectedFile ? "Импортировать зону" : "Выбрать геоданные"}</button>
-        {horizontalObstacles > 0 && <p className="hint" role="status">Препятствий без абсолютной отметки вершины: {horizontalObstacles}. Они обходятся по горизонтали на всех высотах; недостающие высоты не заменяются нулём.</p>}
-        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Используется собственная геометрия задания. Ограничения показаны в списке слоёв. Парк и площадки сохранены — проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
+        {horizontalObstacles > 0 && <p className="hint" role="status">Препятствий без абсолютной отметки вершины: {horizontalObstacles}. Они обходятся по горизонтали на всех высотах, недостающие высоты не заменяются нулём.</p>}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Используется собственная геометрия задания. Ограничения показаны в списке слоёв. Парк и площадки сохранены - проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
         {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
-          <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
+          <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}, меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
         )}
         <GeoObjectManager zones={props.layerZones ?? props.importedZones} sites={props.sites} drones={props.drones}
           onUpdateZone={props.onUpdateLayer} onSelectZone={props.onSelectZone} onRemoveZone={props.onRemoveZone}
@@ -138,13 +138,13 @@ export function ControlsPanel(props: ControlsPanelProps) {
             onImport={props.onImportTerrain ?? (async () => {})} onChange={props.onTerrainChange ?? (() => {})} />
           <NumberField label="Погрешность DEM ±, м" value={props.settings.terrainVerticalUncertainty ?? 0} min={0} max={500} onChange={(terrainVerticalUncertainty) => props.onUpdateSettings({ terrainVerticalUncertainty })} />
           <NumberField label="Шаг профиля DEM, м" value={props.settings.terrainSamplingInterval ?? 25} min={5} max={1000} onChange={(terrainSamplingInterval) => props.onUpdateSettings({ terrainSamplingInterval })} />
-          <p className="hint">Высота MSL = DEM + AGL + погрешность. Просвет проверяется в отсчётах профиля; пики между отсчётами не гарантируются. У каждого БВС нужны пределы набора и снижения. После смены режима проверьте числовую высоту задания.</p>
+          <p className="hint">Высота MSL = DEM + AGL + погрешность. Просвет проверяется в отсчётах профиля, пики между отсчётами не гарантируются. У каждого БВС нужны пределы набора и снижения. После смены режима проверьте числовую высоту задания.</p>
         </> : <>
         <div className="field-grid">
           <NumberField label="Отметка поверхности MSL, м" value={props.settings.flatGroundElevation ?? 0} min={-500} max={10000} onChange={(flatGroundElevation) => props.onUpdateSettings({ flatGroundElevation })} />
           <NumberField label="Погрешность поверхности ±, м" value={props.settings.terrainVerticalUncertainty ?? 0} min={0} max={500} onChange={(terrainVerticalUncertainty) => props.onUpdateSettings({ terrainVerticalUncertainty })} />
         </div>
-        <p className="hint">Высота над поверхностью: {props.settings.altitude - (props.settings.flatGroundElevation ?? 0)} м, погрешность ±{props.settings.terrainVerticalUncertainty ?? 0} м. Поверхность считается плоской; отметка задаётся оператором и не заменяет реальный рельеф.</p>
+        <p className="hint">Высота над поверхностью: {props.settings.altitude - (props.settings.flatGroundElevation ?? 0)} м, погрешность ±{props.settings.terrainVerticalUncertainty ?? 0} м. Поверхность считается плоской, отметка задаётся оператором и не заменяет реальный рельеф.</p>
         </>}
       </PanelSection>
 
@@ -181,7 +181,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <NumberField label="Буфер запрета, м" value={props.survey.restrictionMargin} min={0} onChange={(restrictionMargin) => props.onUpdateSurvey({ restrictionMargin })} />
           <NumberField label="Радиус разворота, м" value={props.settings.turnRadius} min={0} max={10000} onChange={(turnRadius) => props.onUpdateSettings({ turnRadius })} />
         </div>
-        <p className="hint">0 м — без ограничения. Положительный радиус применяется к галсам, транзиту и подходу к посадке. Проверяется горизонтальная траектория, не взлёт и глиссада.</p>
+        <p className="hint">0 м - без ограничения. Положительный радиус применяется к галсам, транзиту и подходу к посадке. Проверяется горизонтальная траектория, не взлёт и глиссада.</p>
       </PanelSection>
 
 
@@ -211,7 +211,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <span><b>Оптимизация вылетов</b><small>Сравнивать порядок галсов и разбиения между аппаратами по итоговому расписанию</small></span>
         </label>
         {props.settings.productiveRouting && <p className="hint">{props.settings.fastHeuristic ? "Выключите быстрый расчёт, чтобы сравнивать варианты вылетов." : "«Макс. маршрут» задаёт исходное разбиение для сравнения. Новые вылеты ограничены запасом АКБ, дальностью БВС и условиями задания."}</p>}
-        <p className="hint">Первый проверенный план появится по готовности; затем сервис показывает улучшения, до 30 минут. Поиск можно остановить и сохранить найденный результат. Для нескольких областей оптимизируется общий план.</p>
+        <p className="hint">Первый проверенный план появится по готовности, затем сервис показывает улучшения, до 30 минут. Поиск можно остановить и сохранить найденный результат. Для нескольких областей оптимизируется общий план.</p>
         <label className="solver-option">
           <input
             type="checkbox"
@@ -228,7 +228,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
       </PanelSection>
 
       <PanelSection title="Ограничения" badge="Проверяются полностью">
-        <div className="constraint"><ShieldCheck size={17} /><span>Все отрезки проверяются по запретным зонам</span></div>
+        <div className="constraint"><Shield size={17} /><span>Все отрезки проверяются по запретным зонам</span></div>
         <div className="constraint"><BatteryCharging size={17} /><span>Резерв заряда задаётся для каждого БВС</span></div>
         <div className="field-grid">
           <NumberField label="Разведение БВС, м" value={props.settings.minimumSeparation} min={1} max={10000} onChange={(minimumSeparation) => props.onUpdateSettings({ minimumSeparation })} />

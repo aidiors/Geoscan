@@ -20,6 +20,6 @@ export function FleetActions({ count, onAdd }: FleetActionsProps) {
     <div className="mini-actions">
       <button type="button" disabled={count >= 100 || !Number.isInteger(quantity) || quantity < 1 || count + quantity > 100} onClick={() => onAdd(modelId, quantity)}>＋ Добавить</button>
     </div>
-    <p className="hint">Каждая строка — отдельный физический борт. Шаблон задаёт начальные характеристики; проверьте комплектацию, камеру и текущее состояние. Площадки для нового борта назначаются отдельно либо доступны всему парку.</p>
+    <p className="hint">Каждая строка - отдельный физический борт. Шаблон задаёт начальные характеристики, проверьте комплектацию, камеру и текущее состояние. Площадки для нового борта назначаются отдельно либо доступны всему парку.</p>
   </>;
 }

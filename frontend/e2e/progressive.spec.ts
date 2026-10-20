@@ -22,7 +22,7 @@ test("can stop after the first audited result and keep its export", async ({ pag
 test("demonstrates a joint sortie with a nonzero turn radius", async ({ page }, testInfo) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Демо-кейсы", exact: true }).click();
-  await page.getByRole("button", { name: /Один вылет — несколько участков/ }).click();
+  await page.getByRole("button", { name: /Один вылет - несколько участков/ }).click();
   await page.getByRole("button", { name: "Загрузить и рассчитать", exact: true }).click();
   await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled({ timeout: 120_000 });
   await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();

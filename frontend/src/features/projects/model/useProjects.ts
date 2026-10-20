@@ -35,7 +35,7 @@ export function useProjects({ capture, restore, onStatus }: ProjectWorkspace) {
     restore(result.document);
     setName(result.name); setProjectId(result.project_id); setOpened({ id: result.project_id, revision: result.revision, name: result.name });
     setRevision(String(result.revision));
-    onStatus(`Открыт проект «${result.name}», ревизия ${result.revision}. Сохранённый результат — для анализа; экспорт в автопилот требует нового расчёта.`);
+    onStatus(`Открыт проект «${result.name}», ревизия ${result.revision}. Сохранённый результат - для анализа, экспорт в автопилот требует нового расчёта.`);
   }
   async function select(id: string) {
     setProjectId(id); setRevision(""); setHistory([]);

@@ -144,7 +144,7 @@ def test_geojson_import_splits_multipolygon_into_independent_zones() -> None:
     response = import_geojson(request)
 
     assert [zone.zone_id for zone in response.zones] == ["district", "district-2"]
-    assert response.zones[1].name == "Район — контур 2"
+    assert response.zones[1].name == "Район - контур 2"
 
 
 def test_kml_import_reads_placemark_from_folder() -> None:

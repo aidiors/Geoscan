@@ -18,16 +18,16 @@ export function MissionInsights({ quality, advice, busy, canInspect, onInspect, 
   const [allowAltitudeChange, setAllowAltitudeChange] = useState(false);
   return <section className="insights-panel" id="mission-quality" aria-label="Качество и выполнимость" tabIndex={-1}>
     <h3>Качество съёмки и варианты выполнения</h3>
-    {!quality && <p className="hint">Аудит маршрута и качество съёмки проверяются отдельно. Здесь оцениваются отпечатки кадров, GSD и перекрытие; фактические снимки не загружены.</p>}
+    {!quality && <p className="hint">Аудит маршрута и качество съёмки проверяются отдельно. Здесь оцениваются отпечатки кадров, GSD и перекрытие, фактические снимки не загружены.</p>}
     <div className="field-grid">
       <button type="button" disabled={busy || !canInspect} onClick={onInspect}>{busy ? "Проверяем…" : "Проверить отпечатки кадров"}</button>
       <button type="button" disabled={busy} onClick={() => onAdvise(allowAltitudeChange)}>Подобрать условия выполнения</button>
     </div>
-    <label className="checkbox-row"><input type="checkbox" checked={allowAltitudeChange} onChange={(event) => setAllowAltitudeChange(event.target.checked)} /><span>Разрешить проверить другую высоту; требования к качеству сохраняются</span></label>
+    <label className="checkbox-row"><input type="checkbox" checked={allowAltitudeChange} onChange={(event) => setAllowAltitudeChange(event.target.checked)} /><span>Разрешить проверить другую высоту, требования к качеству сохраняются</span></label>
     {quality && <div className="editor-card">
       <b>{qualityLabels[quality.status]}</b>
       {quality.status === "partial" && <p className="quality-caution">Отсутствие замечаний не означает полную проверку: прочитайте допущения ниже.</p>}
-      <p>Кадров: {quality.frame_count} · покрытие {percent(quality.covered_percent)} · GSD {quality.maximum_gsd_cm?.toFixed(2) ?? "—"} см/пикс.</p>
+      <p>Кадров: {quality.frame_count} · покрытие {percent(quality.covered_percent)} · GSD {quality.maximum_gsd_cm?.toFixed(2) ?? "-"} см/пикс.</p>
       <p>Минимальное продольное: {percent(quality.minimum_forward_overlap_percent)} · боковое: {percent(quality.minimum_side_overlap_percent)}</p>
       <p>Пар проходов между вылетами: {quality.cross_sortie_pairs_checked}</p>
       {quality.issues.map((issue) => <p key={issue} role="alert">{issue}</p>)}

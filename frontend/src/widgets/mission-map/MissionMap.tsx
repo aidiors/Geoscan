@@ -82,7 +82,6 @@ export function MissionMap({
       ...zones.filter((zone) => zone.visible !== false).flatMap((zone) => [...zone.coordinates, ...zone.interior_rings.flat()]),
       ...sites.map((flightSite) => flightSite.coordinate),
       ...(plan?.drone_plans.flatMap((dronePlan) => dronePlan.missions.flatMap((mission) => mission.route)) ?? []),
-      ...(plan?.schedule?.resolved_conflicts.map((conflict) => conflict.coordinate) ?? []),
       ...(radiusAnalysis?.common_survey_route ?? []),
     ],
     [plan, radiusAnalysis, sites, zones],
@@ -272,28 +271,9 @@ export function MissionMap({
                 opacity={0.95}
                 pointerEvents="none"
               >
-                <title>{radiusAnalysis.scenarios.at(-1)?.radius_m === 0 ? "Съёмочная ломаная без ограничения радиуса; не полное задание БВС" : "Условный съёмочный маршрут для наибольшего заданного радиуса; не полное задание БВС"}</title>
+                <title>{radiusAnalysis.scenarios.at(-1)?.radius_m === 0 ? "Съёмочная ломаная без ограничения радиуса, не полное задание БВС" : "Условный съёмочный маршрут для наибольшего заданного радиуса, не полное задание БВС"}</title>
               </polyline>
             )}
-            {plan?.schedule?.resolved_conflicts.map((conflict, index) => {
-              const point = coordinateToMapPoint(conflict.coordinate, view, mapSize);
-              const label = conflict.conflict_type === "route"
-                ? "Конфликт маршрутов устранён"
-                : conflict.conflict_type === "flight_site"
-                  ? "Конфликт площадки устранён"
-                  : "Конфликт аварийного коридора устранён";
-              return (
-                <g
-                  key={`${conflict.delayed_drone_id}-${conflict.delayed_segment_id}-${conflict.conflicting_segment_id}-${index}`}
-                  transform={`translate(${point.x} ${point.y})`}
-                  pointerEvents="none"
-                >
-                  <circle r={9} fill="#0f766e" fillOpacity={0.18} stroke="#0f766e" strokeWidth={2} />
-                  <path d="M -4 0 L -1 3 L 5 -4" stroke="#0f766e" strokeWidth={2} />
-                  <title>{label}: {conflict.nominal_distance_m.toFixed(1)} / {conflict.required_distance_m.toFixed(1)} м · задержка {conflict.applied_delay_minutes.toFixed(1)} мин</title>
-                </g>
-              );
-            })}
           </g>
           <g className="site-layer">
             {sites.map((flightSite, siteIndex) => {

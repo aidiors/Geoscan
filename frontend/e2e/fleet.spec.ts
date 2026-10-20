@@ -7,7 +7,7 @@ test("creates a physical fleet, retains individual state and submits it to the r
   await page.getByLabel("Количество новых бортов").fill("2");
   await page.getByRole("button", { name: "＋ Добавить", exact: true }).click();
   await expect(page.locator(".fleet-row")).toHaveCount(5);
-  await page.getByLabel("Название", { exact: true }).fill("201 — борт финала");
+  await page.getByLabel("Название", { exact: true }).fill("201 - борт финала");
   await page.getByLabel("Текущий заряд, %", { exact: true }).fill("83");
   await page.getByText("Ресурс и обслуживание", { exact: true }).click();
   await page.getByLabel("Готовых комплектов АКБ", { exact: true }).fill("2");

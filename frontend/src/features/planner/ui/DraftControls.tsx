@@ -28,9 +28,9 @@ export function DraftControls({ onSave, onLoad }: Props) {
       <button type="button" onClick={() => perform("load")}>Открыть черновик</button>
     </div>
     {feedback && <p ref={message} tabIndex={-1} aria-live="polite" className={`draft-feedback ${feedback.success ? "success" : "error"}`}>
-      {feedback.success ? "✓ " : ""}{feedback.message} <small>{feedback.time}</small>
+      {feedback.message} <small>{feedback.time}</small>
     </p>}
-    {feedback?.success && feedback.action === "load" && <div className="draft-toast" aria-live="polite">✓ Черновик открыт. Настройки восстановлены — проверьте задание перед расчётом.<button type="button" aria-label="Закрыть уведомление о черновике" onClick={() => setFeedback(null)}>×</button></div>}
+    {feedback?.success && feedback.action === "load" && <div className="draft-toast" aria-live="polite">Черновик открыт. Настройки восстановлены - проверьте задание перед расчётом.<button type="button" aria-label="Закрыть уведомление о черновике" onClick={() => setFeedback(null)}>×</button></div>}
     <p className="hint">Для сохранения плана, исходных файлов и истории используйте проекты ниже.</p>
   </section>;
 }

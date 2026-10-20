@@ -164,10 +164,10 @@ def _zone_from_geojson_polygon(
         for ring in rings[1:]
     ]
     suffix = "" if polygon_index == 0 else f"-{polygon_index + 1}"
-    name_suffix = "" if polygon_index == 0 else f" — контур {polygon_index + 1}"
+    name_suffix = "" if polygon_index == 0 else f" - контур {polygon_index + 1}"
     return ImportedZone(
         zone_id=derived_id(zone_id, suffix),
-        name=f"{zone_name}{name_suffix}",
+        name=f"{zone_name[: 128 - len(name_suffix)]}{name_suffix}",
         zone_type=request.zone_type,
         geometry_type=ImportedGeometryType.POLYGON,
         coordinates=coordinates,
@@ -187,7 +187,14 @@ def _zones_from_kml_placemark(
     placemark: KmlPlacemark,
     index: int,
 ) -> list[ImportedZone]:
-    geometries = _kml_geometries(placemark.element)
+    try:
+        geometries = _kml_geometries(placemark.element)
+    except PlanningError as error:
+        identifier = placemark.element.get("id") or str(index + 1)
+        raise PlanningError(
+            code=error.code,
+            message=f"Объект KML {identifier}: {error.message}",
+        ) from error
     metadata = _kml_metadata(placemark.element)
     name = placemark.element.findtext("{*}name") or metadata.get("Name") or f"Объект {index + 1}"
     full_name = _kml_zone_name(placemark.folder_path, name)
@@ -225,21 +232,14 @@ def _kml_geometries(placemark: Element) -> list[KmlGeometry]:
     geometries: list[KmlGeometry] = []
     for polygon in placemark.findall(".//{*}Polygon"):
         outer_node = polygon.find("./{*}outerBoundaryIs/{*}LinearRing/{*}coordinates")
-        if outer_node is None or outer_node.text is None:
-            continue
-        coordinates = _valid_kml_coordinates(
-            outer_node.text,
+        coordinates = _kml_coordinates(
+            outer_node,
             ImportedGeometryType.POLYGON,
         )
-        if coordinates is None:
-            continue
         interior_rings: list[list[Coordinate]] = []
-        for node in polygon.findall("./{*}innerBoundaryIs/{*}LinearRing/{*}coordinates"):
-            if node.text is None:
-                continue
-            ring = _valid_kml_coordinates(node.text, ImportedGeometryType.POLYGON)
-            if ring is not None:
-                interior_rings.append(ring)
+        for boundary in polygon.findall("./{*}innerBoundaryIs"):
+            node = boundary.find("./{*}LinearRing/{*}coordinates")
+            interior_rings.append(_kml_coordinates(node, ImportedGeometryType.POLYGON))
         geometries.append(
             KmlGeometry(
                 geometry_type=ImportedGeometryType.POLYGON,
@@ -250,14 +250,10 @@ def _kml_geometries(placemark: Element) -> list[KmlGeometry]:
         )
     for line in placemark.findall(".//{*}LineString"):
         coordinates_node = line.find("./{*}coordinates")
-        if coordinates_node is None or coordinates_node.text is None:
-            continue
-        coordinates = _valid_kml_coordinates(
-            coordinates_node.text,
+        coordinates = _kml_coordinates(
+            coordinates_node,
             ImportedGeometryType.LINE_STRING,
         )
-        if coordinates is None:
-            continue
         geometries.append(
             KmlGeometry(
                 geometry_type=ImportedGeometryType.LINE_STRING,
@@ -268,14 +264,10 @@ def _kml_geometries(placemark: Element) -> list[KmlGeometry]:
         )
     for point in placemark.findall(".//{*}Point"):
         coordinates_node = point.find("./{*}coordinates")
-        if coordinates_node is None or coordinates_node.text is None:
-            continue
-        coordinates = _valid_kml_coordinates(
-            coordinates_node.text,
+        coordinates = _kml_coordinates(
+            coordinates_node,
             ImportedGeometryType.POINT,
         )
-        if coordinates is None:
-            continue
         geometries.append(
             KmlGeometry(
                 geometry_type=ImportedGeometryType.POINT,
@@ -401,7 +393,7 @@ def _altitude_reference(
         except ValueError as exc:
             raise PlanningError(
                 code=ErrorCode.INVALID_IMPORT,
-                message="KML содержит неизвестную систему отсчёта высоты; используйте AGL или MSL.",
+                message="KML содержит неизвестную систему отсчёта высоты, используйте AGL или MSL.",
             ) from exc
     if altitude_mode is AltitudeMode.ABSOLUTE:
         return AltitudeReference.MSL
@@ -428,7 +420,7 @@ def _geometry_id(base_id: str, geometry_index: int) -> str:
 def _geometry_name(name: str, geometry_index: int, geometry_count: int) -> str:
     if geometry_count == 1:
         return name[:128]
-    suffix = f" — геометрия {geometry_index + 1}"
+    suffix = f" - геометрия {geometry_index + 1}"
     return f"{name[: 128 - len(suffix)]}{suffix}"
 
 
@@ -475,14 +467,16 @@ def _coordinates_from_kml_text(
     return coordinates
 
 
-def _valid_kml_coordinates(
-    content: str,
+def _kml_coordinates(
+    node: Element | None,
     geometry_type: ImportedGeometryType,
-) -> list[Coordinate] | None:
-    try:
-        return _coordinates_from_kml_text(content, geometry_type)
-    except PlanningError:
-        return None
+) -> list[Coordinate]:
+    if node is None or node.text is None:
+        raise PlanningError(
+            code=ErrorCode.INVALID_IMPORT,
+            message=f"Геометрия {geometry_type.value} в KML не содержит координат.",
+        )
+    return _coordinates_from_kml_text(node.text, geometry_type)
 
 
 def _coordinate_from_kml_group(group: str) -> Coordinate:

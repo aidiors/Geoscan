@@ -34,8 +34,8 @@
     "jsdom": "^27.0.0",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.44.0",
-    "vite": "8.0.13",
-    "vitest": "^3.2.4"
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
   },
   "type": "module"
 }

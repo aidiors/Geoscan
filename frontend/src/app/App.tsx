@@ -109,7 +109,7 @@ export default function App() {
           settings={settings}
           importing={importing}
           onTaskChange={handleTaskChange}
-          onObjectiveChange={(nextObjective) => { setObjective(nextObjective); invalidate("Критерий изменён — требуется новый расчёт"); }}
+          onObjectiveChange={(nextObjective) => { setObjective(nextObjective); invalidate("Критерий изменён - требуется новый расчёт"); }}
           onSelectDrone={setSelectedDroneId}
           onUpdateDrone={handleUpdateDrone}
           onAddDrone={handleAddDrone}

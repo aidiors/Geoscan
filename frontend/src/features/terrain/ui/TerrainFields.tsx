@@ -22,12 +22,12 @@ export function TerrainFields({ terrain, busy, onImport, onChange }: {
     {terrain && info && <>
       <p className="hint">{terrain.name} · канал {terrain.band} · {info.width} × {info.height} · {info.crs}<br />
         Высоты {info.minimum_elevation_m.toFixed(1)}…{info.maximum_elevation_m.toFixed(1)} м · данные в {(info.valid_fraction * 100).toFixed(1)}% ячеек.<br />
-        Scale {info.scale}, offset {info.offset}; единицы файла: {info.unit || "не указаны"}.<br />
+        Scale {info.scale}, offset {info.offset}, единицы файла: {info.unit || "не указаны"}.<br />
         Границы WGS84 (запад, юг, восток, север): {info.bounds_wgs84.map((v) => v.toFixed(5)).join(", ")}.</p>
       <label className="checkbox-row"><input type="checkbox" checked={terrain.metresConfirmed} onChange={(event) => onChange({ ...terrain, metresConfirmed: event.target.checked })} />Подтверждаю: высоты после scale/offset заданы в метрах</label>
       <label className="checkbox-row"><input type="checkbox" checked={terrain.mslConfirmed} onChange={(event) => onChange({ ...terrain, mslConfirmed: event.target.checked })} />Подтверждаю: отметки DEM приведены к используемой системе MSL</label>
       <button type="button" onClick={() => onChange(null)}>Удалить DEM</button>
     </>}
-    <p className="hint">CRS не подтверждает систему высот. Эллипсоидальные высоты предварительно приведите к MSL; пересчёт геоида здесь не выполняется. DEM должен покрывать все перелёты и площадки. Пропуски NoData не заполняются.</p>
+    <p className="hint">CRS не подтверждает систему высот. Эллипсоидальные высоты предварительно приведите к MSL, пересчёт геоида здесь не выполняется. DEM должен покрывать все перелёты и площадки. Пропуски NoData не заполняются.</p>
   </div>;
 }

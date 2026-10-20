@@ -40,6 +40,6 @@ export function TerrainAltitudeProfile({ missions }: { missions: Mission[] }) {
       <text x="212" y="151" fontSize="14" textAnchor="middle" fill="currentColor">Расстояние от начала вылета, км</text>
     </svg>
     <p className="hint">Минимальный расчётный AGL: {mission.minimum_agl_m?.toFixed(1)} м · набор до {mission.maximum_required_climb_rate_mps?.toFixed(2)} м/с · снижение до {mission.maximum_required_descent_rate_mps?.toFixed(2)} м/с.</p>
-    <p className="hint">Коричневый — DEM, синий — заданная высота MSL. {profile.length} отсчётов. Показаны экстремумы групп отсчётов; пики между исходными отсчётами не проверены. Профиль не моделирует динамику автопилота.</p>
+    <p className="hint">Коричневый - DEM, синий - заданная высота MSL. {profile.length} отсчётов. Показаны экстремумы групп отсчётов, пики между исходными отсчётами не проверены. Профиль не моделирует динамику автопилота.</p>
   </div>;
 }

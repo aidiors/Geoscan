@@ -19,6 +19,6 @@ export function QuickObjects({ zones, onUpdate, onSelect, onRemove, onManage }: 
     <ZoneLayers zones={filtered.slice(0, 6)} onUpdate={onUpdate} onSelect={onSelect} onRemove={onRemove} />
     {!filtered.length && <p className="hint">Зоны не найдены.</p>}
     {filtered.length > 6 && <button type="button" className="quick-more" onClick={onManage}>Все объекты ({filtered.length})</button>}
-    <p className="hint">Глаз — видимость, замок — защита от удаления. Флажок включает рабочую область в расчёт.</p>
+    <p className="hint">Глаз - видимость, замок - защита от удаления. Флажок включает рабочую область в расчёт.</p>
   </div>;
 }
