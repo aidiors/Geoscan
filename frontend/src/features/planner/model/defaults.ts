@@ -1,4 +1,5 @@
 import type { PlanningSettings, SurveySettings } from "@/features/planner/model/types";
+import { maximumPlanningSeconds } from "./planningBudget";
 
 export const defaultSurvey: SurveySettings = {
   directionMode: "automatic",
@@ -23,6 +24,10 @@ export function planningSettings(
 ): PlanningSettings {
   return {
     altitude,
+    altitudeReference: "msl",
+    terrainSamplingInterval: 25,
+    flatGroundElevation: 0,
+    terrainVerticalUncertainty: 0,
     windSpeed: 5,
     windDirection: 315,
     ambientTemperature: 20,
@@ -43,6 +48,8 @@ export function planningSettings(
     planningEnd: "",
     turnRadius: 0,
     fastHeuristic: false,
+    productiveRouting: true,
+    planningTimeLimitSeconds: maximumPlanningSeconds,
     ...overrides,
   };
 }

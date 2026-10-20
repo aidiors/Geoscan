@@ -29,7 +29,7 @@ class RestrictionValidity(BaseModel):
 
 
 class AllowedAirspace(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     airspace_id: str = Field(min_length=1, max_length=64)
     coordinates: list[Coordinate] = Field(min_length=3, max_length=10_000)
@@ -76,6 +76,21 @@ class FlightObstacle(BaseModel):
     obstacle_id: str = Field(min_length=1, max_length=64)
     geometry_type: ImportedGeometryType
     coordinates: list[Coordinate] = Field(min_length=1, max_length=100_000)
-    height_m: float = Field(ge=0, le=100_000)
+    height_m: float | None = Field(default=None, ge=-500, le=100_000)
     altitude_mode: AltitudeMode = AltitudeMode.UNKNOWN
     safety_radius_m: float = Field(default=30, gt=0, le=5_000)
+
+    @property
+    def known_top_msl_m(self) -> float | None:
+        """Only absolute elevations can be compared with a route's MSL altitude."""
+        return self.height_m if self.altitude_mode is AltitudeMode.ABSOLUTE else None
+
+    @model_validator(mode="after")
+    def relative_height_is_nonnegative(self) -> FlightObstacle:
+        if (
+            self.height_m is not None
+            and self.height_m < 0
+            and self.altitude_mode is not AltitudeMode.ABSOLUTE
+        ):
+            raise ValueError("Отрицательная отметка препятствия допустима только в системе MSL.")
+        return self

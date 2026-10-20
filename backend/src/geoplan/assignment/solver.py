@@ -10,6 +10,8 @@ from geoplan.assignment.models import (
     AssignmentOptimizationResult,
     MissionAssignmentCandidate,
 )
+from geoplan.assignment.neighborhood import AssignmentNeighborhoodSearch
+from geoplan.budget import check_planning_budget
 from geoplan.domain.enums import (
     AssignmentAlgorithm,
     OptimalityStatus,
@@ -19,6 +21,7 @@ from geoplan.domain.enums import (
 
 Assignment = list[int]
 Score = tuple[float, float, float, float]
+INFEASIBLE_SCORE: Score = (float("inf"), float("inf"), float("inf"), float("inf"))
 
 
 class AssignmentOptimizer(Protocol):
@@ -167,11 +170,13 @@ def _greedy_assignment(
     counts = {drone_id: 0 for drone_id in request.drone_ids}
     total_flight_minutes = 0.0
     for task_index in order:
+        check_planning_budget()
         group = request.candidate_groups[task_index]
         choices = [
             (candidate_index, candidate)
             for candidate_index, candidate in enumerate(group)
             if candidate.drone_id in allowed_drones
+            and _addition_allowed(request, loads, counts, candidate)
         ]
         if not choices:
             return None
@@ -194,13 +199,16 @@ def _greedy_assignment(
 
 def _task_order(request: AssignmentOptimizationRequest) -> list[int]:
     if request.criterion is OptimizationCriterion.TOTAL_FLIGHT_TIME:
-        return list(range(len(request.candidate_groups)))
+        return sorted(
+            range(len(request.candidate_groups)),
+            key=lambda i: len(request.candidate_groups[i]) != 1,
+        )
     return sorted(
         range(len(request.candidate_groups)),
-        key=lambda index: min(
-            candidate.mission.duration_minutes for candidate in request.candidate_groups[index]
+        key=lambda index: (
+            len(request.candidate_groups[index]) != 1,
+            -min(c.mission.duration_minutes for c in request.candidate_groups[index]),
         ),
-        reverse=True,
     )
 
 
@@ -227,43 +235,59 @@ def _local_search(
     assignment: Assignment,
     allowed_drones: frozenset[str],
 ) -> Assignment:
-    current = list(assignment)
-    current_score = _score(request, current)
-    for _ in range(5):
-        improved = False
-        for task_index, group in enumerate(request.candidate_groups):
-            original_index = current[task_index]
-            for candidate_index, candidate in enumerate(group):
-                if candidate_index == original_index or candidate.drone_id not in allowed_drones:
-                    continue
-                projected = list(current)
-                projected[task_index] = candidate_index
-                score = _score(request, projected)
-                if score >= current_score:
-                    continue
-                current[task_index] = candidate_index
-                current_score = score
-                improved = True
-                break
-        if not improved:
-            break
-    return current
+    return AssignmentNeighborhoodSearch().improve(
+        request, assignment, allowed_drones, lambda choices: _score(request, choices)
+    )
 
 
 def _exact_branch_and_bound(request: AssignmentOptimizationRequest) -> Assignment:
-    initial = _best_heuristic_assignment(request, subset_limit=128)
-    best = list(initial)
-    best_score = _score(request, best)
-    order = _task_order(request)
+    if all(len(group) == 1 for group in request.candidate_groups):
+        # No search is needed, but the active-fleet constraint still applies.
+        active = {group[0].drone_id for group in request.candidate_groups}
+        if (
+            request.maximum_active_drones is not None
+            and len(active) > request.maximum_active_drones
+        ):
+            raise ValueError("Ни один допустимый набор БВС не покрывает все участки.")
+        forced = [0] * len(request.candidate_groups)
+        if _score(request, forced)[0] == float("inf"):
+            raise ValueError("Aircraft resources do not cover mandatory sorties.")
+        check_planning_budget()
+        return forced
+    try:
+        initial = _best_heuristic_assignment(request, subset_limit=128)
+    except ValueError:
+        initial = None
+    best = list(initial) if initial is not None else None
+    best_score = _score(request, best) if best is not None else INFEASIBLE_SCORE
+    # Forced assignments must not consume recursion depth. With the exact-state
+    # bound, only genuinely branching tasks remain (at most log2(state_limit)).
+    order = [i for i in _task_order(request) if len(request.candidate_groups[i]) > 1]
     assignment = [0] * len(request.candidate_groups)
     loads = {drone_id: 0.0 for drone_id in request.drone_ids}
     counts = {drone_id: 0 for drone_id in request.drone_ids}
     total_flight_minutes = 0.0
     active: set[str] = set()
     maximum_active = request.maximum_active_drones or len(request.drone_ids)
+    for group in request.candidate_groups:
+        if len(group) != 1:
+            continue
+        check_planning_budget()
+        candidate = group[0]
+        if not _addition_allowed(request, loads, counts, candidate):
+            raise ValueError("Aircraft resources do not cover mandatory sorties.")
+        loads[candidate.drone_id] += candidate.mission.duration_minutes + (
+            _turnaround_minutes(request, candidate.drone_id) if counts[candidate.drone_id] else 0
+        )
+        counts[candidate.drone_id] += 1
+        total_flight_minutes += candidate.mission.duration_minutes
+        active.add(candidate.drone_id)
+    if len(active) > maximum_active:
+        raise ValueError("Mandatory assignments exceed the active fleet limit.")
     minimum_remaining = _minimum_remaining_costs(request, order)
 
     def search(position: int) -> None:
+        check_planning_budget()
         nonlocal best, best_score, total_flight_minutes
         if _branch_cannot_improve(
             request,
@@ -289,6 +313,8 @@ def _exact_branch_and_bound(request: AssignmentOptimizationRequest) -> Assignmen
             ),
         )
         for candidate_index, candidate in choices:
+            if not _addition_allowed(request, loads, counts, candidate):
+                continue
             opens_drone = candidate.drone_id not in active
             if opens_drone and len(active) >= maximum_active:
                 continue
@@ -311,6 +337,8 @@ def _exact_branch_and_bound(request: AssignmentOptimizationRequest) -> Assignmen
             loads[candidate.drone_id] -= candidate.mission.duration_minutes + turnaround
 
     search(0)
+    if best is None:
+        raise ValueError("No assignment found within fleet and resource limits.")
     return best
 
 
@@ -368,11 +396,37 @@ def _loads(
 
 
 def _score(request: AssignmentOptimizationRequest, assignment: Assignment) -> Score:
+    if request.resource_limits_by_drone:
+        counts = dict.fromkeys(request.drone_ids, 0)
+        minutes = dict.fromkeys(request.drone_ids, 0.0)
+        for group, index in zip(request.candidate_groups, assignment, strict=True):
+            candidate = group[index]
+            counts[candidate.drone_id] += 1
+            minutes[candidate.drone_id] += candidate.mission.duration_minutes
+        if any(
+            not limit.allows(counts[drone], minutes[drone])
+            for drone, limit in request.resource_limits_by_drone.items()
+        ):
+            return INFEASIBLE_SCORE
     return _objective(
         request,
         _loads(request, assignment),
         _total_flight_minutes(request, assignment),
     )
+
+
+def _addition_allowed(
+    request: AssignmentOptimizationRequest,
+    loads: dict[str, float],
+    counts: dict[str, int],
+    candidate: MissionAssignmentCandidate,
+) -> bool:
+    drone = candidate.drone_id
+    limit = request.resource_limits_by_drone.get(drone)
+    if limit is None:
+        return True
+    flight = loads[drone] - max(0, counts[drone] - 1) * _turnaround_minutes(request, drone)
+    return limit.allows(counts[drone] + 1, flight + candidate.mission.duration_minutes)
 
 
 def _objective(

@@ -136,6 +136,7 @@ def _measure(
         dependencies.sweep_transition_planner,
         dependencies.safety_auditor,
         dependencies.vertical_profile_planner,
+        dependencies.freeform_optimizer,
     )
     runtime_seconds = perf_counter() - started
     audit = response.safety_audit

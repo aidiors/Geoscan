@@ -1,8 +1,11 @@
-import { cloneFleet } from "@/features/demos/data/scenarios";
-import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SurveySettings } from "@/features/planner/model/types";
+import type { TerrainAsset } from "@/features/terrain/model/types";
+import { cloneFleet } from "@/features/planner/model/fleetCatalog";
+import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask } from "@/shared/api/types";
 
 export interface SavedScenario {
+  terrain?: TerrainAsset | null;
+  baseScenario?: Scenario;
   version?: 2 | 3;
   scenarioId: string;
   task: MissionTask;
@@ -11,6 +14,7 @@ export interface SavedScenario {
   selectedDroneId: string;
   sites: FlightSiteState[];
   importedZones: ImportedZone[];
+  workAreaSource?: WorkAreaSource;
   survey: SurveySettings;
   settings: PlanningSettings;
 }
@@ -32,6 +36,8 @@ export function migrateLegacyDroneProfile(drone: DroneProfile): DroneProfile {
 export function normalizeDroneProfile(drone: DroneProfile): DroneProfile {
   return {
     ...drone,
+    modelId: drone.modelId ?? (cloneFleet().some((preset) => preset.id === drone.id) ? drone.id : "custom"),
+    availableBatterySets: drone.availableBatterySets ?? null,
     autopilotFirmware: drone.autopilotFirmware ?? "generic_mavlink",
     airframeType: drone.airframeType ?? "generic_multirotor",
     hoverSpeed: drone.hoverSpeed ?? 5,

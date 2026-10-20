@@ -11,6 +11,7 @@ from geoplan.domain.airspace import NoFlyZone
 from geoplan.domain.enums import ErrorCode, SweepAngleAlgorithm, SweepDirectionMode
 from geoplan.domain.environment import WindCondition
 from geoplan.domain.geo import Coordinate
+from geoplan.navigation.geometry import LocalProjection
 from geoplan.navigation.routing import (
     build_safe_route,
     route_distance_km,
@@ -55,6 +56,69 @@ def survey_parameters(maximum_gsd_cm: float = 5) -> SurveyParameters:
         maximum_segment_distance_km=5,
         sensor=sensor_profile(),
     )
+
+
+def narrow_appendage_request() -> CoveragePlanRequest:
+    projection = LocalProjection(37, 55)
+    area = CoverageArea(
+        area_id="appendage",
+        name="Thin side branch",
+        coordinates=[
+            projection.unproject(x, y)
+            for x, y in (
+                (0, 0),
+                (400, 0),
+                (400, 110),
+                (700, 110),
+                (700, 125),
+                (400, 125),
+                (400, 400),
+                (0, 400),
+            )
+        ],
+    )
+    return CoveragePlanRequest(
+        area=area,
+        mission_altitude_m=100,
+        parameters=survey_parameters().model_copy(
+            update={"direction_mode": SweepDirectionMode.MANUAL}
+        ),
+    )
+
+
+def test_fixed_angle_that_misses_a_narrow_appendage_is_rejected():
+    with pytest.raises(CoveragePlanningError):
+        BoustrophedonCoveragePlanner().plan(narrow_appendage_request())
+
+
+def test_bounded_angles_find_a_complete_layout_instead_of_the_shorter_incomplete_one():
+    from shapely.geometry import LineString
+    from shapely.ops import unary_union
+
+    from geoplan.coverage.sweep import _flyable_geometry
+
+    request = narrow_appendage_request()
+    request = request.model_copy(
+        update={
+            "parameters": request.parameters.model_copy(
+                update={"direction_mode": SweepDirectionMode.AUTOMATIC}
+            )
+        }
+    )
+    planner = BoustrophedonCoveragePlanner(SweepAngleAlgorithm.BOUNDED_PORTFOLIO)
+    first = planner.plan(request)
+    second = planner.plan(request)
+    assert first == second
+    target, projection = _flyable_geometry(request)
+    strips = [
+        LineString([projection.project(p) for p in segment.route[i : i + 2]])
+        for segment in first.segments
+        for i in range(0, len(segment.route) - 1, 2)
+    ]
+    covered = unary_union(
+        [strip.buffer(first.footprint_width_m / 2, cap_style="square") for strip in strips]
+    )
+    assert covered.intersection(target).area / target.area >= 0.99
 
 
 def test_boustrophedon_planner_generates_snake_route_inside_area() -> None:

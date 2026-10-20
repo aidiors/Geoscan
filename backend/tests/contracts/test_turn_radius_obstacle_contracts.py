@@ -51,7 +51,7 @@ def test_overlapping_no_fly_zones_return_stable_no_route_contract() -> None:
     assert all(len(item.no_fly_zones) == 2 for item in transition_planner.requests)
 
 
-def test_interior_hole_reports_not_evaluated_when_sweeps_split() -> None:
+def test_interior_hole_reaches_transition_search_with_safe_clearance() -> None:
     coverage = _coverage_with_center_block()
     projection = projection_for_coordinates(coverage.area.coordinates)
     center_x, center_y = _center(coverage)
@@ -59,18 +59,20 @@ def test_interior_hole_reports_not_evaluated_when_sweeps_split() -> None:
     area = coverage.area.model_copy(update={"interior_rings": [hole]})
     request = coverage.model_copy(update={"area": area})
 
+    transitions = ObstacleRejectingTransitionPlanner()
     result = analyze_turn_radii(
         TurnRadiusAnalysisRequest(coverage=request, radii_m=[15, 30]),
         BoustrophedonCoveragePlanner(),
-        ObstacleRejectingTransitionPlanner(),
+        transitions,
     )
 
     assert result.area_id == area.area_id
     assert [scenario.status for scenario in result.scenarios] == [
-        TurnRadiusStatus.NOT_EVALUATED,
-        TurnRadiusStatus.NOT_EVALUATED,
+        TurnRadiusStatus.NO_ROUTE_FOR_SELECTED_SWEEPS,
+        TurnRadiusStatus.NO_ROUTE_FOR_SELECTED_SWEEPS,
     ]
     assert result.common_survey_route is None
+    assert transitions.requests
 
 
 def _coverage_with_center_block() -> CoveragePlanRequest:

@@ -2,8 +2,17 @@ from __future__ import annotations
 
 from math import ceil
 
-from geoplan.domain.diagnostics import FeasibilityRecommendation, FeasibilityReport
-from geoplan.domain.enums import FeasibilityStatus, RecommendationCode, RecommendationConfidence
+from geoplan.domain.diagnostics import (
+    FeasibilityRecommendation,
+    FeasibilityReport,
+    SafetyAuditReport,
+)
+from geoplan.domain.enums import (
+    FeasibilityStatus,
+    RecommendationCode,
+    RecommendationConfidence,
+    SafetyAuditStatus,
+)
 from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.mission import DronePlan, MaintenanceReport, Mission
 from geoplan.planning.models import PlanMetrics, PlanRequest
@@ -73,12 +82,12 @@ def _create_metrics(
     drone_plans: list[DronePlan],
     available_drone_count: int,
 ) -> PlanMetrics:
-    durations = [drone_plan.total_duration_minutes for drone_plan in drone_plans]
+    durations = [sum(m.duration_minutes for m in plan.missions) for plan in drone_plans]
     scheduled_ends = [
-        mission.end_offset_minutes
+        mission.start_offset_minutes + mission.duration_minutes
         for drone_plan in drone_plans
         for mission in drone_plan.missions
-        if mission.end_offset_minutes is not None
+        if mission.start_offset_minutes is not None
     ]
     completion_minutes = max(scheduled_ends, default=max(durations))
     total_distance = sum(
@@ -117,8 +126,20 @@ def _create_feasibility_report(
     metrics: PlanMetrics,
     request: PlanRequest,
     eligible_drone_count: int,
+    audit: SafetyAuditReport,
 ) -> FeasibilityReport:
     deadline = request.completion_deadline_minutes
+    if audit.status is not SafetyAuditStatus.PASSED:
+        return FeasibilityReport(
+            status=FeasibilityStatus.INFEASIBLE,
+            message=(
+                "Найденный план не прошёл аудит безопасности или качества. "
+                "Выполнимость не подтверждена; требуется другой вариант плана."
+            ),
+            requested_deadline_minutes=deadline,
+            maximum_active_drones=request.maximum_active_drones,
+            used_drone_count=metrics.active_drone_count,
+        )
     if deadline is None:
         return FeasibilityReport(
             status=FeasibilityStatus.FEASIBLE,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import pairwise
-from math import cos, radians, sin, sqrt
+from math import cos, hypot, radians, sin, sqrt
 
 from geoplan.domain.environment import WindCondition
 from geoplan.domain.geo import Coordinate
@@ -19,21 +19,71 @@ def route_duration_minutes(
     wind: WindCondition | None,
     ground_speed_limit_kmh: float | None = None,
 ) -> float:
-    legs = [
-        (start, end, coordinate_distance_km(start, end))
-        for start, end in pairwise(route)
-        if coordinate_distance_km(start, end) > 0
-    ]
+    durations = route_leg_durations_minutes(
+        route, distance_km, cruise_speed_kmh, wind, ground_speed_limit_kmh
+    )
+    return (
+        sum(durations)
+        if any(durations)
+        else (distance_km / _limited_speed(cruise_speed_kmh, ground_speed_limit_kmh) * 60)
+    )
+
+
+def route_leg_durations_minutes(
+    route: list[Coordinate],
+    distance_km: float,
+    cruise_speed_kmh: float,
+    wind: WindCondition | None,
+    ground_speed_limit_kmh: float | None = None,
+) -> list[float]:
+    """One duration per geometric edge, including zero-length edges."""
+    legs = [(start, end, coordinate_distance_km(start, end)) for start, end in pairwise(route)]
     total_length = sum(distance for _, _, distance in legs)
     if total_length == 0:
-        return distance_km / _limited_speed(cruise_speed_kmh, ground_speed_limit_kmh) * 60
-    duration_hours = 0.0
+        times = [0.0] * len(legs)
+        if times:
+            times[-1] = distance_km / _limited_speed(cruise_speed_kmh, ground_speed_limit_kmh) * 60
+        return times
+    durations = []
     for start, end, geometric_distance in legs:
+        if geometric_distance == 0:
+            durations.append(0.0)
+            continue
         leg_distance = distance_km * geometric_distance / total_length
         ground_speed = ground_speed_kmh(start, end, cruise_speed_kmh, wind)
         ground_speed = _limited_speed(ground_speed, ground_speed_limit_kmh)
-        duration_hours += leg_distance / ground_speed
-    return duration_hours * 60
+        duration = leg_distance / ground_speed * 60
+        if ground_speed_limit_kmh is not None:
+            duration = max(
+                duration,
+                leg_distance
+                / geometric_distance
+                * _linear_coordinate_length_bound_km(start, end)
+                / ground_speed_limit_kmh
+                * 60,
+            )
+        durations.append(duration)
+    return durations
+
+
+def _linear_coordinate_length_bound_km(start: Coordinate, end: Coordinate) -> float:
+    """Bound the speed of latitude/longitude-linear camera waypoint insertion.
+
+    On the same sphere as coordinate_distance_km, ds/dt is bounded by
+    R * hypot(delta_lat, max(cos(lat)) * delta_lon). A great-circle edge
+    length alone can slightly underestimate the longest finite camera step.
+    This changes capped clocks, not geometry or overlap requirements.
+    """
+    minimum_latitude, maximum_latitude = sorted((start.latitude, end.latitude))
+    closest_to_equator = (
+        0
+        if minimum_latitude <= 0 <= maximum_latitude
+        else min(abs(minimum_latitude), abs(maximum_latitude))
+    )
+    return 6371 * hypot(
+        radians(end.latitude - start.latitude),
+        cos(radians(closest_to_equator)) * radians(end.longitude - start.longitude),
+    )
 
 
 def ground_speed_kmh(

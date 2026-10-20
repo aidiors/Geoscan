@@ -1,11 +1,19 @@
+import { TerrainAltitudeProfile } from "@/features/terrain/ui/TerrainAltitudeProfile";
 import { Download, Plane, Route, ShieldCheck, ShieldX, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { ForwardFlightAltitudeProfile } from "@/features/planner/ui/ForwardFlightAltitudeProfile";
+import type { ReactNode } from "react";
 
 import { radiusSamples } from "@/features/planner/model/radii";
 import type { DroneProfile } from "@/features/planner/model/types";
+import { PlanSearchProgress } from "./PlanSearchProgress";
 import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/shared/api/types";
 
 interface ResultsPanelProps {
+  planningIssue?: string | null;
+  archived?: boolean;
+  terrainMode?: boolean;
+  insights?: ReactNode;
   plan: PlanResponse | null;
   drones: DroneProfile[];
   selectedDroneId: string;
@@ -19,6 +27,8 @@ interface ResultsPanelProps {
 }
 
 const algorithmLabels: Record<NonNullable<PlanResponse["optimization"]>["algorithm"], string> = {
+  cp_sat: "Распределение CP-SAT",
+  productive_route_pool: "Оптимизация галсов и вылетов",
   exact_branch_and_bound: "Точное распределение branch-and-bound",
   fast_greedy: "Быстрая эвристика",
   multistart_local_search: "Многопроходная оптимизация",
@@ -30,6 +40,7 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
   airspace_compliance: "Воздушное пространство",
   alternate_reserve: "Резервный аэродром",
   battery_reserve: "Резерв АКБ",
+  fleet_resources: "Комплекты АКБ и ресурс до ТО",
   coverage_completeness: "Полнота покрытия",
   drone_separation: "Разведение БВС",
   export_consistency: "Экспорт маршрута",
@@ -37,10 +48,16 @@ const safetyCheckLabels: Record<NonNullable<PlanResponse["safety_audit"]>["check
   no_fly_clearance: "Запретные зоны",
   obstacle_clearance: "Препятствия",
   schedule_integrity: "Расписание",
+  survey_resolution: "Разрешение съёмки (GSD)",
+  camera_timing: "Интервалы и команды камеры",
   vertical_profile: "Рельеф и AGL",
 };
 
 export function ResultsPanel({
+  planningIssue,
+  archived = false,
+  terrainMode = false,
+  insights,
   plan,
   drones,
   selectedDroneId,
@@ -68,14 +85,29 @@ export function ResultsPanel({
     && radiusAnalysis.scenarios.at(-1)?.status !== "feasible";
   const selectedPlan = plan?.drone_plans.find((dronePlan) => dronePlan.drone_id === selectedDroneId);
   const exportDisabled = exporting || !selectedPlan || selectedPlan.mission_count === 0;
+  const forwardExportBlocked = selectedPlan?.missions.some((mission) => mission.forward_flight_phases != null) ?? false;
+  const releaseBlocked = !plan?.export_authorization || plan.safety_audit?.status !== "passed" || plan.feasibility?.status !== "feasible";
+  const forwardMission = selectedPlan?.missions.find((mission) => mission.forward_flight_phases != null);
   const coverageAngleSummary = plan?.optimization?.coverage_angle_cost === "wind_adjusted_duration"
     ? `Направление галсов выбрано по времени с учётом ветра · опорная скорость ${format(plan.optimization.coverage_reference_airspeed_kmh ?? 0)} км/ч`
     : "Направление галсов выбрано по геометрической длине";
   return (
-    <aside className="panel results-panel">
+    <aside className="panel results-panel" id="mission-results" tabIndex={-1}>
       <div className="eyebrow"><Route size={15} /> Результат оптимизации</div>
-      <h2>{plan ? "План готов" : "Ожидает расчёта"}</h2>
+      <h2>{plan ? "Расчётный план" : "Ожидает расчёта"}</h2>
+      {planningIssue && <section className="planning-issue" role="alert">
+        <b>{plan ? "Поиск завершён с сообщением" : "План пока не построен"}</b>
+        <p>{planningIssue}</p>
+        <p>Измените указанные условия и повторите расчёт. В блоке «Качество съёмки и варианты выполнения» можно проверить альтернативы.</p>
+        <a href="#mission-inputs">Изменить условия задания →</a>
+      </section>}
+      {archived && <p className="hint" role="note">Архивный результат: условия и качество не перепроверялись при открытии. Для экспорта в автопилот выполните новый расчёт.</p>}
       <p className="lead">{plan?.feasibility?.message ?? "Настройте сценарий и запустите расчёт — демонстрационные цифры не используются."}</p>
+      {plan && <p className="hint">{plan.criterion === "balanced"
+        ? "Приоритет: минимальный налёт в заданный срок. Если срок недостижим — минимальное превышение."
+        : plan.criterion === "completion_time"
+          ? "Приоритет: завершить быстрее; среди равных вариантов — меньше налёта."
+          : "Приоритет: минимальный налёт; среди равных вариантов — завершить быстрее."}</p>}
 
       {plan?.feasibility && plan.feasibility.recommendations.length > 0 && (
         <section className="recommendation-card">
@@ -94,11 +126,32 @@ export function ResultsPanel({
         <Metric label="Налёт" value={plan ? `${format(plan.metrics.total_flight_minutes)} мин` : "—"} detail="по флоту" />
         <Metric label="Маршрут" value={plan ? `${format(plan.metrics.total_distance_km)} км` : "—"} detail={plan ? `${format(plan.metrics.useful_flight_percent)}% полезного пути` : "общая дистанция"} />
       </div>
+      {plan && <p className="fleet-summary"><Plane size={16} /> {plan.metrics.active_drone_count} БВС в работе · {plan.metrics.sortie_count} вылетов <span>Расчётное время полётов; длительность поиска показана отдельно.</span></p>}
 
+      <PlanSearchProgress search={plan?.search} />
       {plan?.optimization && (
         <div className="algorithm-card">
           <Sparkles size={17} />
-          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{coverageAngleSummary} · обход по графу видимости</small><small>{plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
+          <span><b>{algorithmLabels[plan.optimization.algorithm]}</b><small>{plan.optimization.algorithm === "productive_route_pool" ? "Сравнение вариантов вылетов после расчёта безопасного расписания" : plan.optimization.optimality === "proven_optimal" ? "Распределение оптимально для рассчитанных безопасных маршрутов" : "Маршруты оптимизированы, распределение приближённое из-за размера задачи"}</small><small>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Контуры и прямые проходы; учтены запуск и посадка" : coverageAngleSummary} · обход по графу видимости</small><small>{Object.values(plan.optimization.turn_radii_by_drone ?? {}).some((radius) => radius > 0) ? `Радиусы по бортам: ${Object.entries(plan.optimization.turn_radii_by_drone ?? {}).map(([id, radius]) => `${id}: ${format(radius)} м`).join(", ")}.` : plan.optimization.survey_turn_radius_m > 0 ? `Развороты, транзит и подход к посадке рассчитаны для радиуса ${format(plan.optimization.survey_turn_radius_m)} м.` : "Повороты показаны ломаной: ограничение радиуса отключено (0 м)."}</small></span>
+        </div>
+      )}
+
+      {plan?.optimization?.assignment_search && (
+        <p className="hint">{plan.optimization.assignment_search.message} Поиск назначений: {format(plan.optimization.assignment_search.runtime_seconds)} с. Последующая оптимизация вылетов может дополнительно улучшить план.</p>
+      )}
+
+      {plan?.optimization?.productive_routing && (
+        <div className="algorithm-card">
+          <Route size={17} />
+          <span>
+            <b>{plan.optimization.scope === "freeform_coverage_route_pool" ? "Свободное покрытие" : "Сравнение вылетов"}</b>
+            {(plan.optimization.productive_routing.cross_area_sortie_count ?? 0) > 0 && <small>Вылетов по нескольким областям: {plan.optimization.productive_routing.cross_area_sortie_count}</small>}
+            <small>{plan.optimization.productive_routing.message}</small>
+            {plan.optimization.productive_routing.baseline_makespan_minutes !== null && (
+              <small>Исходный план: {format(plan.optimization.productive_routing.baseline_makespan_minutes)} мин до завершения · {format(plan.optimization.productive_routing.baseline_total_flight_minutes ?? 0)} мин налёта</small>
+            )}
+            <small>Холостой налёт: {format(plan.drone_plans.reduce((sum, drone) => sum + drone.missions.reduce((elapsed, mission) => elapsed + (mission.transit_duration_minutes ?? 0), 0), 0))} мин{plan.optimization.productive_routing.baseline_transit_minutes !== null ? ` · исходный ${format(plan.optimization.productive_routing.baseline_transit_minutes)} мин` : ""}</small>
+          </span>
         </div>
       )}
 
@@ -123,10 +176,15 @@ export function ResultsPanel({
               </div>
             ))}
           </div>
-          <small>Проверено миссий: {plan.safety_audit.audited_mission_count}. Допущения явно перечислены в ответе API.</small>
+          <small>Проверено миссий: {plan.safety_audit.audited_mission_count}.</small>
+          {plan.safety_audit.assumptions.length > 0 && <details>
+            <summary>Допущения и границы проверки</summary>
+            {plan.safety_audit.assumptions.map((assumption) => <p className="hint" key={assumption}>{assumption}</p>)}
+          </details>}
         </section>
       )}
 
+      {insights}
       <section className="radius-analysis-card">
         <b>Допущение о радиусе разворота</b>
         <p>Это отдельный анализ диапазона радиусов: он не меняет уже рассчитанный план. Радиус основного плана задаётся слева и учитывается при построении и экспорте маршрута; 0 м отключает ограничение.</p>
@@ -135,7 +193,8 @@ export function ResultsPanel({
           <label className="field"><span>От, м</span><input type="number" min="0" max="10000" step="any" value={minimumRadius} onChange={(event) => setMinimumRadius(Number(event.target.value))} /></label>
           <label className="field"><span>До, м</span><input type="number" min="0" max="10000" step="any" value={maximumRadius} onChange={(event) => setMaximumRadius(Number(event.target.value))} /></label>
         </div>
-        <button className="secondary-button" type="button" disabled={!plan || !radiusRangeValid || !selectedAreaId || analyzingRadii} onClick={() => onAnalyzeRadii(selectedAreaId, minimumRadius, maximumRadius)}>{analyzingRadii ? "Проверяем…" : "Проверить диапазон"}</button>
+        <button className="secondary-button" type="button" disabled={terrainMode || !plan || !radiusRangeValid || !selectedAreaId || analyzingRadii} onClick={() => onAnalyzeRadii(selectedAreaId, minimumRadius, maximumRadius)}>{analyzingRadii ? "Проверяем…" : "Проверить диапазон"}</button>
+        {terrainMode && <p className="hint">Сравнение радиусов доступно для плоской поверхности MSL. Над DEM заданный радиус учитывается в основном расчёте.</p>}
         {!radiusRangeValid && <small>Укажите радиус от 0 до 10 000 м; нижняя граница не больше верхней.</small>}
         {radiusAnalysisMatchesInputs && <div className="radius-analysis-result">
           {radiusAnalysis.scenarios.map((scenario) => <div key={scenario.radius_m}><b>{format(scenario.radius_m)} м</b><span title={scenario.message}>{scenario.status === "feasible" ? `${format(scenario.distance_km ?? 0)} км · построен` : scenario.status === "not_evaluated" ? "Не проверено" : "Для этих галсов не найден"}</span></div>)}
@@ -147,6 +206,12 @@ export function ResultsPanel({
       <div className="mission-list">
         {plan?.drone_plans.map((dronePlan) => {
           const drone = drones.find((candidate) => candidate.id === dronePlan.drone_id);
+          if (dronePlan.mission_count === 0) return (
+            <button type="button" key={dronePlan.drone_id} className={`mission-card ${dronePlan.drone_id === selectedDroneId ? "active" : ""}`} onClick={() => onSelectDrone(dronePlan.drone_id)}>
+              <span className="mission-title"><Plane size={16} style={{ color: drone?.color }} /><b>{drone?.name ?? dronePlan.drone_id}</b><em>Не используется</em></span>
+              <span className="mission-details">Борт передан в расчёт; в итоговом плане вылеты не назначены.</span>
+            </button>
+          );
           const maximumBattery = Math.max(0, ...dronePlan.missions.map((mission) => mission.estimated_battery_percent));
           const minimumStartingBattery = Math.min(100, ...dronePlan.missions.map((mission) => mission.starting_battery_percent));
           const reserveMargins = dronePlan.missions
@@ -172,6 +237,7 @@ export function ResultsPanel({
           const absoluteStarts = dronePlan.missions.map((mission) => mission.start_time).filter((value): value is string => Boolean(value));
           const absoluteEnds = dronePlan.missions.map((mission) => mission.end_time).filter((value): value is string => Boolean(value));
           const terrainMissions = dronePlan.missions.filter((mission) => mission.altitude_reference === "agl");
+          const forwardPhases = dronePlan.missions.flatMap((mission) => mission.forward_flight_phases ? [mission.forward_flight_phases] : []);
           const maximumTerrain = Math.max(...terrainMissions.map((mission) => mission.maximum_terrain_elevation_m ?? 0));
           const verticalDistance = terrainMissions.reduce((sum, mission) => sum + mission.vertical_distance_m, 0);
           const maximumVerticalLayer = Math.max(0, ...dronePlan.missions.map((mission) => mission.vertical_deconfliction_offset_m ?? 0));
@@ -188,20 +254,32 @@ export function ResultsPanel({
               <span className="mission-details">{format(dronePlan.total_duration_minutes)} мин · {format(totalDistance)} км · {format(usefulPercent)}% съёмка · АКБ старт {format(minimumStartingBattery)}%, расход до {format(maximumBattery)}%{minimumReserveMargin !== null ? ` · сверх резерва ${format(minimumReserveMargin)} п.п.` : ""}{sweepAngles.length > 0 ? ` · галсы ${sweepAngles.map((angle) => `${format(angle)}°`).join("/")}` : ""}{scheduleText}</span>
               {minimumAlternateMargin !== null && <span className="mission-details">Аварийный уход: минимум {format(minimumAlternateMargin)} п.п. сверх резерва · адаптивно проверено {alternateEvaluations} точек · интервал до {format(maximumAlternateInterval)} м · погрешность ≤ {format(maximumAlternateError)} мин</span>}
               {terrainMissions.length > 0 && <span className="mission-details">AGL-профиль: рельеф до {format(maximumTerrain)} м MSL · вертикальный путь {format(verticalDistance)} м</span>}
+              {forwardPhases.length > 0 && <span className="mission-details">Самолётный профиль: набор до {format(Math.max(...forwardPhases.map((p) => p.maximum_climb_rate_mps)))} м/с · снижение до {format(Math.max(...forwardPhases.map((p) => p.maximum_descent_rate_mps)))} м/с · выполняются во время перелётов, без добавления времени · GIS-проверка</span>}
               {maximumVerticalLayer > 0 && <span className="mission-details">Вертикальное эшелонирование: до +{format(maximumVerticalLayer)} м · набор/снижение {format(verticalPhaseMinutes)} мин включены в расписание и АКБ</span>}
+              {maximumVerticalLayer === 0 && verticalPhaseMinutes > 0 && <span className="mission-details">Взлёт и посадка: {format(verticalPhaseMinutes)} мин включены в расписание и АКБ</span>}
               <span className="battery-bar"><i style={{ width: `${Math.min(maximumBattery, 100)}%`, background: drone?.color ?? "#6d28d9" }} /></span>
+              {drone?.availableBatterySets != null && <span className="mission-details">Готовые комплекты АКБ: {dronePlan.mission_count} / {drone.availableBatterySets} использовано</span>}
+              {dronePlan.maintenance && <span className="mission-details">{dronePlan.maintenance.message}</span>}
               {dronePlan.maintenance?.maintenance_due_after_plan && <span className="maintenance-warning">После плана требуется ТО</span>}
             </button>
           );
         }) ?? <div className="empty-state">После расчёта здесь появятся индивидуальные задания БВС.</div>}
       </div>
 
-      <div className="export-group">
+      {forwardMission && <ForwardFlightAltitudeProfile mission={forwardMission} />}
+      {selectedPlan && <TerrainAltitudeProfile key={selectedDroneId} missions={selectedPlan.missions} />}
+      <div className="export-group" id="mission-exports" tabIndex={-1}>
         <button type="button" disabled={exportDisabled} onClick={() => onExport("geojson")}><Download size={15} /> GeoJSON</button>
         <button type="button" disabled={exportDisabled} onClick={() => onExport("kml")}><Download size={15} /> KML</button>
-        <button type="button" disabled={exportDisabled} onClick={() => onExport("qgroundcontrol")}><Download size={15} /> QGroundControl</button>
-        <button type="button" disabled={exportDisabled} onClick={() => onExport("mission-planner")}><Download size={15} /> Mission Planner</button>
+        <button type="button" disabled={exportDisabled || forwardExportBlocked || releaseBlocked} onClick={() => onExport("qgroundcontrol")}><Download size={15} /> QGroundControl</button>
+        <button type="button" disabled={exportDisabled || forwardExportBlocked || releaseBlocked} onClick={() => onExport("mission-planner")}><Download size={15} /> Mission Planner</button>
       </div>
+      {plan && <p className="hint">{releaseBlocked
+        ? "Для экспорта в автопилот нужен проверенный план, укладывающийся в заданные условия. При устаревшем подтверждении повторите расчёт. GIS доступен для анализа."
+        : "Целостность расчётного плана подтверждена сервером. Совместимость с прошивкой и готовность к полёту требуют отдельной проверки."}</p>}
+      {selectedPlan?.missions.some((mission) => mission.altitude_reference === "agl") && <p className="hint">AGL-экспорт требует поддержки terrain-frame в прошивке и согласованной бортовой модели рельефа. Загруженный GeoTIFF автоматически на БВС не передаётся.</p>}
+      {selectedPlan && selectedPlan.missions.length > 1 && <p className="hint">Экспорт в автопилот: ZIP с отдельным файлом на каждый вылет. Откройте dispatch.html для просмотра расписания. Оператор запускает вылеты отдельно, соблюдая интервалы и подготовку АКБ.</p>}
+      {forwardExportBlocked && <p className="hint">Самолётный профиль доступен в GeoJSON и KML. Автопилотный экспорт требует проверки команд взлёта и посадки под конкретную прошивку.</p>}
     </aside>
   );
 }

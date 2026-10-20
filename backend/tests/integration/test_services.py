@@ -8,11 +8,13 @@ from geoplan.coverage.sweep import BoustrophedonCoveragePlanner
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone, RestrictionValidity
 from geoplan.domain.enums import (
     AirframeType,
+    AltitudeMode,
     AltitudeReference,
     AutopilotFirmware,
     CoverageAngleCost,
     ErrorCode,
     ImportedGeometryType,
+    MissionStageType,
     MissionTask,
     OptimizationCriterion,
     ValidityMode,
@@ -36,6 +38,7 @@ from geoplan.navigation.routing import (
     route_is_inside_coverage_area,
 )
 from geoplan.planning.engine import build_plan
+from geoplan.planning.freeform import AuditedFreeformRouteOptimizer
 from geoplan.planning.models import PlanRequest, PlanResponse
 from geoplan.safety.audit import IndependentPlanSafetyAuditor
 from geoplan.scheduling.scheduler import ConflictAwareMissionScheduler
@@ -122,11 +125,13 @@ def test_gemini_uses_separate_agl_and_msl_ceiling() -> None:
             segments=[segment],
             mission_altitude_m=1_200,
             altitude_reference=AltitudeReference.MSL,
+            flat_ground_elevation_m=1_000,
             task=MissionTask.RGB,
         )
     )
 
     assert msl_response.drone_plans[0].missions[0].altitude_m == 1_200
+    assert msl_response.drone_plans[0].missions[0].minimum_agl_m == 200
     with pytest.raises(PlanningError) as error:
         create_plan(
             PlanRequest(
@@ -158,6 +163,7 @@ def create_plan(request: PlanRequest) -> PlanResponse:
         DubinsSweepTransitionPlanner(ExactDubinsPlanner()),
         IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),
         TerrainFollowingProfilePlanner(InverseDistanceTerrainProvider()),
+        AuditedFreeformRouteOptimizer(),
     )
 
 
@@ -196,6 +202,7 @@ def test_positive_turn_radius_changes_survey_route_and_distance() -> None:
         RejectingTransitionPlanner(),
         IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),
         TerrainFollowingProfilePlanner(InverseDistanceTerrainProvider()),
+        AuditedFreeformRouteOptimizer(),
     )
     curved = create_plan(baseline_request.model_copy(update={"minimum_turn_radius_m": 10}))
 
@@ -204,10 +211,15 @@ def test_positive_turn_radius_changes_survey_route_and_distance() -> None:
     assert curved.drone_plans[0].autopilot_profile == baseline_request.drones[0].autopilot_profile
     assert curved.optimization is not None
     assert curved.optimization.survey_turn_radius_m == 10
-    assert len(curved_mission.stages[2].coordinates) > len(baseline_mission.stages[2].coordinates)
+    assert len(curved_mission.route) > len(baseline_mission.route)
     assert curved_mission.survey_distance_km is not None
     assert baseline_mission.survey_distance_km is not None
-    assert curved_mission.survey_distance_km > baseline_mission.survey_distance_km
+    assert curved_mission.distance_km > baseline_mission.distance_km
+    assert all(
+        len(s.coordinates) == 2
+        for s in curved_mission.stages
+        if s.stage_type is MissionStageType.SURVEY
+    )
 
 
 def test_gsd_failure_recommends_exact_maximum_altitude() -> None:
@@ -280,8 +292,9 @@ def test_positive_turn_radius_connects_departure_and_landing_tangentially() -> N
 
     mission = create_plan(request).drone_plans[0].missions[0]
     transit_route = mission.stages[1].coordinates
-    survey_route = mission.stages[2].coordinates
-    landing_route = mission.stages[3].coordinates
+    surveys = [s for s in mission.stages if s.stage_type is MissionStageType.SURVEY]
+    survey_route = [*surveys[0].coordinates, *surveys[-1].coordinates]
+    landing_route = mission.stages[-1].coordinates
 
     assert len(transit_route) > 2
     assert len(landing_route) > 2
@@ -339,6 +352,7 @@ def test_positive_turn_radius_reports_stable_failure_without_polyline_fallback()
             RejectingTransitionPlanner(),
             IndependentPlanSafetyAuditor(CanonicalMissionExportVerifier()),
             TerrainFollowingProfilePlanner(InverseDistanceTerrainProvider()),
+            AuditedFreeformRouteOptimizer(),
         )
 
     assert error.value.code is ErrorCode.TURN_RADIUS_UNSATISFIED
@@ -1458,7 +1472,21 @@ def test_build_plan_returns_stable_error_when_wind_exceeds_drone_limit() -> None
     assert error.value.recommendations[0].required_value == 10
 
 
-def test_build_plan_detours_around_obstacle_above_mission_altitude() -> None:
+@pytest.mark.parametrize(
+    "height,mode,altitude,detour",
+    [
+        (100, AltitudeMode.ABSOLUTE, 60, True),
+        (None, AltitudeMode.ABSOLUTE, 100, True),
+        (5, AltitudeMode.RELATIVE_TO_GROUND, 100, True),
+        (0, AltitudeMode.ABSOLUTE, 100, False),
+    ],
+)
+def test_build_plan_detours_around_obstacles_without_assuming_relative_heights_are_msl(
+    height,
+    mode,
+    altitude,
+    detour,
+) -> None:
     request = PlanRequest(
         criterion=OptimizationCriterion.TOTAL_FLIGHT_TIME,
         drones=[
@@ -1486,18 +1514,20 @@ def test_build_plan_detours_around_obstacle_above_mission_altitude() -> None:
                 obstacle_id="tower",
                 geometry_type=ImportedGeometryType.POINT,
                 coordinates=[Coordinate(longitude=37.41, latitude=55.7)],
-                height_m=100,
+                height_m=height,
+                altitude_mode=mode,
             )
         ],
-        mission_altitude_m=60,
+        mission_altitude_m=altitude,
         task=MissionTask.RGB,
     )
 
     response = create_plan(request)
 
     mission = response.drone_plans[0].missions[0]
-    assert len(mission.stages[2].coordinates) == 4
-    assert mission.distance_km > 2
+    assert len(mission.stages[2].coordinates) == (4 if detour else 2)
+    if detour:
+        assert mission.distance_km > 2
 
 
 def test_build_plan_generates_coverage_route_from_target_polygon() -> None:
@@ -1553,7 +1583,14 @@ def test_build_plan_generates_coverage_route_from_target_polygon() -> None:
     assert missions
     assert missions[0].image_count is not None
     assert missions[0].computed_gsd_cm == pytest.approx(2.741, abs=0.001)
-    assert len(missions[0].stages[2].coordinates) > 2
+    survey_stages = [
+        stage for stage in missions[0].stages if stage.stage_type is MissionStageType.SURVEY
+    ]
+    assert len(survey_stages) > 1
+    assert all(len(stage.coordinates) == 2 for stage in survey_stages)
+    assert sum(stage.duration_minutes for stage in missions[0].stages) == pytest.approx(
+        missions[0].duration_minutes
+    )
 
 
 def test_build_plan_routes_coverage_around_target_area_hole() -> None:

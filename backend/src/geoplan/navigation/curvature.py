@@ -142,7 +142,10 @@ def _validate_survey_legs(
     request: SweepRouteCurvatureRequest,
 ) -> None:
     for leg in survey_legs:
-        if not route_is_inside_coverage_area(leg, request.coverage_area):
+        if not any(
+            route_is_inside_coverage_area(leg, area)
+            for area in [request.coverage_area, *request.additional_coverage_areas]
+        ):
             raise RouteGeometryError("Съёмочный галс выходит за пределы целевой зоны.")
         if not route_is_clear_of_no_fly_zones(leg, request.no_fly_zones):
             raise RouteGeometryError("Съёмочный галс пересекает запретную зону.")

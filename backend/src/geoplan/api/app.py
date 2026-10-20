@@ -5,11 +5,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
+from geoplan.api.projects import create_project_router
 from geoplan.api.routes import (
     create_router,
     planning_error_handler,
     request_validation_error_handler,
 )
+from geoplan.api.terrain import create_terrain_router
 from geoplan.composition import AppDependencies
 from geoplan.errors import PlanningError
 
@@ -18,6 +20,8 @@ def create_app(dependencies: AppDependencies, *, serve_frontend: bool = True) ->
     application = FastAPI(title="GeoPlan Optimizer", version="1.0.0")
     application.add_exception_handler(PlanningError, planning_error_handler)
     application.add_exception_handler(RequestValidationError, request_validation_error_handler)
+    application.include_router(create_project_router(dependencies.project_repository))
+    application.include_router(create_terrain_router())
     application.include_router(
         create_router(
             dependencies.duration_calculator,
@@ -29,6 +33,11 @@ def create_app(dependencies: AppDependencies, *, serve_frontend: bool = True) ->
             dependencies.sweep_transition_planner,
             dependencies.safety_auditor,
             dependencies.vertical_profile_planner,
+            dependencies.freeform_optimizer,
+            dependencies.assignment_alternative,
+            dependencies.productive_route_pool,
+            dependencies.alternative_coverage_planner,
+            dependencies.cross_area_optimizer,
         )
     )
 

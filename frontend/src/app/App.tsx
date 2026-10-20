@@ -6,10 +6,14 @@ import { MissionMap } from "@/widgets/mission-map/MissionMap";
 import { ResultsPanel } from "@/features/planner/ui/ResultsPanel";
 import { activeWorkAreas } from "@/features/planner/api/buildPlanRequest";
 import { usePlanner } from "@/features/planner/model/usePlanner";
+import { MissionInsights } from "@/features/planner/ui/MissionInsights";
+import { ProjectPanel } from "@/features/projects/ui/ProjectPanel";
+import { MissionWorkflow } from "@/features/planner/ui/MissionWorkflow";
 
 export default function App() {
   const [theme, setTheme] = useTheme();
   const {
+    terrain, terrainImporting, handleImportTerrain, handleTerrainChange,
     scenarioId,
     demoCaseId,
     showcaseOpen,
@@ -23,12 +27,17 @@ export default function App() {
     sites,
     setSites,
     importedZones,
+    workAreaSource,
     setImportedZones,
     survey,
     setSurvey,
     settings,
     setSettings,
     plan,
+    insights,
+    handleAdvise,
+    handleApplyAdvice,
+    canInspectQuality,
     radiusAnalysis,
     analyzingRadii,
     revision,
@@ -48,19 +57,26 @@ export default function App() {
     handleTaskChange,
     handleUpdateDrone,
     handleAddDrone,
+    handleCloneDrone,
     handleRemoveDrone,
     handleAddSite,
     handleImport,
     handleCalculate,
+    handleCancelPlanning,
     handleDemoCaseRun,
     handleAnalyzeRadii,
     handleExport,
     saveScenario,
     loadScenario,
+    forgetSavedScenario,
+    captureProject,
+    restoreProject,
+    archivedPlan,
+    planningIssue,
   } = usePlanner();
   return (
     <div className="app-shell">
-      <Header status={status} revision={revision} theme={theme} calculating={calculating} onOpenShowcase={() => setShowcaseOpen(true)} onCalculate={() => void handleCalculate()} onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
+      <Header status={status} revision={revision} theme={theme} calculating={calculating} onCancelPlanning={handleCancelPlanning} onOpenShowcase={() => setShowcaseOpen(true)} onCalculate={() => void handleCalculate()} onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
       <DemoShowcase
         open={showcaseOpen}
         selectedCaseId={demoCaseId}
@@ -70,8 +86,12 @@ export default function App() {
         onLoad={handleDemoCaseLoad}
         onRun={(caseId) => void handleDemoCaseRun(caseId)}
       />
+      <MissionWorkflow plan={plan} quality={insights.quality} archived={archivedPlan} calculating={calculating} canInspect={canInspectQuality} busy={calculating || insights.busy} onInspect={() => void insights.inspect()} onCalculate={() => void handleCalculate()} />
       <main className="workspace">
         <ControlsPanel
+          terrain={terrain} terrainImporting={terrainImporting} onImportTerrain={handleImportTerrain} onTerrainChange={handleTerrainChange}
+          scenario={scenario}
+          projects={<ProjectPanel capture={captureProject} restore={restoreProject} onStatus={setStatus} />}
           scenarioId={scenarioId}
           task={task}
           objective={objective}
@@ -89,6 +109,7 @@ export default function App() {
           onSelectDrone={setSelectedDroneId}
           onUpdateDrone={handleUpdateDrone}
           onAddDrone={handleAddDrone}
+          onCloneDrone={handleCloneDrone}
           onRemoveDrone={handleRemoveDrone}
           onUpdateSurvey={(patch) => { setSurvey((current) => ({ ...current, ...patch })); invalidate("Параметры съёмки изменены"); }}
           onUpdateSettings={(patch) => { setSettings((current) => ({ ...current, ...patch })); invalidate("Ограничения расчёта изменены"); }}
@@ -97,8 +118,12 @@ export default function App() {
           onRemoveSite={(siteId) => { setSites((current) => current.filter((flightSite) => flightSite.site_id !== siteId)); invalidate("Площадка удалена"); }}
           onImport={handleImport}
           onRemoveZone={(zoneId) => { setImportedZones((current) => current.filter((zone) => zone.zone_id !== zoneId)); invalidate("Зона удалена"); }}
+          onRemoveInvalidZones={() => { setImportedZones((current) => current.filter((zone) => !zone.metadata?.geometry_issue && !zone.metadata?.geometry_warning)); invalidate("Области без площади и меньше 1 м² удалены из задания"); }}
+          onSelectZone={(zoneId, enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_id === zoneId && zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
+          onSelectAllWorkAreas={(enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
           onSave={saveScenario}
           onLoad={loadScenario}
+          onForgetSavedScenario={forgetSavedScenario}
         />
         <MissionMap
           key={fitKey}
@@ -107,12 +132,13 @@ export default function App() {
           drones={drones}
           plan={plan}
           radiusAnalysis={radiusAnalysis}
+          quality={insights.quality}
           selectedDroneId={selectedDroneId}
           pendingSiteRole={pendingSiteRole}
           onAddSite={handleAddSite}
           onClearZones={() => { setImportedZones([]); invalidate("Импортированные зоны очищены"); }}
         />
-        <ResultsPanel plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
+        <ResultsPanel planningIssue={planningIssue} terrainMode={settings.altitudeReference === "agl"} archived={archivedPlan} insights={<MissionInsights quality={insights.quality} advice={insights.advice} busy={insights.busy || calculating} canInspect={canInspectQuality} onInspect={() => void insights.inspect()} onAdvise={(allowAltitudeChange) => void handleAdvise(allowAltitudeChange)} onApply={handleApplyAdvice} />} plan={plan} drones={drones} selectedDroneId={selectedDroneId} exporting={exporting} workAreas={activeWorkAreas(importedZones, scenario, workAreaSource)} radiusAnalysis={radiusAnalysis} analyzingRadii={analyzingRadii} onAnalyzeRadii={(areaId, minimumRadius, maximumRadius) => void handleAnalyzeRadii(areaId, minimumRadius, maximumRadius)} onSelectDrone={setSelectedDroneId} onExport={(format) => void handleExport(format)} />
       </main>
     </div>
   );

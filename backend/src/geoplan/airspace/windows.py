@@ -3,11 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from itertools import pairwise
 
+from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import AllowedAirspace, NoFlyZone, RestrictionValidity
-from geoplan.domain.enums import AltitudeReference, ValidityMode
+from geoplan.domain.enums import AirframeType, AltitudeReference, ValidityMode
 from geoplan.domain.fleet import DroneSpec
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
+from geoplan.flight.altitude import FlightAltitudeEnvelope
+from geoplan.flight.energy import _battery_use_percent
+from geoplan.flight.fixed_wing import forward_route_inside_airspaces
+from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
 from geoplan.navigation.routing import (
     route_is_clear_of_no_fly_zones,
     route_is_inside_allowed_airspaces,
@@ -38,13 +43,16 @@ def _vertical_layer_options(
         extra_energy_equivalent_minutes=0,
         extra_battery_percent=0,
     )
-    climb_rate = drone.maximum_climb_rate_mps
-    descent_rate = drone.maximum_descent_rate_mps
+    profile = drone.takeoff_landing_profile
+    climb_rate = profile.climb_rate_mps if profile else drone.maximum_climb_rate_mps
+    descent_rate = profile.descent_rate_mps if profile else drone.maximum_descent_rate_mps
     if (
         request.maximum_vertical_deconfliction_m <= 0
         or climb_rate is None
         or descent_rate is None
         or _has_altitude_dependent_temporal_restrictions(request)
+        or drone.autopilot_profile.airframe
+        in {AirframeType.FIXED_WING, AirframeType.VTOL_FIXED_ROTOR}
     ):
         return [baseline]
     options = [baseline]
@@ -53,12 +61,15 @@ def _vertical_layer_options(
         climb_minutes = offset / climb_rate / 60
         descent_minutes = offset / descent_rate / 60
         extra_minutes = climb_minutes + descent_minutes
-        extra_battery = extra_minutes / drone.maximum_flight_minutes * 100
+        surcharge = (
+            TakeoffLandingEstimator().estimate(drone, offset, offset).energy_surcharge_minutes
+        )
+        extra_battery = _battery_use_percent(extra_minutes + surcharge, drone)
         option = VerticalLayerOption(
             offset_m=round(offset, 3),
             climb_duration_minutes=round(climb_minutes, 6),
             descent_duration_minutes=round(descent_minutes, 6),
-            extra_energy_equivalent_minutes=round(extra_minutes, 6),
+            extra_energy_equivalent_minutes=round(surcharge, 6),
             extra_battery_percent=round(extra_battery, 6),
         )
         shifted = apply_vertical_layer(mission, option)
@@ -87,18 +98,19 @@ def _vertical_layer_is_feasible(
     option: VerticalLayerOption,
     request: PlanRequest,
 ) -> bool:
-    drone = next(drone for drone in request.drones if drone.drone_id == mission.drone_id)
-    maximum_altitude = drone.maximum_altitude_for(mission.altitude_reference)
-    if maximum_altitude is not None and mission.altitude_m > maximum_altitude:
-        return False
-    if (
-        mission.battery_reserve_margin_percent is None
-        or mission.battery_reserve_margin_percent < option.extra_battery_percent
+    survey = request.survey_parameters
+    if survey is not None and not SurveyResolution().allows(
+        mission, mission.sensor or survey.sensor, survey.maximum_gsd_cm
     ):
+        return False
+    drone = next(drone for drone in request.drones if drone.drone_id == mission.drone_id)
+    if not FlightAltitudeEnvelope().allows(drone, mission):
+        return False
+    if mission.battery_reserve_margin_percent is None or mission.battery_reserve_margin_percent < 0:
         return False
     if (
         mission.minimum_alternate_margin_percent is not None
-        and mission.minimum_alternate_margin_percent < option.extra_battery_percent
+        and mission.minimum_alternate_margin_percent < 0
     ):
         return False
     return not request.allowed_airspaces or _mission_route_inside_airspaces(
@@ -180,14 +192,24 @@ def _mission_time_windows(
 
 
 def _mission_altitudes_msl(mission: Mission) -> list[float]:
-    if mission.vertical_profile:
-        return [point.target_altitude_msl for point in mission.vertical_profile]
-    return [mission.altitude_m]
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            min(mission.route_altitudes_msl_m) - mission.terrain_vertical_uncertainty_m,
+            *mission.route_altitudes_msl_m,
+        ]
+    return mission.flight_altitudes_msl_m
 
 
 def _mission_altitudes(mission: Mission, reference: AltitudeReference) -> list[float]:
     if reference is AltitudeReference.MSL:
         return _mission_altitudes_msl(mission)
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            0,
+            max(mission.route_altitudes_msl_m)
+            - mission.flat_ground_elevation_m
+            + mission.terrain_vertical_uncertainty_m,
+        ]
     if mission.vertical_profile:
         return [point.target_agl_m for point in mission.vertical_profile]
     if mission.altitude_reference is AltitudeReference.AGL:
@@ -199,8 +221,10 @@ def _zone_applies_to_mission(zone: NoFlyZone, mission: Mission) -> bool:
     if zone.minimum_altitude_m is None or zone.maximum_altitude_m is None:
         return True
     altitudes = _mission_altitudes(mission, zone.altitude_reference)
-    return any(
-        zone.minimum_altitude_m <= altitude <= zone.maximum_altitude_m for altitude in altitudes
+    return (
+        bool(altitudes)
+        and min(altitudes) <= zone.maximum_altitude_m
+        and max(altitudes) >= zone.minimum_altitude_m
     )
 
 
@@ -262,6 +286,14 @@ def _mission_route_inside_airspaces(
     mission: Mission,
     airspaces: list[AllowedAirspace],
 ) -> bool:
+    if mission.route_altitudes_msl_m is not None:
+        return forward_route_inside_airspaces(
+            mission.route,
+            mission.route_altitudes_msl_m,
+            mission.flat_ground_elevation_m,
+            mission.terrain_vertical_uncertainty_m,
+            airspaces,
+        )
     if not mission.vertical_profile:
         compatible = [
             airspace

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from heapq import heappop, heappush
 from itertools import pairwise
 from math import asin, atan2, cos, degrees, inf, radians, sin, sqrt
 
+from shapely import linestrings, relate_pattern
 from shapely.geometry import GeometryCollection, LineString, Point, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from geoplan.budget import check_planning_budget
 from geoplan.coverage.models import CoverageArea
 from geoplan.domain.airspace import AllowedAirspace, NoFlyZone
 from geoplan.domain.geo import Coordinate
@@ -25,20 +28,54 @@ class RouteGeometryError(Exception):
     pass
 
 
+EdgeKey = tuple[tuple[float, float], tuple[float, float]]
+
+
+@dataclass
+class PreparedSafeRoutes:
+    """Request-local obstacle geometry and lazy visibility edges shared by route queries."""
+
+    projection: LocalProjection
+    blocked: BaseGeometry
+    zones: list[NoFlyZone]
+    edges: dict[EdgeKey, bool] = field(default_factory=dict, repr=False)
+    paths: dict[EdgeKey, list[Coordinate]] = field(default_factory=dict, repr=False)
+    cached_points: int = field(default=0, repr=False)
+
+    @classmethod
+    def create(cls, coordinates: list[Coordinate], zones: list[NoFlyZone]) -> PreparedSafeRoutes:
+        projection = projection_for_coordinates(
+            [
+                *coordinates,
+                *(p for zone in zones for p in zone.coordinates),
+            ]
+        )
+        return cls(projection, _blocked_geometry(zones, projection), zones)
+
+    def build(self, route: list[Coordinate]) -> list[Coordinate]:
+        if not self.zones:
+            return list(route)
+        safe_route = [route[0]]
+        for start, end in pairwise(route):
+            key = (self.projection.project(start), self.projection.project(end))
+            leg = self.paths.get(key)
+            if leg is None:
+                leg = _shortest_safe_leg(start, end, self.blocked, self.projection, self.edges)
+                if self.cached_points + len(leg) <= 50_000:
+                    self.paths[key] = leg
+                    self.cached_points += len(leg)
+            # Geometry keys use XY; retain the current query's endpoint metadata.
+            safe_route.extend([*leg[1:-1], end])
+        points = [self.projection.project(p) for p in safe_route]
+        if not all(relate_pattern(linestrings(list(pairwise(points))), self.blocked, "F********")):
+            raise RouteGeometryError("Построенный маршрут пересекает запретную зону.")
+        return safe_route
+
+
 def build_safe_route(route: list[Coordinate], no_fly_zones: list[NoFlyZone]) -> list[Coordinate]:
     if not no_fly_zones:
         return list(route)
-    projection = projection_for_coordinates(
-        [*route, *(point for zone in no_fly_zones for point in zone.coordinates)]
-    )
-    blocked = _blocked_geometry(no_fly_zones, projection)
-    safe_route = [route[0]]
-    for start, end in pairwise(route):
-        leg = _shortest_safe_leg(start, end, blocked, projection)
-        safe_route.extend(leg[1:])
-    if not route_is_clear_of_no_fly_zones(safe_route, no_fly_zones):
-        raise RouteGeometryError("Построенный маршрут пересекает запретную зону.")
-    return safe_route
+    return PreparedSafeRoutes.create(route, no_fly_zones).build(route)
 
 
 def calculate_route_multiplier(route: list[Coordinate], safe_route: list[Coordinate]) -> float:
@@ -145,6 +182,7 @@ def _shortest_safe_leg(
     end: Coordinate,
     blocked: BaseGeometry,
     projection: LocalProjection,
+    edge_cache: dict[EdgeKey, bool] | None = None,
 ) -> list[Coordinate]:
     start_xy = projection.project(start)
     end_xy = projection.project(end)
@@ -159,7 +197,9 @@ def _shortest_safe_leg(
     relevant_parts = [part for part in polygon_parts(blocked) if part.intersects(corridor)]
     relevant = unary_union(relevant_parts)
     nodes = [start_xy, end_xy, *_visibility_vertices(relevant_parts)]
-    path = _dijkstra_visibility_path(nodes, relevant)
+    path = _shortest_visibility_path(
+        nodes, blocked if edge_cache is not None else relevant, edge_cache
+    )
     if path is None:
         raise RouteGeometryError("Между точками нет безопасного пути в свободном пространстве.")
     return [projection.unproject(x, y) for x, y in path]
@@ -168,62 +208,80 @@ def _shortest_safe_leg(
 def _visibility_vertices(polygons: list[Polygon]) -> list[tuple[float, float]]:
     vertices: list[tuple[float, float]] = []
     for polygon in polygons:
-        center = polygon.centroid
-        vertices.extend(
-            _nudged_vertex(float(x), float(y), center.x, center.y)
-            for x, y in list(polygon.exterior.coords)[:-1]
-        )
-        for ring in polygon.interiors:
-            vertices.extend(
-                _nudged_vertex(float(x), float(y), center.x, center.y)
-                for x, y in list(ring.coords)[:-1]
-            )
+        # A centroid can lie outside a concave obstacle. Radial offsets can then
+        # put visibility nodes inside it and falsely disconnect a reachable bay.
+        for expanded in polygon_parts(polygon.buffer(0.1, join_style="mitre")):
+            vertices.extend((float(x), float(y)) for x, y in list(expanded.exterior.coords)[:-1])
+            for ring in expanded.interiors:
+                vertices.extend((float(x), float(y)) for x, y in list(ring.coords)[:-1])
     return vertices
 
 
-def _nudged_vertex(
-    x: float,
-    y: float,
-    center_x: float,
-    center_y: float,
-) -> tuple[float, float]:
-    delta_x = x - center_x
-    delta_y = y - center_y
-    length = sqrt(delta_x**2 + delta_y**2)
-    if length == 0:
-        return x, y
-    clearance_m = 0.1
-    return x + delta_x / length * clearance_m, y + delta_y / length * clearance_m
-
-
-def _dijkstra_visibility_path(
+def _shortest_visibility_path(
     nodes: list[tuple[float, float]],
     blocked: BaseGeometry,
+    edge_cache: dict[EdgeKey, bool] | None = None,
 ) -> list[tuple[float, float]] | None:
     distances = [inf] * len(nodes)
     previous: list[int | None] = [None] * len(nodes)
     distances[0] = 0
-    queue: list[tuple[float, int]] = [(0, 0)]
+
+    def remaining(index: int) -> float:
+        return sqrt((nodes[index][0] - nodes[1][0]) ** 2 + (nodes[index][1] - nodes[1][1]) ** 2)
+
+    # Euclidean distance is a consistent lower bound for visibility-edge length.
+    queue: list[tuple[float, float, int]] = [(remaining(0), 0, 0)]
     visited: set[int] = set()
     while queue:
-        distance, index = heappop(queue)
+        check_planning_budget()
+        _, distance, index = heappop(queue)
         if index in visited:
             continue
         visited.add(index)
         if index == 1:
             return _restore_path(nodes, previous)
-        for neighbor, point in enumerate(nodes):
-            if neighbor == index or neighbor in visited:
+        neighbors = [neighbor for neighbor in range(len(nodes)) if neighbor not in visited]
+        if not neighbors:
+            continue
+        # GEOS evaluates the same interior-intersection predicate in one batch.
+        # A* avoids expanding vertices whose best possible path is already longer.
+        clear = _visible_neighbors(nodes[index], [nodes[n] for n in neighbors], blocked, edge_cache)
+        for neighbor, is_clear in zip(neighbors, clear, strict=True):
+            if not is_clear:
                 continue
-            edge = LineString([nodes[index], point])
-            if not _line_is_clear(edge, blocked):
-                continue
-            candidate = distance + edge.length
+            point = nodes[neighbor]
+            candidate = distance + sqrt(
+                (point[0] - nodes[index][0]) ** 2 + (point[1] - nodes[index][1]) ** 2
+            )
             if candidate < distances[neighbor]:
                 distances[neighbor] = candidate
                 previous[neighbor] = index
-                heappush(queue, (candidate, neighbor))
+                heappush(queue, (candidate + remaining(neighbor), candidate, neighbor))
     return None
+
+
+def _visible_neighbors(
+    start: tuple[float, float],
+    ends: list[tuple[float, float]],
+    blocked: BaseGeometry,
+    cache: dict[EdgeKey, bool] | None,
+) -> list[bool]:
+    if cache is None:
+        return list(
+            relate_pattern(linestrings([[start, end] for end in ends]), blocked, "F********")
+        )
+    # Bounded lifetime and size: never share customer geometry across requests.
+    keys = [(start, end) if start <= end else (end, start) for end in ends]
+    missing = [key for key in keys if key not in cache]
+    calculated = {}
+    if missing:
+        values = relate_pattern(linestrings(missing), blocked, "F********")
+        calculated = {key: bool(value) for key, value in zip(missing, values, strict=True)}
+        for key, value in calculated.items():
+            if len(cache) >= 200_000:
+                break
+            cache[key] = value
+    return [cache[key] if key in cache else calculated[key] for key in keys]
 
 
 def _restore_path(

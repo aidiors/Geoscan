@@ -1,4 +1,4 @@
-import type { DroneProfile, FlightSiteState, Scenario } from "@/features/planner/model/types";
+import type { FlightSiteState, Scenario } from "@/features/planner/model/types";
 import type { ImportedZone } from "@/shared/api/types";
 
 function polygon(
@@ -32,129 +32,6 @@ function site(
     assignedDroneId: "",
   };
 }
-
-export const initialFleet: DroneProfile[] = [
-  {
-    id: "201",
-    name: "Геоскан 201",
-    color: "#6d28d9",
-    battery: 100,
-    batteryHealth: 100,
-    energyConsumptionMultiplier: 1,
-    speed: 70,
-    flightMinutes: 180,
-    maxWind: 12,
-    reserve: 20,
-    enabled: true,
-    tasks: ["rgb", "multispectral"],
-    autopilotFirmware: "generic_mavlink",
-    airframeType: "fixed_wing",
-    hoverSpeed: 5,
-    maintenanceFlights: 80,
-    maintenanceHours: null,
-    completedFlights: 0,
-    accumulatedHours: 0,
-    maximumClimbRate: null,
-    maximumDescentRate: null,
-    minimumMissionAltitude: null,
-    maximumMissionAltitude: null,
-    minimumMissionAltitudeAgl: 100,
-    maximumMissionAltitudeAgl: null,
-    minimumMissionAltitudeMsl: null,
-    maximumMissionAltitudeMsl: 4000,
-    minimumCruiseSpeed: 64,
-    maximumCruiseSpeed: 130,
-    maximumRouteDistance: 210,
-    minimumOperatingTemperature: -20,
-    maximumOperatingTemperature: 40,
-    maximumControlRange: 40,
-    minimumTurnaroundMinutes: 0,
-    payloads: [
-      { payload_id: "201-rgb", name: "Камера Геоскан 201 RGB", supported_tasks: ["rgb"] },
-      { payload_id: "201-pollux", name: "Геоскан Pollux", supported_tasks: ["multispectral"] },
-    ],
-  },
-  {
-    id: "801",
-    name: "Геоскан 801",
-    color: "#d946ef",
-    battery: 100,
-    batteryHealth: 100,
-    energyConsumptionMultiplier: 1,
-    speed: 54,
-    flightMinutes: 40,
-    maxWind: 10,
-    reserve: 20,
-    enabled: true,
-    tasks: ["rgb", "thermal", "video"],
-    autopilotFirmware: "generic_mavlink",
-    airframeType: "quadrotor",
-    hoverSpeed: 5,
-    maintenanceFlights: null,
-    maintenanceHours: 160,
-    completedFlights: 0,
-    accumulatedHours: 0,
-    maximumClimbRate: null,
-    maximumDescentRate: null,
-    minimumMissionAltitude: null,
-    maximumMissionAltitude: null,
-    minimumMissionAltitudeAgl: null,
-    maximumMissionAltitudeAgl: null,
-    minimumMissionAltitudeMsl: null,
-    maximumMissionAltitudeMsl: 4000,
-    minimumCruiseSpeed: null,
-    maximumCruiseSpeed: 54,
-    maximumRouteDistance: null,
-    minimumOperatingTemperature: -20,
-    maximumOperatingTemperature: 40,
-    maximumControlRange: 10,
-    minimumTurnaroundMinutes: 0,
-    payloads: [
-      { payload_id: "801-visible", name: "Камера видимого спектра 801", supported_tasks: ["rgb", "video"] },
-      { payload_id: "801-thermal", name: "Тепловизор 801", supported_tasks: ["thermal", "video"] },
-    ],
-  },
-  {
-    id: "gemini",
-    name: "Геоскан Gemini",
-    color: "#0f766e",
-    battery: 100,
-    batteryHealth: 100,
-    energyConsumptionMultiplier: 1,
-    speed: 43,
-    flightMinutes: 40,
-    maxWind: 10,
-    reserve: 20,
-    enabled: true,
-    tasks: ["rgb", "multispectral"],
-    autopilotFirmware: "generic_mavlink",
-    airframeType: "quadrotor",
-    hoverSpeed: 5,
-    maintenanceFlights: null,
-    maintenanceHours: null,
-    completedFlights: 0,
-    accumulatedHours: 0,
-    maximumClimbRate: 5,
-    maximumDescentRate: 5,
-    minimumMissionAltitude: null,
-    maximumMissionAltitude: null,
-    minimumMissionAltitudeAgl: null,
-    maximumMissionAltitudeAgl: 500,
-    minimumMissionAltitudeMsl: null,
-    maximumMissionAltitudeMsl: 4000,
-    minimumCruiseSpeed: null,
-    maximumCruiseSpeed: 54,
-    maximumRouteDistance: null,
-    minimumOperatingTemperature: -15,
-    maximumOperatingTemperature: 40,
-    maximumControlRange: 5,
-    minimumTurnaroundMinutes: 0,
-    payloads: [
-      { payload_id: "gemini-pf1b", name: "Geoscan PF1B", supported_tasks: ["rgb"] },
-      { payload_id: "gemini-pollux", name: "Геоскан Pollux", supported_tasks: ["multispectral"] },
-    ],
-  },
-];
 
 export const scenarios: Scenario[] = [
   {
@@ -456,9 +333,7 @@ export const scenarios: Scenario[] = [
   },
 ];
 
-export function cloneFleet(): DroneProfile[] {
-  return initialFleet.map((drone) => ({ ...drone, tasks: [...drone.tasks] }));
-}
+export { cloneFleet, initialFleet } from "@/features/planner/model/fleetCatalog";
 
 export function cloneSites(scenario: Scenario): FlightSiteState[] {
   return scenario.sites.map((flightSite) => ({
@@ -466,3 +341,36 @@ export function cloneSites(scenario: Scenario): FlightSiteState[] {
     coordinate: { ...flightSite.coordinate },
   }));
 }
+
+// Synthetic holdout geometry shared in scale with the backend coverage experiments.
+const circleCoordinates: Array<[number, number]> = Array.from({ length: 64 }, (_, index) => {
+  const angle = 2 * Math.PI * index / 64;
+  return [37.62 + 720 * Math.cos(angle) / (111320 * Math.cos(55.75 * Math.PI / 180)),
+    55.75 + 720 * Math.sin(angle) / 110574];
+});
+const circleHome: [number, number] = [37.62 - 860 / (111320 * Math.cos(55.75 * Math.PI / 180)),
+  55.75 - 860 / 110574];
+scenarios.push({
+  id: "freeform-circle", title: "Свободное покрытие округлой территории",
+  description: "Сравнение прямых проходов, контуров и смешанных маршрутов на синтетической области.",
+  task: "rgb", altitude: 100,
+  workAreas: [polygon("freeform-target", "Округлая территория", "work_area", circleCoordinates)],
+  noFlyZones: [], segments: [],
+  sites: [site("freeform-start", "Старт", "takeoff", ...circleHome),
+    site("freeform-land", "Посадка", "landing", ...circleHome)],
+});
+
+
+// Synthetic operational example, not a flight-validated aircraft configuration.
+function fieldCoordinate(x: number, y: number): [number, number] {
+  return [37 + x / (111320 * Math.cos(55 * Math.PI / 180)), 55 + y / 110574];
+}
+scenarios.push({
+  id: "neighbor-fields", title: "Два поля за один вылет",
+  description: "Синтетический пример: соседние участки и удалённая база. Между полями камера выключена.",
+  task: "rgb", altitude: 120, segments: [], noFlyZones: [],
+  workAreas: [0, 1].map((i) => polygon(`neighbor-field-${i}`, `Поле ${i + 1}`, "work_area",
+    [[0, 0], [400, 0], [400, 240], [0, 240]].map(([x, y]) => fieldCoordinate(x + i * 500, y + i * 40)))),
+  sites: [site("neighbor-start", "Удалённая база", "takeoff", ...fieldCoordinate(-4000, -500)),
+          site("neighbor-land", "Возвращение на базу", "landing", ...fieldCoordinate(-4000, -500))],
+});

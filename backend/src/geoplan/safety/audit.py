@@ -10,7 +10,9 @@ from shapely.geometry import LineString, MultiPoint
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from geoplan.budget import check_planning_budget
 from geoplan.coverage.models import WorkSegment
+from geoplan.coverage.resolution import SurveyResolution
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone
 from geoplan.domain.diagnostics import SafetyAuditCheck, SafetyAuditReport
 from geoplan.domain.enums import (
@@ -24,6 +26,18 @@ from geoplan.domain.enums import (
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
 from geoplan.domain.terrain import VerticalProfilePoint
+from geoplan.flight.altitude import FlightAltitudeEnvelope
+from geoplan.flight.camera import DistanceCameraPolicy
+from geoplan.flight.energy import _battery_use_percent
+from geoplan.flight.envelope import HorizontalAirspeedEnvelope
+from geoplan.flight.fixed_wing import (
+    forward_flight_margins,
+    forward_route_inside_airspaces,
+)
+from geoplan.flight.photography import ExplicitFrameInspector
+from geoplan.flight.site_clearance import VerticalSiteClearance
+from geoplan.flight.takeoff_landing import TakeoffLandingEstimator
+from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import (
     LocalProjection,
     polygon_from_coordinates,
@@ -31,7 +45,7 @@ from geoplan.navigation.geometry import (
 )
 from geoplan.navigation.routing import coordinate_distance_km, route_is_inside_allowed_airspaces
 from geoplan.planning.models import PlanRequest
-from geoplan.scheduling.vertical import horizontal_duration_minutes, vertical_interval_gap_m
+from geoplan.scheduling.vertical import vertical_interval_gap_m
 
 COVERAGE_REQUIRED_PERCENT = 99.0
 COVERAGE_ROUTE_CLEARANCE_M = 0.5
@@ -78,9 +92,12 @@ class IndependentPlanSafetyAuditor:
             _drone_separation_check(request, missions),
             _vertical_separation_check(request, missions),
             _battery_reserve_check(request, missions),
+            _fleet_resources_check(request, missions),
             _alternate_reserve_check(request, missions),
             _vertical_profile_check(request, missions),
             _coverage_check(request, segments, missions),
+            _survey_resolution_check(request, missions),
+            _camera_timing_check(request, missions),
             _export_consistency_check(self.export_verifier.verify(missions)),
         ]
         status = (
@@ -92,8 +109,101 @@ class IndependentPlanSafetyAuditor:
             status=status,
             audited_mission_count=len(missions),
             checks=checks,
-            assumptions=_audit_assumptions(request),
+            assumptions=_audit_assumptions(request, missions),
         )
+
+
+def _fleet_resources_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
+    if not any(
+        d.available_battery_sets is not None
+        or d.maintenance_interval_flights is not None
+        or d.maintenance_interval_hours is not None
+        for d in request.drones
+    ):
+        return _not_applicable(
+            SafetyCheckCode.FLEET_RESOURCES,
+            "Конечные запасы комплектов АКБ и межсервисные лимиты не заданы.",
+        )
+    counts = dict.fromkeys((d.drone_id for d in request.drones), 0)
+    minutes = dict.fromkeys(counts, 0.0)
+    for mission in missions:
+        counts[mission.drone_id] += 1
+        minutes[mission.drone_id] += mission.duration_minutes
+    failed = [
+        d.drone_id
+        for d in request.drones
+        if not d.resource_limit().allows(counts[d.drone_id], minutes[d.drone_id])
+    ]
+    return SafetyAuditCheck(
+        code=SafetyCheckCode.FLEET_RESOURCES,
+        status=SafetyAuditStatus.FAILED if failed else SafetyAuditStatus.PASSED,
+        affected_ids=failed,
+        message=(
+            "Превышен запас готовых комплектов АКБ либо межсервисный лимит."
+            if failed
+            else "Вылеты укладываются в заданные комплекты АКБ и межсервисные лимиты."
+        ),
+    )
+
+
+def _camera_timing_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
+    survey = request.survey_parameters
+    if survey is None:
+        return _not_applicable(SafetyCheckCode.CAMERA_TIMING, "Параметры камеры не заданы.")
+    cameras = {d.drone_id: d.installed_sensor or survey.sensor for d in request.drones}
+    failed, margins = [], []
+    for mission in missions:
+        try:
+            times = DistanceCameraPolicy().capture_times_minutes(mission)
+        except ValueError:
+            failed.append(_mission_id(mission))
+            continue
+        if not times:
+            if mission.image_count is not None:
+                failed.append(_mission_id(mission))
+            continue
+        required = cameras[mission.drone_id].minimum_trigger_interval_s
+        margin = min(((b - a) * 60 - required for a, b in pairwise(times)), default=0)
+        margins.append(margin)
+        if margin < -1e-6 or (
+            mission.image_count is not None and len(times) != mission.image_count
+        ):
+            failed.append(_mission_id(mission))
+    return SafetyAuditCheck(
+        code=SafetyCheckCode.CAMERA_TIMING,
+        status=SafetyAuditStatus.FAILED if failed else SafetyAuditStatus.PASSED,
+        measured_value=min(margins, default=0),
+        required_value=0,
+        unit="seconds_margin",
+        affected_ids=failed,
+        message="Проверены интервалы и число команд камеры, включая стыки галсов."
+        if not failed
+        else "Команды камеры нарушают минимальный интервал или число кадров.",
+    )
+
+
+def _survey_resolution_check(request: PlanRequest, missions: list[Mission]) -> SafetyAuditCheck:
+    survey = request.survey_parameters
+    if survey is None:
+        return _not_applicable(SafetyCheckCode.SURVEY_RESOLUTION, "Параметры съёмки не заданы.")
+    policy = SurveyResolution()
+    cameras = {d.drone_id: d.installed_sensor or survey.sensor for d in request.drones}
+    failed = [
+        m for m in missions if not policy.allows(m, cameras[m.drone_id], survey.maximum_gsd_cm)
+    ]
+    return SafetyAuditCheck(
+        code=SafetyCheckCode.SURVEY_RESOLUTION,
+        status=SafetyAuditStatus.FAILED if failed else SafetyAuditStatus.PASSED,
+        measured_value=max((policy.gsd_cm(m, cameras[m.drone_id]) for m in missions), default=0),
+        required_value=survey.maximum_gsd_cm,
+        unit="cm/pixel",
+        affected_ids=[_mission_id(m) for m in failed],
+        message=(
+            "Разрешение съёмки проверено на итоговой высоте."
+            if not failed
+            else "Итоговая высота нарушает ограничение GSD."
+        ),
+    )
 
 
 def _vertical_profile_check(
@@ -178,12 +288,13 @@ def _no_fly_clearance_check(
 
 
 def _no_fly_zone_applies_to_mission(zone: NoFlyZone, mission: Mission) -> bool:
+    heights = _mission_altitudes(mission, zone.altitude_reference)
     if (
         zone.minimum_altitude_m is not None
         and zone.maximum_altitude_m is not None
-        and not any(
-            zone.minimum_altitude_m <= altitude <= zone.maximum_altitude_m
-            for altitude in _mission_altitudes(mission, zone.altitude_reference)
+        and heights
+        and not (
+            min(heights) <= zone.maximum_altitude_m and max(heights) >= zone.minimum_altitude_m
         )
     ):
         return False
@@ -215,7 +326,9 @@ def _obstacle_clearance_check(
         (mission, obstacle)
         for mission in missions
         for obstacle in obstacles
-        if min(_mission_altitudes_msl(mission)) <= obstacle.height_m + VERTICAL_OBSTACLE_CLEARANCE_M
+        if obstacle.known_top_msl_m is None
+        or min(_mission_altitudes_msl(mission))
+        <= obstacle.known_top_msl_m + VERTICAL_OBSTACLE_CLEARANCE_M
     ]
     if not relevant:
         return _not_applicable(
@@ -327,14 +440,24 @@ def _mission_is_inside_airspace(
 
 
 def _mission_altitudes_msl(mission: Mission) -> list[float]:
-    if mission.vertical_profile:
-        return [point.target_altitude_msl for point in mission.vertical_profile]
-    return [mission.altitude_m]
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            min(mission.route_altitudes_msl_m) - mission.terrain_vertical_uncertainty_m,
+            *mission.route_altitudes_msl_m,
+        ]
+    return mission.flight_altitudes_msl_m
 
 
 def _mission_altitudes(mission: Mission, reference: AltitudeReference) -> list[float]:
     if reference is AltitudeReference.MSL:
         return _mission_altitudes_msl(mission)
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            0,
+            max(mission.route_altitudes_msl_m)
+            - mission.flat_ground_elevation_m
+            + mission.terrain_vertical_uncertainty_m,
+        ]
     if mission.vertical_profile:
         return [point.target_agl_m for point in mission.vertical_profile]
     if mission.altitude_reference is AltitudeReference.AGL:
@@ -350,6 +473,14 @@ def _vertical_route_inside_airspaces(
     mission: Mission,
     airspaces: list[AllowedAirspace],
 ) -> bool:
+    if mission.route_altitudes_msl_m is not None:
+        return forward_route_inside_airspaces(
+            mission.route,
+            mission.route_altitudes_msl_m,
+            mission.flat_ground_elevation_m,
+            mission.terrain_vertical_uncertainty_m,
+            airspaces,
+        )
     if not mission.vertical_profile:
         compatible = [
             airspace
@@ -429,6 +560,7 @@ def _schedule_integrity_check(
         ):
             affected.add(_mission_id(mission))
     for first, second in combinations(missions, 2):
+        check_planning_budget()
         if first.drone_id != second.drone_id:
             continue
         earlier, later = sorted(
@@ -442,7 +574,9 @@ def _schedule_integrity_check(
             request.turnaround_minutes,
             drone.minimum_turnaround_minutes,
         )
-        if earlier.end_offset_minutes + required_turnaround > later.start_offset_minutes:
+        # Only absorb floating-point arithmetic noise, not the much larger
+        # schedule-duration tolerance or a genuinely short turnaround.
+        if earlier.end_offset_minutes + required_turnaround > later.start_offset_minutes + 1e-9:
             affected.update({_mission_id(earlier), _mission_id(later)})
     return SafetyAuditCheck(
         code=SafetyCheckCode.SCHEDULE_INTEGRITY,
@@ -491,6 +625,7 @@ def _drone_separation_check(
     affected: set[str] = set()
     compared = False
     for first, second in combinations(missions, 2):
+        check_planning_budget()
         if first.drone_id == second.drone_id or not _missions_overlap(
             first,
             second,
@@ -708,42 +843,28 @@ def _extend_for_start_uncertainty(
 def _timed_legs(mission: Mission, projection: LocalProjection) -> list[_TimedLeg]:
     if mission.start_offset_minutes is None or mission.end_offset_minutes is None:
         return []
-    projected = [projection.project(point) for point in mission.route]
-    leg_data = [
-        (start, end, hypot(end[0] - start[0], end[1] - start[1]))
-        for start, end in pairwise(projected)
-        if start != end
-    ]
-    total_length = sum(length for _, _, length in leg_data)
-    if total_length <= 0:
-        return []
-    legs: list[_TimedLeg] = []
-    leg_start = mission.start_offset_minutes + mission.vertical_climb_duration_minutes
-    horizontal_duration = horizontal_duration_minutes(mission)
+    offsets = mission_route_clock(mission).offsets_minutes
+    base = mission.start_offset_minutes
+    horizontal_start = base + mission.vertical_climb_duration_minutes
+    legs = []
     if mission.vertical_climb_duration_minutes > 0:
-        departure = projected[0]
-        legs.append(
-            _TimedLeg(
-                mission.start_offset_minutes,
-                leg_start,
-                departure,
-                departure,
-            )
+        departure = projection.project(mission.route[0])
+        legs.append(_TimedLeg(base, horizontal_start, departure, departure))
+    legs.extend(
+        _TimedLeg(
+            horizontal_start + offsets[i],
+            horizontal_start + offsets[i + 1],
+            projection.project(a),
+            projection.project(b),
         )
-    for index, (start_xy, end_xy, length) in enumerate(leg_data):
-        leg_end = (
-            mission.end_offset_minutes - mission.vertical_descent_duration_minutes
-            if index == len(leg_data) - 1
-            else leg_start + horizontal_duration * length / total_length
-        )
-        legs.append(_TimedLeg(leg_start, leg_end, start_xy, end_xy))
-        leg_start = leg_end
+        for i, (a, b) in enumerate(pairwise(mission.route))
+    )
     if mission.vertical_descent_duration_minutes > 0:
-        landing = projected[-1]
+        landing = projection.project(mission.route[-1])
         legs.append(
             _TimedLeg(
-                mission.end_offset_minutes - mission.vertical_descent_duration_minutes,
-                mission.end_offset_minutes,
+                base + mission.duration_minutes - mission.vertical_descent_duration_minutes,
+                base + mission.duration_minutes,
                 landing,
                 landing,
             )
@@ -881,21 +1002,70 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
     applicable = False
     for mission in missions:
         drone = drones[mission.drone_id]
-        margins: list[float] = []
-        minimum_altitude = drone.minimum_altitude_for(mission.altitude_reference)
-        maximum_altitude = drone.maximum_altitude_for(mission.altitude_reference)
-        if minimum_altitude is not None:
-            applicable = True
-            margins.append(mission.altitude_m - minimum_altitude)
-        if maximum_altitude is not None:
-            applicable = True
-            margins.append(maximum_altitude - mission.altitude_m)
+        margins = FlightAltitudeEnvelope().margins(drone, mission)
+        margins.extend(forward_flight_margins(drone, mission))
+        if drone.takeoff_landing_profile is not None:
+            heights = [mission.height_agl.maximum_m] * 2
+            if mission.vertical_profile:
+                heights = [
+                    mission.vertical_profile[i].target_agl_m
+                    + mission.terrain_vertical_uncertainty_m
+                    for i in (0, -1)
+                ]
+            expected = TakeoffLandingEstimator().estimate(drone, *heights)
+            margins.extend(
+                [
+                    mission.vertical_climb_duration_minutes - expected.climb_minutes + 1e-6,
+                    mission.vertical_descent_duration_minutes - expected.descent_minutes + 1e-6,
+                    mission.vertical_energy_equivalent_minutes
+                    - expected.energy_surcharge_minutes
+                    + 1e-6,
+                    mission.estimated_battery_percent
+                    - _battery_use_percent(
+                        mission.duration_minutes + mission.vertical_energy_equivalent_minutes, drone
+                    )
+                    + 0.02,
+                ]
+            )
+            for index in (0, -1):
+                ground = (
+                    mission.vertical_profile[index].terrain_elevation_m
+                    if mission.vertical_profile
+                    else mission.flat_ground_elevation_m
+                )
+                altitude = (
+                    mission.vertical_profile[index].target_altitude_msl
+                    if mission.vertical_profile
+                    else mission.altitude_m
+                )
+                if not VerticalSiteClearance().allows(
+                    mission.route[index],
+                    ground,
+                    altitude,
+                    mission.height_agl.maximum_m,
+                    mission.terrain_vertical_uncertainty_m,
+                    request.allowed_airspaces,
+                    request.no_fly_zones,
+                    request.obstacles,
+                ):
+                    margins.append(-1)
         if drone.minimum_cruise_speed_kmh is not None:
             applicable = True
             margins.append(mission.cruise_speed_kmh - drone.minimum_cruise_speed_kmh)
         if drone.maximum_cruise_speed_kmh is not None:
             applicable = True
             margins.append(drone.maximum_cruise_speed_kmh - mission.cruise_speed_kmh)
+        if drone.minimum_cruise_speed_kmh is not None or drone.maximum_cruise_speed_kmh is not None:
+            actual = HorizontalAirspeedEnvelope().range_kmh(
+                mission, request.wind, include_vertical=True
+            )
+            if actual is None:
+                margins.append(-1)
+            else:
+                if drone.minimum_cruise_speed_kmh is not None:
+                    margins.append(actual[0] - drone.minimum_cruise_speed_kmh + 0.05)
+                if drone.maximum_cruise_speed_kmh is not None:
+                    margins.append(drone.maximum_cruise_speed_kmh - actual[1] + 0.05)
         if drone.maximum_route_distance_km is not None:
             applicable = True
             margins.append(drone.maximum_route_distance_km - mission.distance_km)
@@ -917,6 +1087,10 @@ def _flight_envelope_check(request: PlanRequest, missions: list[Mission]) -> Saf
                     drone.maximum_operating_temperature_c - request.ambient_temperature_c
                 )
         applicable = True
+        if request.survey_parameters is not None and mission.sensor is not None:
+            expected_sensor = drone.installed_sensor or request.survey_parameters.sensor
+            if mission.sensor != expected_sensor:
+                margins.append(-1)
         if mission.starting_battery_percent > drone.initial_charge_percent + 1e-9:
             margins.append(drone.initial_charge_percent - mission.starting_battery_percent)
         if any(margin < 0 for margin in margins):
@@ -987,6 +1161,10 @@ def _coverage_check(
     segments: list[WorkSegment],
     missions: list[Mission],
 ) -> SafetyAuditCheck:
+    if any(segment.coverage_pattern is not None for segment in segments):
+        from geoplan.safety.freeform import freeform_coverage_check
+
+        return freeform_coverage_check(request, segments, missions)
     if not request.coverage_areas:
         return _not_applicable(
             SafetyCheckCode.COVERAGE_COMPLETENESS,
@@ -1000,9 +1178,13 @@ def _coverage_check(
         )
     sensor = request.survey_parameters.sensor
     footprint_width_m = min(
-        request.mission_altitude_m * sensor.sensor_width_mm / sensor.focal_length_mm,
+        request.survey_height_agl.minimum_m * sensor.sensor_width_mm / sensor.focal_length_mm,
         request.survey_parameters.strip_width_m,
     )
+    if any(drone.installed_sensor is not None for drone in request.drones):
+        # Each mission below applies its actual camera footprint. The global
+        # fallback camera must not artificially narrow every installed camera.
+        footprint_width_m = request.survey_parameters.strip_width_m
     segment_by_id = {segment.segment_id: segment for segment in segments}
     ratios = [
         _coverage_ratio(
@@ -1046,11 +1228,11 @@ def _coverage_ratio(
     footprint_width_m: float,
     exclusions: list[NoFlyZone],
 ) -> float:
+    check_planning_budget()
     relevant = [
         mission
         for mission in missions
-        if mission.segment_id in segments
-        and segments[mission.segment_id].coverage_area_id == area_id
+        if mission.segment_id in segments and area_id in segments[mission.segment_id].area_ids
     ]
     coordinates = [
         *area_coordinates,
@@ -1077,19 +1259,32 @@ def _coverage_ratio(
         segment = segments[mission.segment_id]
         if segment.strip_spacing_m is None:
             continue
-        survey_points = [
-            point
-            for stage in mission.stages
-            if stage.stage_type is MissionStageType.SURVEY
-            for point in stage.coordinates
-        ]
-        if len(survey_points) >= 2:
-            swaths.append(
-                LineString([projection.project(point) for point in survey_points]).buffer(
-                    footprint_width_m / 2 + 0.5,
-                    cap_style="square",
-                )
+        if mission.photo_capture_route_indices is not None and mission.sensor is not None:
+            height = mission.height_agl.minimum_m
+            width = min(
+                height * mission.sensor.sensor_width_mm / mission.sensor.focal_length_mm,
+                footprint_width_m,
             )
+            length = height * mission.sensor.sensor_height_mm / mission.sensor.focal_length_mm
+            swaths.extend(
+                ExplicitFrameInspector().inspect(mission, projection, width, length).footprints
+            )
+            continue
+        for stage in mission.stages:
+            if stage.stage_type is MissionStageType.SURVEY and len(stage.coordinates) >= 2:
+                width = footprint_width_m
+                if mission.sensor is not None:
+                    height = mission.height_agl.minimum_m
+                    width = min(
+                        height * mission.sensor.sensor_width_mm / mission.sensor.focal_length_mm,
+                        footprint_width_m,
+                    )
+                swaths.append(
+                    LineString([projection.project(point) for point in stage.coordinates]).buffer(
+                        width / 2 + 0.5, cap_style="square"
+                    )
+                )
+
     if not swaths or target.area <= 0:
         return 0.0
     covered = unary_union(swaths).intersection(target).area
@@ -1150,7 +1345,7 @@ def _mission_id(mission: Mission) -> str:
     return f"{mission.drone_id}:{mission.segment_id}"
 
 
-def _audit_assumptions(request: PlanRequest) -> list[str]:
+def _audit_assumptions(request: PlanRequest, missions: list[Mission]) -> list[str]:
     if request.altitude_reference is AltitudeReference.AGL:
         source_description = (
             "значения GeoTIFF/DSM по CRS и ближайшей ячейке"
@@ -1159,7 +1354,10 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
             else "переданные высоты рельефа при интерполяции по обратным расстояниям"
         )
         assumptions = [
-            f"Профиль AGL использует {source_description} и постоянный гарантированный просвет.",
+            f"Профиль AGL использует {source_description} и просвет в дискретных точках профиля; "
+            "пики между отсчётами DEM не проверяются.",
+            "Отметки рельефа предполагаются в системе MSL; преобразование вертикального датума "
+            "GeoTIFF/DSM и поправка геоида автоматически не выполняются.",
             "Расход энергии по вертикали оценён консервативно по времени, без модели двигателя.",
             "Экспорт в системе высот рельефа требует поддержки протокола автопилотом "
             "и данных рельефа на борту.",
@@ -1170,7 +1368,12 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
                 f"{request.terrain_vertical_uncertainty_m:g} м."
             )
     else:
-        assumptions = ["Режим MSL не моделирует рельеф; высота задания остаётся постоянной."]
+        assumptions = [
+            f"Режим MSL: плоская поверхность {request.flat_ground_elevation_m:g} м MSL "
+            f"Погрешность ±{request.terrain_vertical_uncertainty_m:g} м; "
+            "реальный DEM не загружен. "
+            "GSD и покрытие рассчитаны по высоте над этой моделью поверхности."
+        ]
     if (
         request.position_uncertainty_m > 0
         or request.start_time_uncertainty_seconds > 0
@@ -1186,12 +1389,70 @@ def _audit_assumptions(request: PlanRequest) -> list[str]:
         assumptions.append("Ветер постоянен по времени и пространству на всём плане.")
     assumptions.append(
         "Каждый повторный вылет начинается при заданном текущем заряде; "
-        "перезарядка или замена АКБ входит в межполётное обслуживание."
+        "замена АКБ входит в межполётное обслуживание. Указанное число готовых комплектов "
+        "ограничивает число вылетов; пополнение заряда внутри задания не моделируется. "
+        "При незаданном числе комплектов их доступность предполагается неограниченной."
     )
     assumptions.append(
         "Доступная энергия масштабируется по здоровью АКБ и коэффициенту "
         "энергопотребления; это консервативная модель, не телеметрическая кривая разряда."
     )
+    used = {m.drone_id for m in missions}
+    missing_phases = [
+        d.drone_id
+        for d in request.drones
+        if d.drone_id in used
+        and d.takeoff_landing_profile is None
+        and d.fixed_wing_phase_profile is None
+    ]
+    if missing_phases:
+        assumptions.append(
+            "Базовые набор и снижение не включены во время и расход АКБ для БВС: "
+            + ", ".join(missing_phases)
+            + ". Нужен профиль взлёта и посадки; "
+            "паспортные максимумы не заменяют плановые скорости."
+        )
+    if any(d.takeoff_landing_profile is not None and d.drone_id in used for d in request.drones):
+        assumptions.append(
+            "Вертикальные взлёт и посадка мультикоптера включены последовательно в расписание "
+            "и АКБ по плановым скоростям оператора и верхней границе высоты над площадкой. "
+            "Энергия оценивается относительно крейсерского расхода; "
+            "разгон и динамика не моделируются. "
+            "Требуется свободная вертикальная колонна; коэффициенты энергии требуют калибровки."
+        )
+        assumptions.append(
+            "Плановые скорости набора и снижения не меняют настройки автопилота при экспорте. "
+            "Перед выполнением задания нужно согласовать их на борту. Временные запреты "
+            "над площадкой считаются активными; для колонны требуются постоянные разрешения."
+        )
+    assumptions.append(
+        "Автопилот: MSL экспортируется в MAV_FRAME_GLOBAL, AGL — относительно бортового "
+        "рельефа. Поддержка конкретной прошивки и выполнение команд в SITL "
+        "или на реальном БВС этой проверкой не подтверждаются."
+    )
+    if any(d.fixed_wing_phase_profile is not None and d.drone_id in used for d in request.drones):
+        assumptions.append(
+            "Самолётный профиль распределяет набор на весь перелёт до первого галса, "
+            "снижение — на весь возврат. Эти фазы выполняются во время "
+            "горизонтального перелёта; время не добавляется повторно. "
+            "Расход на перелётах масштабируется заданными коэффициентами."
+        )
+        assumptions.append(
+            "Скорость в плане задаёт горизонтальную воздушную составляющую; предел полной "
+            "воздушной скорости учитывает вертикальную составляющую. Направление запуска, "
+            "разгон, выпуск парашюта, выравнивание, связь крена и срыва не моделируются. "
+            "Радиус и рабочие скорости задаёт оператор. Профиль доступен только для GIS-проверки."
+        )
+        assumptions.append(
+            "Длина самолётного маршрута включает вертикальную составляющую набора и снижения; "
+            "при погрешности поверхности используется консервативный вертикальный уклон. "
+            "GIS показывает номинальный профиль над заданной отметкой поверхности."
+        )
+    if any(obstacle.known_top_msl_m is None for obstacle in request.obstacles):
+        assumptions.append(
+            "Для препятствий без абсолютной отметки вершины MSL применяется горизонтальный "
+            "обход на всех высотах. Относительные высоты не преобразуются без данных рельефа."
+        )
     if request.minimum_turn_radius_m == 0:
         assumptions.append(
             "Минимальный радиус разворота отключён и маршрут проверяется как ломаная."

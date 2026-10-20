@@ -5,12 +5,15 @@ from math import isfinite
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from geoplan.budget import PLANNING_SECONDS
 from geoplan.coverage.models import CoverageArea, CoveragePlanRequest, SurveyParameters, WorkSegment
 from geoplan.domain.airspace import AllowedAirspace, FlightObstacle, NoFlyZone
+from geoplan.domain.altitude import HeightAboveGround
 from geoplan.domain.diagnostics import FeasibilityReport, SafetyAuditReport
 from geoplan.domain.enums import (
     AltitudeReference,
     AssignmentAlgorithm,
+    AssignmentStrategy,
     CoverageAlgorithm,
     CoverageAngleCost,
     MissionTask,
@@ -42,6 +45,7 @@ class PlanRequest(BaseModel):
     obstacles: list[FlightObstacle] = Field(default_factory=list, max_length=20_000)
     mission_altitude_m: float = Field(gt=0, le=100_000)
     altitude_reference: AltitudeReference = AltitudeReference.MSL
+    flat_ground_elevation_m: float = Field(default=0, ge=-500, le=10_000)
     terrain_elevation_samples: list[TerrainElevationSample] = Field(
         default_factory=list,
         max_length=100_000,
@@ -72,11 +76,66 @@ class PlanRequest(BaseModel):
     turnaround_minutes: float = Field(default=0, ge=0, le=1_440)
     minimum_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
     optimization_mode: OptimizationMode = OptimizationMode.OPTIMIZED
+    assignment_strategy: AssignmentStrategy = AssignmentStrategy.AUTOMATIC
+    productive_routing: bool = False
+    planning_time_limit_seconds: float = Field(default=PLANNING_SECONDS, ge=1, le=PLANNING_SECONDS)
     planning_start_time: datetime | None = None
     planning_end_time: datetime | None = None
 
+    @property
+    def survey_height_agl(self) -> HeightAboveGround:
+        return HeightAboveGround.for_target(
+            self.mission_altitude_m,
+            self.altitude_reference,
+            self.flat_ground_elevation_m,
+            self.terrain_vertical_uncertainty_m,
+        )
+
+    def altitude_for_maximum_agl(self, height_m: float) -> float:
+        if self.altitude_reference is AltitudeReference.MSL:
+            return self.flat_ground_elevation_m + height_m - self.terrain_vertical_uncertainty_m
+        return height_m - 2 * self.terrain_vertical_uncertainty_m
+
     @model_validator(mode="after")
     def has_route_source(self) -> PlanRequest:
+        if any(drone.fixed_wing_phase_profile is not None for drone in self.drones):
+            if self.altitude_reference is not AltitudeReference.MSL or self.alternate_landing_sites:
+                raise ValueError(
+                    "Самолётный профиль пока поддерживает плоскую MSL-поверхность "
+                    "без резервных площадок; AGL и аварийный заход требуют отдельной модели."
+                )
+        if (
+            self.altitude_reference is AltitudeReference.AGL
+            and self.alternate_landing_sites
+            and any(drone.takeoff_landing_profile is not None for drone in self.drones)
+        ):
+            raise ValueError(
+                "Вертикальная посадка на резервную площадку при AGL требует отдельного "
+                "DEM-профиля аварийного маршрута; эта комбинация пока не поддерживается."
+            )
+        _ = self.survey_height_agl  # Reject a flat MSL route at/below the assumed surface.
+        if self.altitude_reference is AltitudeReference.MSL and (
+            self.terrain_source is not None or self.terrain_elevation_samples
+        ):
+            raise ValueError(
+                "DEM в режиме постоянной MSL пока не поддерживается. "
+                "Выберите режим AGL и загрузите рельеф или задайте отметку плоской поверхности."
+            )
+        if self.altitude_reference is AltitudeReference.AGL and self.flat_ground_elevation_m != 0:
+            raise ValueError("Отметка плоской поверхности применяется только к режиму MSL.")
+        known_areas = {area.area_id for area in self.coverage_areas}
+        if any(
+            s.survey_track_area_ids is not None and set(s.area_ids) - known_areas
+            for s in self.segments
+        ):
+            raise ValueError("A survey track refers to an unknown coverage area.")
+        for label, identifiers in (
+            ("БВС", [drone.drone_id for drone in self.drones]),
+            ("областей", [area.area_id for area in self.coverage_areas]),
+            ("участков", [segment.segment_id for segment in self.segments]),
+        ):
+            if len(identifiers) != len(set(identifiers)):
+                raise ValueError(f"Идентификаторы {label} должны быть уникальными.")
         if not self.segments and not self.coverage_areas:
             raise ValueError("Нужен хотя бы один участок или целевая зона покрытия.")
         if self.coverage_areas and self.survey_parameters is None:
@@ -105,7 +164,9 @@ class PlanRequest(BaseModel):
                 "Ограничения AGL требуют режима задания AGL и данных рельефа; "
                 "direct comparison with MSL is not permitted."
             )
-        if self.minimum_turn_radius_m > 0 and self.segments:
+        if (
+            self.minimum_turn_radius_m > 0 or any(d.minimum_turn_radius_m > 0 for d in self.drones)
+        ) and self.segments:
             raise ValueError("Радиус разворота поддерживается для генерируемых галсов.")
         if self.maximum_active_drones is not None and self.maximum_active_drones > len(self.drones):
             raise ValueError("Ограничение числа БВС превышает размер доступного парка.")
@@ -174,6 +235,36 @@ class PlanMetrics(BaseModel):
     sortie_count: int = Field(default=0, ge=0)
 
 
+class ProductiveRoutingSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    selected_variant: str
+    evaluated_variants: int = Field(ge=0)
+    freeform_candidates_checked: int = Field(default=0, ge=0)
+    cross_area_variants_evaluated: int = Field(default=0, ge=0)
+    cross_area_sortie_count: int = Field(default=0, ge=0)
+    baseline_makespan_minutes: float | None = None
+    baseline_total_flight_minutes: float | None = None
+    baseline_transit_minutes: float | None = None
+    pre_cross_objective: list[float] | None = None
+    pre_cross_makespan_minutes: float | None = None
+    pre_cross_total_flight_minutes: float | None = None
+    cross_objective_variants_evaluated: int = Field(default=0, ge=0)
+    message: str
+
+
+class AssignmentSearchSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    status: str
+    solver_statuses: list[str] = Field(default_factory=list)
+    runtime_seconds: float = Field(default=0, ge=0)
+    integer_assignment_proven: bool = False
+    candidate_audited: bool = False
+    candidate_accepted: bool = False
+    message: str
+
+
 class OptimizationSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -186,13 +277,57 @@ class OptimizationSummary(BaseModel):
     total_flight_minutes: float = Field(ge=0)
     active_drone_count: int = Field(gt=0)
     survey_turn_radius_m: float = Field(default=0, ge=0, le=10_000)
+    turn_radii_by_drone: dict[str, float] = Field(default_factory=dict)
     coverage_angle_cost: CoverageAngleCost = CoverageAngleCost.GEOMETRIC_DISTANCE
     coverage_reference_airspeed_kmh: float | None = Field(default=None, gt=0, le=300)
+    productive_routing: ProductiveRoutingSummary | None = None
+    assignment_search: AssignmentSearchSummary | None = None
+
+
+class PlanCheckpoint(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    stage: str
+    elapsed_seconds: float = Field(ge=0)
+    completion_minutes: float = Field(ge=0)
+    total_flight_minutes: float = Field(ge=0)
+    sortie_count: int = Field(ge=0)
+    objective: list[float]
+
+
+class PlanPipelineReport(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    status: str = "running"
+    elapsed_seconds: float = Field(default=0, ge=0)
+    candidate_events: int = Field(default=0, ge=0)
+    audited_events: int = Field(default=0, ge=0)
+    improvements: int = Field(default=0, ge=0)
+    failed_check_codes: list[str] = Field(default_factory=list, max_length=32)
+    error_code: str | None = None
+
+
+class PlanSearchSummary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    status: str
+    elapsed_seconds: float = Field(ge=0)
+    time_limit_seconds: float = Field(ge=1)
+    request_fingerprint: str
+    checkpoints: list[PlanCheckpoint] = Field(default_factory=list, max_length=64)
+    pipelines_started: int = Field(default=0, ge=0)
+    pipelines: list[PlanPipelineReport] = Field(default_factory=list, max_length=8)
 
 
 class PlanResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    engine_version: str | None = Field(default=None, max_length=64)
+    engine_build_revision: str | None = Field(default=None, max_length=128)
+    export_authorization: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Server attestation of unchanged audited calculation, valid for 8 hours. "
+        "Not flight approval. Recalculation required on expiry or server key change.",
+    )
     criterion: OptimizationCriterion
     drone_plans: list[DronePlan]
     metrics: PlanMetrics
@@ -200,12 +335,14 @@ class PlanResponse(BaseModel):
     optimization: OptimizationSummary | None = None
     schedule: ScheduleSummary | None = None
     safety_audit: SafetyAuditReport | None = None
+    search: PlanSearchSummary | None = None
 
 
 class TurnRadiusAnalysisRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     coverage: CoveragePlanRequest
+    flight_altitude_msl_m: float | None = Field(default=None, gt=0, le=100_000)
     allowed_airspaces: list[AllowedAirspace] = Field(default_factory=list, max_length=1_000)
     radii_m: list[float] = Field(min_length=1, max_length=5)
 

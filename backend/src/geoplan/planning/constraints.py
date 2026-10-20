@@ -6,6 +6,7 @@ from geoplan.coverage.models import CoverageArea, WorkSegment
 from geoplan.domain.airspace import FlightObstacle, NoFlyZone
 from geoplan.domain.enums import AltitudeReference, ValidityMode
 from geoplan.domain.geo import Coordinate
+from geoplan.domain.identifiers import derived_id
 from geoplan.planning.models import PlanRequest
 
 GEOMETRY_CLEARANCE_M = 0.5
@@ -24,21 +25,24 @@ def _constraints_for_segment(
     segment: WorkSegment,
     request: PlanRequest,
 ) -> list[NoFlyZone]:
+    forward_flight = any(drone.fixed_wing_phase_profile is not None for drone in request.drones)
     coverage_holes = _coverage_hole_zones(segment, request.coverage_areas)
     obstacle_zones = [
         _obstacle_zone(obstacle)
         for obstacle in request.obstacles
         if (
-            request.altitude_reference is AltitudeReference.AGL
+            forward_flight
+            or request.altitude_reference is AltitudeReference.AGL
             or _obstacle_requires_avoidance(obstacle, request.mission_altitude_m)
         )
-        and _obstacle_is_near_segment(obstacle, segment)
+        and (forward_flight or _obstacle_is_near_segment(obstacle, segment))
     ]
     permanent_no_fly_zones = [
         zone
         for zone in request.no_fly_zones
         if (
-            zone.altitude_reference is not request.altitude_reference
+            forward_flight
+            or zone.altitude_reference is not request.altitude_reference
             or _zone_applies_at_altitude(zone, request.mission_altitude_m)
         )
         and (zone.validity is None or zone.validity.mode is ValidityMode.PERMANENT)
@@ -56,15 +60,14 @@ def _coverage_hole_zones(
     segment: WorkSegment,
     coverage_areas: list[CoverageArea],
 ) -> list[NoFlyZone]:
-    area = _coverage_area(coverage_areas, segment.coverage_area_id)
-    if area is None:
-        return []
     return [
         NoFlyZone(
-            zone_id=f"coverage-hole-{area.area_id}-{index + 1}"[:64],
+            zone_id=derived_id(area.area_id, f"-hole-{index + 1}"),
             coordinates=ring,
             safety_margin_m=GEOMETRY_CLEARANCE_M,
         )
+        for area in coverage_areas
+        if area.area_id in segment.area_ids
         for index, ring in enumerate(area.interior_rings)
         if len(ring) >= 3
     ]
@@ -75,7 +78,8 @@ def _obstacle_requires_avoidance(
     mission_altitude_m: float,
 ) -> bool:
     vertical_clearance_m = 30
-    return mission_altitude_m <= obstacle.height_m + vertical_clearance_m
+    top = obstacle.known_top_msl_m
+    return top is None or mission_altitude_m <= top + vertical_clearance_m
 
 
 def _obstacle_is_near_segment(obstacle: FlightObstacle, segment: WorkSegment) -> bool:

@@ -1,5 +1,5 @@
 import type { ExportTextResponse, PlanResponse } from "@/shared/api/types";
-import { requestJson } from "@/shared/api/http";
+import { requestBlob, requestJson } from "@/shared/api/http";
 import { download } from "@/shared/browser/download";
 
 export async function exportMission(
@@ -7,6 +7,16 @@ export async function exportMission(
   droneId: string,
   format: "geojson" | "kml" | "qgroundcontrol" | "mission-planner",
 ): Promise<void> {
+  const drone = plan.drone_plans.find((item) => item.drone_id === droneId);
+  if ((format === "qgroundcontrol" || format === "mission-planner") && drone && drone.missions.length > 1) {
+    const bundle = await requestBlob("/v1/exports/flight-package", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan, drone_id: droneId, format }),
+    });
+    download(bundle, "flight-package.zip", "application/zip");
+    return;
+  }
   const payload = await requestJson<ExportTextResponse | Record<string, unknown>>(
     `/v1/exports/${format}`,
     {

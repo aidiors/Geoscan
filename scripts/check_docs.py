@@ -20,7 +20,7 @@ def heading_anchors(source: str) -> set[str]:
 
 def check_documentation(root: Path = ROOT) -> list[str]:
     documents = [root / "README.md", *(root / "docs").rglob("*.md")]
-    documents.extend((root / "reference").glob("*.md"))
+    documents.extend((root / "reference").rglob("*.md"))
     errors: list[str] = []
     for document in documents:
         source = document.read_text(encoding="utf-8")

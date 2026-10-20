@@ -1,6 +1,7 @@
 import { LayoutGrid, Moon, Play, Route, Sun } from "lucide-react";
 
 import type { Theme } from "@/app/theme";
+import { CalculationTimer } from "@/features/planner/ui/CalculationTimer";
 
 interface HeaderProps {
   status: string;
@@ -9,6 +10,7 @@ interface HeaderProps {
   calculating: boolean;
   onOpenShowcase: () => void;
   onCalculate: () => void;
+  onCancelPlanning?: () => void;
   onToggleTheme: () => void;
 }
 
@@ -19,6 +21,7 @@ export function Header({
   calculating,
   onOpenShowcase,
   onCalculate,
+  onCancelPlanning,
   onToggleTheme,
 }: HeaderProps) {
   return (
@@ -34,6 +37,8 @@ export function Header({
         <span>Версия плана {revision}</span>
       </div>
       <div className="header-actions">
+        {calculating && <CalculationTimer />}
+        {calculating && onCancelPlanning && <button type="button" className="theme-button" onClick={onCancelPlanning}>Остановить поиск</button>}
         <button className="theme-button showcase-button" type="button" onClick={onOpenShowcase}>
           <LayoutGrid size={17} />
           <span>Демо-кейсы</span>

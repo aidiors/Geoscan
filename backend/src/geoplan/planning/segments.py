@@ -4,10 +4,12 @@ from statistics import median
 
 from pydantic import ValidationError
 
+from geoplan.budget import check_planning_budget
 from geoplan.coverage.models import CoverageArea, CoveragePlanRequest, WorkSegment
 from geoplan.coverage.sweep import CoveragePlanner, CoveragePlanningError
 from geoplan.domain.diagnostics import FeasibilityRecommendation
 from geoplan.domain.enums import (
+    AltitudeReference,
     CoverageAngleCost,
     ErrorCode,
     RecommendationCode,
@@ -22,17 +24,19 @@ from geoplan.navigation.curvature import (
     SweepTransitionPlanner,
     build_curvature_aware_sweep_route_with_planner,
 )
+from geoplan.navigation.geometry import polygon_from_coordinates, projection_for_coordinates
 from geoplan.navigation.models import SweepRouteCurvatureRequest
 from geoplan.navigation.routing import RouteGeometryError, route_distance_km
 from geoplan.planning.constraints import _constraints_for_segment
+from geoplan.planning.fleet_survey import FleetSurveyPolicy
 from geoplan.planning.models import PlanRequest
 
 
 def _resolve_segments(
     request: PlanRequest,
     coverage_planner: CoveragePlanner,
-    sweep_transition_planner: SweepTransitionPlanner,
     coverage_reference_airspeed_kmh: float | None,
+    drones: list[DroneSpec] | None = None,
 ) -> list[WorkSegment]:
     if not request.coverage_areas:
         return request.segments
@@ -42,11 +46,43 @@ def _resolve_segments(
             code=ErrorCode.COVERAGE_GENERATION_FAILED,
             message="Для построения галсов отсутствуют параметры съёмки.",
         )
-    generated: list[WorkSegment] = []
+    invalid = []
     for area in request.coverage_areas:
+        check_planning_budget()
+        try:
+            geometry = polygon_from_coordinates(
+                area.coordinates, area.interior_rings, projection_for_coordinates(area.coordinates)
+            )
+            if geometry.area <= 0:
+                invalid.append(area.area_id)
+        except ValueError:
+            invalid.append(area.area_id)
+    if invalid:
+        raise PlanningError(
+            code=ErrorCode.COVERAGE_GENERATION_FAILED,
+            message=f"Областей без допустимой площади: {len(invalid)}. "
+            f"Исправьте или удалите их: {', '.join(invalid[:8])}.",
+            recommendations=[
+                FeasibilityRecommendation(
+                    code=RecommendationCode.REVISE_GEOSPATIAL_CONSTRAINTS,
+                    message=(
+                        "Исправьте вырожденные рабочие области; "
+                        "они не исключаются из задания автоматически."
+                    ),
+                    confidence=RecommendationConfidence.EXACT,
+                    parameter="coverage_areas",
+                    affected_ids=invalid,
+                )
+            ],
+        )
+    generated: list[WorkSegment] = []
+    if drones:
+        parameters = FleetSurveyPolicy().grid_parameters(request, drones)
+    for area in request.coverage_areas:
+        check_planning_budget()
         plan_request = CoveragePlanRequest(
             area=area,
-            mission_altitude_m=request.mission_altitude_m,
+            mission_altitude_m=request.survey_height_agl.minimum_m,
             parameters=parameters,
             exclusions=request.no_fly_zones,
             departure_candidates=[site.coordinate for site in _configured_departure_sites(request)],
@@ -55,48 +91,79 @@ def _resolve_segments(
             ],
             wind=request.wind,
             reference_airspeed_kmh=coverage_reference_airspeed_kmh,
+            planning_area_count=len(request.coverage_areas),
+            optimization_mode=request.optimization_mode,
         )
         try:
             result = coverage_planner.plan(plan_request)
+        except ValidationError as error:
+            raise PlanningError(
+                code=ErrorCode.COVERAGE_GENERATION_FAILED,
+                message=f"Для области {area.name} не удалось сформировать маршрут. "
+                "Проверьте масштаб и геометрию исходного полигона.",
+            ) from error
         except CoveragePlanningError as error:
             raise PlanningError(
                 code=error.code,
                 message=error.message,
-                recommendations=_coverage_failure_recommendations(error.code, plan_request),
+                recommendations=_coverage_failure_recommendations(
+                    error.code, plan_request, request
+                ),
             ) from error
-        if request.minimum_turn_radius_m == 0:
-            generated.extend(result.segments)
-            continue
-        generated.extend(
-            _curvature_constrained_segment(segment, area, request, sweep_transition_planner)
-            for segment in result.segments
-        )
+        # Preserve transferable straight strips. Aircraft-specific curves are
+        # constructed inside candidate evaluation, so a failed reference grouping
+        # does not prevent the productive pool from finding a different grouping.
+        generated.extend(result.segments)
     return [*request.segments, *generated]
 
 
 def _coverage_failure_recommendations(
     code: ErrorCode,
     request: CoveragePlanRequest,
+    flight_request: PlanRequest,
 ) -> list[FeasibilityRecommendation]:
     if code is ErrorCode.GSD_REQUIREMENT_UNSATISFIED:
         sensor = request.parameters.sensor
-        maximum_altitude_m = (
+        maximum_height_m = (
             request.parameters.maximum_gsd_cm
             / 100
-            * sensor.image_width_px
             * sensor.focal_length_mm
-            / sensor.sensor_width_mm
+            / max(
+                sensor.sensor_width_mm / sensor.image_width_px,
+                sensor.sensor_height_mm / sensor.image_height_px,
+            )
         )
+        maximum_altitude_m = flight_request.altitude_for_maximum_agl(maximum_height_m)
+        floor = (
+            flight_request.flat_ground_elevation_m + flight_request.terrain_vertical_uncertainty_m
+            if flight_request.altitude_reference is AltitudeReference.MSL
+            else 0
+        )
+        if maximum_altitude_m <= floor:
+            return [
+                FeasibilityRecommendation(
+                    code=RecommendationCode.REVISE_GEOSPATIAL_CONSTRAINTS,
+                    message=(
+                        "Требование GSD недостижимо при заданной погрешности поверхности. "
+                        "Уточните высоты или параметры камеры."
+                    ),
+                    confidence=RecommendationConfidence.ESTIMATE,
+                    parameter="terrain_vertical_uncertainty_m",
+                    current_value=flight_request.terrain_vertical_uncertainty_m,
+                    unit="m",
+                    affected_ids=[request.area.area_id],
+                )
+            ]
         return [
             FeasibilityRecommendation(
                 code=RecommendationCode.ADJUST_MISSION_ALTITUDE,
                 message=(
-                    f"Снизьте высоту задания до {maximum_altitude_m:.1f} м или ниже, "
-                    "чтобы выполнить требование GSD для выбранной камеры."
+                    f"Предел высоты для выбранной камеры: {maximum_altitude_m:.1f} м "
+                    f"{flight_request.altitude_reference.value.upper()}. Нужен пересчёт плана."
                 ),
-                confidence=RecommendationConfidence.EXACT,
+                confidence=RecommendationConfidence.ESTIMATE,
                 parameter="mission_altitude_m",
-                current_value=request.mission_altitude_m,
+                current_value=flight_request.mission_altitude_m,
                 required_value=round(maximum_altitude_m, 2),
                 unit="m",
                 affected_ids=[request.area.area_id],
@@ -152,6 +219,11 @@ def _curvature_constrained_segment(
             curvature_request = SweepRouteCurvatureRequest(
                 route=route,
                 coverage_area=area,
+                additional_coverage_areas=[
+                    a
+                    for a in request.coverage_areas
+                    if a.area_id in segment.area_ids and a.area_id != area.area_id
+                ],
                 no_fly_zones=constraints,
                 minimum_turn_radius_m=request.minimum_turn_radius_m,
                 sampling_step_m=max(3, min(25, request.minimum_turn_radius_m / 4)),
@@ -182,6 +254,10 @@ def _curvature_constrained_segment(
     payload["route"] = curved_routes[0]
     payload["alternative_routes"] = curved_routes[1:]
     payload["distance_km"] = route_distance_km(curved_routes[0])
+    payload["survey_tracks"] = segment.survey_tracks or [
+        (segment.route[index], segment.route[index + 1])
+        for index in range(0, len(segment.route), 2)
+    ]
     try:
         return WorkSegment.model_validate(payload)
     except ValidationError as error:

@@ -18,13 +18,27 @@ export class ApiError extends Error {
   }
 }
 
-export async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
+async function requestResponse(url: string, init: RequestInit): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(url, init);
   } catch {
+    if (init.signal?.aborted) {
+      throw new ApiError("Время ожидания расчёта истекло. Разделите задание на меньшие пакеты и повторите расчёт.");
+    }
     throw new ApiError("Сервер планирования недоступен.");
   }
+  if (response.ok) return response;
+  const payload = await parseJson<ApiErrorPayload>(response);
+  throw new ApiError(
+    payload?.message ?? "Сервер не смог обработать запрос.",
+    payload?.code ?? null,
+    payload?.recommendations?.map((item) => item.message)
+      .filter((message): message is string => typeof message === "string") ?? [],
+  );
+}
+
+async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   let payload: unknown = null;
   if (text) {
@@ -37,15 +51,13 @@ export async function requestJson<T>(url: string, init: RequestInit): Promise<T>
       throw new ApiError("Сервер вернул некорректный JSON.");
     }
   }
-  if (!response.ok) {
-    const apiError = payload as ApiErrorPayload | null;
-    throw new ApiError(
-      apiError?.message ?? "Сервер не смог обработать запрос.",
-      apiError?.code ?? null,
-      apiError?.recommendations
-        ?.map((recommendation) => recommendation.message)
-        .filter((message): message is string => typeof message === "string") ?? [],
-    );
-  }
   return payload as T;
+}
+
+export async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
+  return parseJson<T>(await requestResponse(url, init));
+}
+
+export async function requestBlob(url: string, init: RequestInit): Promise<Blob> {
+  return (await requestResponse(url, init)).blob();
 }

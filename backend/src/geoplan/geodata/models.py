@@ -14,6 +14,7 @@ from geoplan.domain.enums import (
     ImportFormat,
     ZoneType,
 )
+from geoplan.domain.flight_phases import ForwardFlightPhases
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import MissionStage
 from geoplan.planning.models import PlanResponse
@@ -149,6 +150,11 @@ class ExportRequest(BaseModel):
 
     plan: PlanResponse
     drone_id: str = Field(min_length=1, max_length=64)
+    sortie_index: int | None = Field(default=None, ge=0, le=10_000)
+
+
+class FlightPackageRequest(ExportRequest):
+    format: Literal["qgroundcontrol", "mission-planner"]
 
 
 class GeoJsonGeometry(BaseModel):
@@ -163,10 +169,15 @@ class GeoJsonProperties(BaseModel):
 
     drone_id: str
     segment_id: str
+    coverage_area_ids: list[str] = Field(default_factory=list)
     duration_minutes: float = Field(gt=0)
     distance_km: float = Field(gt=0)
     altitude_m: float = Field(gt=0)
+    route_altitudes_msl_m: list[float] | None = None
+    forward_flight_phases: ForwardFlightPhases | None = None
     altitude_reference: AltitudeReference = AltitudeReference.MSL
+    flat_ground_elevation_m: float = Field(default=0, ge=-500, le=10_000)
+    maximum_agl_m: float | None = Field(default=None, gt=0)
     minimum_agl_m: float | None = Field(default=None, gt=0)
     minimum_terrain_elevation_m: float | None = Field(default=None, ge=-500, le=10_000)
     maximum_terrain_elevation_m: float | None = Field(default=None, ge=-500, le=10_000)
@@ -197,6 +208,7 @@ class GeoJsonProperties(BaseModel):
     computed_gsd_cm: float | None = Field(default=None, gt=0)
     strip_spacing_m: float | None = Field(default=None, gt=0)
     stages: list[MissionStage] = Field(default_factory=list)
+    photo_capture_route_indices: list[int] | None = None
 
 
 class GeoJsonFeature(BaseModel):
@@ -230,11 +242,11 @@ class QGroundControlSimpleItem(BaseModel):
         alias="AMSLAltAboveTerrain",
     )
     altitude: float = Field(default=0, alias="Altitude")
-    altitude_mode: Literal[0, 4] = Field(default=0, alias="AltitudeMode")
+    altitude_mode: Literal[0, 2, 4] = Field(default=0, alias="AltitudeMode")
     auto_continue: bool = Field(default=True, alias="autoContinue")
-    command: Literal[16, 21, 22, 178, 206]
+    command: Literal[16, 21, 22, 178, 206, 2000]
     do_jump_id: int = Field(ge=1, alias="doJumpId")
-    frame: Literal[2, 3, 10]
+    frame: Literal[0, 2, 3, 10]
     params: list[float | None] = Field(min_length=7, max_length=7)
 
 
@@ -243,7 +255,7 @@ class QGroundControlMission(BaseModel):
 
     cruise_speed: float = Field(gt=0, alias="cruiseSpeed")
     firmware_type: Literal[0, 3, 12] = Field(alias="firmwareType")
-    global_plan_altitude_mode: Literal[1, 4] = Field(alias="globalPlanAltitudeMode")
+    global_plan_altitude_mode: Literal[1, 2, 4] = Field(alias="globalPlanAltitudeMode")
     hover_speed: float = Field(gt=0, alias="hoverSpeed")
     items: list[QGroundControlSimpleItem]
     planned_home_position: list[float] = Field(

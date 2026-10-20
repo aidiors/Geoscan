@@ -1,0 +1,3447 @@
+{
+  "date": "2026-10-18",
+  "status": "interrupted_for_user_requested_handoff",
+  "production_selection_complete": false,
+  "expected_cases": 45,
+  "completed_cases": 11,
+  "provenance": {
+    "phase": "provenance",
+    "source_sha256": "b48f4cf70726121919b7d8e20a9bab43027afb55730538698e4c17c8eacadf70",
+    "code_sha256": {
+      "src\\geoplan\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\airspace\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\airspace\\windows.py": "998f364296c663f54f14d4cdc8b9db78b476e3fa63ff6b581211e77c890b1c41",
+      "src\\geoplan\\api\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\api\\app.py": "05a3b2ed5ec47bd937a8d1bf72d612d69073a78215b4d9c9714026a20c6d9629",
+      "src\\geoplan\\api\\models.py": "f60283367006e7146022ea59f123066e0e781914f751d0991918291c9a423b75",
+      "src\\geoplan\\api\\routes.py": "726edddc2c9124e4092c1edb88793d548542c2f6dba2267d6a2f9e9721361725",
+      "src\\geoplan\\assignment\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\assignment\\alternatives.py": "7579983014bdbbe769ce10cb8ff2bdbe4141cde7c96ac761c2609bf83b521784",
+      "src\\geoplan\\assignment\\cp_sat.py": "b7a40537f9f6af1625c0c8c963c37db0c19a0eb4673748ff49fc6bfb8d92f12b",
+      "src\\geoplan\\assignment\\models.py": "00b6e1f189bd3f2dc633f213b4ccc85c7f67c5c7e46e9d480135e0dcc16ebb5a",
+      "src\\geoplan\\assignment\\neighborhood.py": "7c6cb6e49fcb0b41b6abd240f5cc37ab5fd6fecf0615c2bdfbc1117580fb4685",
+      "src\\geoplan\\assignment\\solver.py": "23b838ece4c28a44340564919614d6602c47610b5cd4e4f90c9c782048626e2b",
+      "src\\geoplan\\bootstrap.py": "59daa9d4b3890084709b159571a0909131a5f055af0f458568ad176fc40fc98f",
+      "src\\geoplan\\budget.py": "f380b288ea59d15d5bd5d058c6b29764ad15268c6666b26922cf7d56612af45d",
+      "src\\geoplan\\composition.py": "059ab163668a34681b971adcd53dbe2cf5005db21559121f25fe2650232a115e",
+      "src\\geoplan\\coverage\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\coverage\\adaptive.py": "0a07e9d3a3b1e0585fd3c9f019eba4f9cbca3314d31d67e342e6f5405658c2ef",
+      "src\\geoplan\\coverage\\decomposition.py": "467c7716d580af3a4ae60b427241d5b85eaadc401880afce1a96f308395b3a0a",
+      "src\\geoplan\\coverage\\models.py": "7084474f20ca122014a5154a8b3ea68cfb205fcfe6869ff0bd4019d514e3c0ca",
+      "src\\geoplan\\coverage\\production.py": "d7f7cf2f4ddf44901be062f5c5afe2b8779e72db6535e59a355674429a8afc32",
+      "src\\geoplan\\coverage\\resolution.py": "be06f936562aa7c2fa538a39971d474cc27ca03443b0f9dd6f9e8f2065a7385a",
+      "src\\geoplan\\coverage\\scoring.py": "7835ef6865bf8895b8349af046bf5d74c77729c7c54eb5a7083b0abd61036c0f",
+      "src\\geoplan\\coverage\\sweep.py": "9266b4725719dc9d509653fb09be4bd09802c23884b9e7eff41c9fa72ee95085",
+      "src\\geoplan\\domain\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\domain\\airspace.py": "4ee83481fa11e672a86e78b5a235c926de94993cb19f26b972448ac93db923b1",
+      "src\\geoplan\\domain\\diagnostics.py": "2b114d014114fc3f75a5b11e23bac9555dc3b58d1142ed10c6f93d9c3838a83d",
+      "src\\geoplan\\domain\\enums.py": "6e576fd3e542261f97d016ee9596b66bc9b54368aa1010805217a2c755902acf",
+      "src\\geoplan\\domain\\environment.py": "6c1e0efd2b7f095550b12c5b34bdb1f70637e4091b1adb61510ecae6ed6a8d89",
+      "src\\geoplan\\domain\\fleet.py": "4eb0a9896f62f8b1fc11e99e13ed33c1a604c468243d231ab2953b5cb9668497",
+      "src\\geoplan\\domain\\geo.py": "074c22d6a6fb83ff726d02790563db4eef38fc7988a2e3ae72c652cab90b1bea",
+      "src\\geoplan\\domain\\identifiers.py": "c2985858307f9924f5ca370963245e787832011cd29cdfbfcc9e246653a21741",
+      "src\\geoplan\\domain\\mission.py": "3fe3013c338165bbcec875098790599401286ed7a11d7ef9123593f156c4834e",
+      "src\\geoplan\\domain\\survey.py": "bd8ba6707dfc199d84fe1da52523a554f7f221b9ae07d4e237609944afdfcff2",
+      "src\\geoplan\\domain\\terrain.py": "87a2660af016d9a86bbfc5a1c8240dba7ba5dce4904bfef4f63b16015d1613a6",
+      "src\\geoplan\\errors.py": "3d4e4927f60104ca5646fc84b9b76d37538d3b46c51414dfef519d3d903bb40c",
+      "src\\geoplan\\flight\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\flight\\camera.py": "b0ad0aebdfc8726f7f411b94dde9d5a7e453aefe08bcbe5850da6796bc3dab0c",
+      "src\\geoplan\\flight\\duration.py": "5d2694560e909fb1e48380194741eef3ff63422627c4cf5f27ecea7c45ebaaf1",
+      "src\\geoplan\\flight\\emergency.py": "a0b31271cfe16d62b8c5774575cbc35629f374c94f2bfdb4a12b3a3c72c5bb31",
+      "src\\geoplan\\flight\\energy.py": "a4f0ab9b0a13c11dbe6add3f7425d7328279b1db37f3d18285fe185ccc2c4acd",
+      "src\\geoplan\\flight\\envelope.py": "5fbb905be14a45916a4e82a2a1f00287be51055f8d6ff18250203841907368fa",
+      "src\\geoplan\\flight\\models.py": "d44dd8a0a39e41537c2caf38b0fb3df7b15f35421210d1e207acb8fcae8c3b68",
+      "src\\geoplan\\flight\\performance.py": "fdf6d16a1f7bc6c9dd178639b03f79628b7df8a431379d30bfa363ab456dbfe3",
+      "src\\geoplan\\flight\\photography.py": "a888aad468bec703bfb37de2e3eb79129eb75770433b2d10efaa5c38f1d3af56",
+      "src\\geoplan\\flight\\sites.py": "2bf2ead35247fd41e3f8620775de994691b9f1861fa4d869ec94491fc1c746d7",
+      "src\\geoplan\\flight\\terrain.py": "d4885fbf15012790da5985e7eb4f2453defd71ca5a3560e6dd8f8a6c472639a5",
+      "src\\geoplan\\flight\\trajectory.py": "6951510866317d0a11c220572b10d5f8381207bb66e9611c1b576d7ef977090e",
+      "src\\geoplan\\flight\\vertical.py": "070195d85d97651fcd5f37073f5b50a0bcfc10d3c5378e9245b444ae129c7b1d",
+      "src\\geoplan\\geodata\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\geodata\\exporters.py": "2be2459ce03b3c021e21dce3ecca4d2c05d6545a9fe5ae4f140b0a60d5bf3783",
+      "src\\geoplan\\geodata\\importers.py": "2cddfbdfe58816ca261fc260eb69f2f6890ba962f248dde03acfff3b3e897375",
+      "src\\geoplan\\geodata\\models.py": "097cec0dfd8bb758f16a6efc623330ccff57180d58918d25e84681c366685ecf",
+      "src\\geoplan\\navigation\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\navigation\\connections.py": "7d1b2e7bf2804c1db2a4e65054ae5bb7d618592d313bf67e75c07326e6c60337",
+      "src\\geoplan\\navigation\\curvature.py": "37a063ca833e5f4ba9eade949336573d2f5788619110581d968c8d10463976e6",
+      "src\\geoplan\\navigation\\dubins.py": "5cf2f760e8f231bc18dcd43750d3b6a897431da8849e6c149cda8e72610f7fcb",
+      "src\\geoplan\\navigation\\geometry.py": "ce04ab984e9fedc41539df4633c3e55ac679c9f2c075ce875fa9e2bc58f42857",
+      "src\\geoplan\\navigation\\hybrid_astar.py": "d3f00cea19d9281d84ba80af81c1de1827184c81d31635d9280999cbdab66e17",
+      "src\\geoplan\\navigation\\models.py": "9cbd9661ee49c365b90854f78f1fc561a871a7e7012e90a19ed0020776157e16",
+      "src\\geoplan\\navigation\\optimizer.py": "0b250a75b4f8586db70023cbba4cc4075e01d0bebc139bce4fbd30a29b01c219",
+      "src\\geoplan\\navigation\\routing.py": "ce3839ef5a8ef04c87eef0452afa4eba36b1fef731cff51a77809724fc5e3502",
+      "src\\geoplan\\navigation\\sections.py": "b1e091bb6a9fe59d1add1c4189cf2865f7dde9d190ef245d553e58cd696b74c6",
+      "src\\geoplan\\navigation\\turn_aware.py": "3ba102a6696505298e6c2154057fad5f8d3cb0881bf6ce81874ccd32ebf694bd",
+      "src\\geoplan\\planning\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\planning\\advisor.py": "256d194b27fb0b43dfbe717032f4449eb77e1fc9de96912756f32c1016376992",
+      "src\\geoplan\\planning\\assignment_portfolio.py": "0dd325fe58bb826f1b1ebe4bbe892e6d32b5803dd05adcd91fbf98ce52b0e190",
+      "src\\geoplan\\planning\\candidate_models.py": "d0aa4321a0d9aa418fcc02fb12585c10fc228552655c2d8eacf6ca9a98dffecf",
+      "src\\geoplan\\planning\\candidates.py": "3340acd0b2385f777ca420c151035587aee81e7afdb1338929e5734d4272170a",
+      "src\\geoplan\\planning\\constraints.py": "4e83d7466247ed10415b3c8c802cd16ecb9fc9cf99e999cf0b6efd460b614e4c",
+      "src\\geoplan\\planning\\curved_costs.py": "5608578445753f469c7748250646f95d6d8399bbc4cf0229327934c982d5bf7e",
+      "src\\geoplan\\planning\\eligibility.py": "fa5d917ab51e86ade723ba9524f03af3ee018f560f912a3e5665e0af55bf2b05",
+      "src\\geoplan\\planning\\engine.py": "9aa1e33e528f9ba0759b8c54bb3e4ed3ea45f0e9d95fd51d25201cfa69cdbc3c",
+      "src\\geoplan\\planning\\execution.py": "8e3ec99078fe4d4b63a3573cbac03c4c38f45c21da5357e9fa76b8c11ff8e951",
+      "src\\geoplan\\planning\\fleet_survey.py": "f23a52e757bb149c54a921c21dda218fa1b244fd4a96ad6009839fd22454704a",
+      "src\\geoplan\\planning\\freeform.py": "71287e46911cf3d95183b3e3be3581ed6ecda84df10fc6e88edabbabb6b7ffe5",
+      "src\\geoplan\\planning\\freeform_costs.py": "ad9854625afc32b4c69093480409971292ac949a53965426492b1649adeaacfd",
+      "src\\geoplan\\planning\\freeform_missions.py": "451080b231b37ea13eec9c54b34361253db1eef798f822dbccf6f29dc65ecfe0",
+      "src\\geoplan\\planning\\freeform_ports.py": "4be9f6ba3e8e49fcd3c524eff2d3fa5161f0dbc11c87fd120ea9d82024d2e5ec",
+      "src\\geoplan\\planning\\lateral_overlap.py": "d7ce4c9ec1a545097365170e3c022a8af2565e43a3b5c2b55e3088f92489e33e",
+      "src\\geoplan\\planning\\models.py": "5552be03f26797bdf8b466576e09e2a384f2d61cac22d25f0f980d96d366682b",
+      "src\\geoplan\\planning\\multi_area.py": "88cdd0e7e6d6de057451163b753d577b86021c34aba17727cd3df0726fd385e7",
+      "src\\geoplan\\planning\\photography.py": "1df3e70875b0c7ce7750c820be4c18cee0d6c91a3620d90edf4a00634f873663",
+      "src\\geoplan\\planning\\plan_quality.py": "c11f06685e90cd202348e9446fde2b62f8f90c6da29dc356907d66cb073f5315",
+      "src\\geoplan\\planning\\productive.py": "416db0213b9c14bb59e9a1e7402d6921d449e63fee7af57c16974935f50842ad",
+      "src\\geoplan\\planning\\quality_models.py": "5343bac4a6570a9397e69d7e85e67bce3b4da41a9596cfad429078bb6c1fe703",
+      "src\\geoplan\\planning\\reassignment.py": "b6e498e0b92177b6bd6eb2336afcd295b7f8bcd91b2d385ebf12ecf725f309d9",
+      "src\\geoplan\\planning\\reporting.py": "8bd5a127b12978298a3b96472ac34f5c54f1d310b1fb582d6d3d66ad2da9ae19",
+      "src\\geoplan\\planning\\routes.py": "0b2ec84705c88ef9796b78dfe754a7a4daec865ea82d7d73de3dca56a4aee233",
+      "src\\geoplan\\planning\\schedule_portfolio.py": "fdd4eb328947676e28fcba465d24f4c64f0fcd05958a5e71a8cc5f072e12496b",
+      "src\\geoplan\\planning\\segments.py": "f8eb7196c37fb25aa614bd3bb630a681360d4dea11f7f5a0cc81b253f9b3bb4d",
+      "src\\geoplan\\planning\\survey_adapter.py": "d851fb5d70b14ee7d2eacc0a83a237932ebd059881bf3c4bd5d5428c2e6fafa2",
+      "src\\geoplan\\planning\\survey_phases.py": "e677426f627888cc07642f9baab20a10f3f90356bbb89f8626dfbabc9a5b077d",
+      "src\\geoplan\\planning\\survey_quality.py": "71c7b1f2b0aa52bc4a16a54012ce0f115f0095b4eb912e072ac352278c96e109",
+      "src\\geoplan\\planning\\turn_radius.py": "54ca5871fd4c69f255ab829f097c11b2ab51627fba0c2d16ab6b745ac35e3663",
+      "src\\geoplan\\routing\\__init__.py": "65c0c981a2fd298453d31cda6b1fc38773a238e65456128cd8ebbf693e71ac98",
+      "src\\geoplan\\routing\\allocation.py": "340adca439f7a1d2765b44cfdcb81b98937bcca37bfd381a11d0554c70b235d2",
+      "src\\geoplan\\routing\\coverage_patterns.py": "c76d57146c0e5ce5e77f129800634f5fdc781fdc93c151851c6f877b24cd6735",
+      "src\\geoplan\\routing\\cross_objective.py": "ba4895c61c7be9f3de4e892fb77cc2bef870b7c58b50c7d608aeae0fb5dcca68",
+      "src\\geoplan\\routing\\destroy.py": "155fac4f3a3fa5fe9ac83e9cc6fd5214b2346a5d324568601890dddbf085f747",
+      "src\\geoplan\\routing\\freeform.py": "d67efc9d14ddcffc5b3d540d4b9df2c241d4f6b5d0e18595552feb99422e7250",
+      "src\\geoplan\\routing\\greedy_seed.py": "d49238f7369b65eeb7e75228533e7bcb412d89fba4714697abe4b83ae143a473",
+      "src\\geoplan\\routing\\model.py": "1ba76384921cbfa49f96b9930b7945f1046320719423cda5f8f2a0860c7a3c85",
+      "src\\geoplan\\routing\\neighborhood.py": "4fb5ad3c75696024f0f51bb6534572edba1e5d3a5e8c6589b855e4b46755fd99",
+      "src\\geoplan\\routing\\ordering.py": "d7be9221d1511849566d1cebc512e8e88ef6691020146d7b92bf9786d3e7f1f2",
+      "src\\geoplan\\routing\\pattern_pool.py": "3418180b72d8037e1de388d2cafacc9af232fad2a59314806c598f6b2c0ceb5d",
+      "src\\geoplan\\routing\\photography.py": "dbcfece7cad5115fa16eb6f64d2c1140ec2a25f4ce0f48cd0b157fec1a65595d",
+      "src\\geoplan\\routing\\pool.py": "1ef6d3ec01f376d5f2b4add763f3f719c266e89a95bbd4bc14c647639648deb1",
+      "src\\geoplan\\routing\\split.py": "5d6c6503cddd6f0fd02763563920651d9910eac11415e5eb8402099263008aab",
+      "src\\geoplan\\safety\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\safety\\audit.py": "ec269efac7214f586ab5a810e3e5dbac5dec72a15615cc4f6aa4857a1cd5ba61",
+      "src\\geoplan\\safety\\freeform.py": "827a8e4486f70b15ce066e6174c3aa582dc4f42d8b3c93444b676b66f7f7ccf8",
+      "src\\geoplan\\scheduling\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src\\geoplan\\scheduling\\models.py": "800d27416938c41ce1dc4e4cad4c0da98f6c8439a9aaf3a87b6c77421bbd0227",
+      "src\\geoplan\\scheduling\\scheduler.py": "444f0f2c005a29c29105667230dbb6962d1e93f8af27b2d9f7be92bd2fd53de9",
+      "src\\geoplan\\scheduling\\vertical.py": "5bb52afd9eea49baa9c8181315f49b3dfe884ab4e16294a4da810a1fe97045f8",
+      "scenarios\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scenarios\\coverage.py": "5ba3cd226f1cb7b247c3e6e464e3fa4b793467ec6c002005c3b495f887123a8c",
+      "scenarios\\customer.py": "76647bdb7c3922a00e5fe938a08e1ec251477055eff61d35f0518ef986d6fb94",
+      "scenarios\\freeform.py": "3b80255c6227ebfa293e70898399091a484940a6457f87e7d12d0a7d2bbc4fdb",
+      "scenarios\\optimization_scale.py": "50af1206de7586dd53c25b270888749bf49e2c040ac25db408cede6d4d9de020",
+      "scenarios\\organizer.py": "055dde521ef266d81dbb5dbd47dca3be97ebbc83ce2db2730ca9b41d6d1c4dff",
+      "scenarios\\planning.py": "e5939b958c71554d9e48492318497b06c94c6090ed12c0f268727ec4b305c207",
+      "C:\\Users\\Aidors\\Documents\\ChatGPT\\GeoScan\\Geoscan\\backend\\benchmarks\\production_portfolio.py": "99251f4e5c7dc10265177605a0d86da13bf1d90b3b9a9e89792173b6533c3303",
+      "benchmarks\\process_memory.py": "662d0dd3a6711cfa49435785c9937ca5e360e6bdb9b7d55f6e28720a9bbbaad4"
+    },
+    "platform": "Windows-10-10.0.19045-SP0",
+    "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+    "arguments": [
+      "C:\\Users\\Aidors\\Documents\\ChatGPT\\GeoScan\\Geoscan\\backend\\benchmarks\\production_portfolio.py",
+      "pipeline",
+      "--count",
+      "8",
+      "--algorithms",
+      "bounded",
+      "bounded_productive",
+      "bounded_cp_productive",
+      "adaptive_cp_productive",
+      "production",
+      "--output",
+      "../work/production-8-final.jsonl"
+    ],
+    "coverage_case_budget_seconds": 10,
+    "operational_sample_minimum_area_m2": 1,
+    "assumptions": "Real geometry; synthetic central bases, 4 aircraft, camera and weather"
+  },
+  "limitations": [
+    "Partial series: anchor 1 only; not a production acceptance or optimality proof.",
+    "Customer polygons; synthetic aircraft, base, camera, no wind; other customer obstacle/airspace layers not connected.",
+    "Operational benchmark samples exclude geometry below 1 square metre; API import preserves all objects.",
+    "Audit status, feasibility and deadline satisfaction must be assessed separately.",
+    "No --exports in this interrupted series; independent integration tests cover exports.",
+    "Memory is cumulative worker peak RSS, not per-case allocation.",
+    "Raw local request/response snapshots under ignored work/ are not required to replay the tracked scenario factory."
+  ],
+  "rows": [
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "bounded",
+      "criterion": "balanced",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 13.38519470000756,
+      "process_peak_rss_mib": 125.54,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 120.092,
+        "total_flight_minutes": 253.84,
+        "total_distance_km": 329.957,
+        "survey_distance_km": 32.898,
+        "transit_distance_km": 297.059,
+        "useful_flight_percent": 9.97,
+        "average_fleet_utilization_percent": 52.84,
+        "active_drone_count": 4,
+        "sortie_count": 73
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "deadline_aware_local_search",
+        "coverage_algorithm": "boustrophedon_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "generated_route_assignment",
+        "optimality": "heuristic",
+        "completion_minutes": 120.092,
+        "total_flight_minutes": 253.84039603838485,
+        "active_drone_count": 4,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": null,
+        "assignment_search": null
+      },
+      "schedule": {
+        "variants_evaluated": 2,
+        "dispatch_priority": "longest_remaining",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 120.511,
+        "reference_total_flight_minutes": 253.84039603838485,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 120.092,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 42,
+        "resolved_conflicts": [
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-291-2",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-334-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-278-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-334-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-278-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-291-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-10",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-291-6",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 10.487,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-10",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-334-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 7.207,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-5",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-334-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-5",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-291-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-2",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-291-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 23.698,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-4",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-7",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 30.164,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-26",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-22",
+            "coordinate": {
+              "longitude": 38.555114073267205,
+              "latitude": 55.101912464784114,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 36.155,
+            "nominal_distance_m": 48.49,
+            "required_distance_m": 52.652,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-334-3",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-18",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 43.058,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-4",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-324-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 25.139,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-2",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-18",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 43.165,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-2",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-22",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 40.058,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-14",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-13",
+            "coordinate": {
+              "longitude": 38.56051711385967,
+              "latitude": 55.103526591941616,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 33.8,
+            "nominal_distance_m": 36.409,
+            "required_distance_m": 52.488,
+            "applied_delay_minutes": 0.667,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-21",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-334-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 62.189,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-5",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-17",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 68.705,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-3",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-6",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 56.233,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-3",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-16",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 75.121,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-6",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-21",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 62.347,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-6",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-278-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 62.514,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-6",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 65.617,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-23",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-20",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 81.364,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-14",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 68.872,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.833,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-14",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 71.986,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.833,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-14",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-27",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 69.319,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.833,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-14",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-19",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 72.403,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.833,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-9",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-23",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 78.455,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-278-3",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-12",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 87.764,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-17",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-23",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 81.636,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-17",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-278-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 84.78,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-6",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-9",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 94.073,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-8",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-278-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 87.949,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-15",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 100.414,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-291-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-291-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 103.423,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-278-4",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-291-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 103.665,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-291-8",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-291-7",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 109.977,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-12",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-291-8",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 110.225,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-24",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-30",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 116.451,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-10",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-24",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 116.664,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-7",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-291-8",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 113.451,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-289-7",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-12",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 113.664,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.583,
+            "applied_vertical_offset_m": 0.0
+          }
+        ]
+      },
+      "feasibility": "infeasible",
+      "transit_minutes": 229.24300955819243,
+      "return_minutes": 114.74409660297357,
+      "failed_checks": [],
+      "seconds": 13.498546399991028
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "bounded_productive",
+      "criterion": "balanced",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 16.754050200019265,
+      "process_peak_rss_mib": 129.68,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 77.74,
+        "total_flight_minutes": 56.74,
+        "total_distance_km": 80.376,
+        "survey_distance_km": 32.897,
+        "transit_distance_km": 47.48,
+        "useful_flight_percent": 40.93,
+        "average_fleet_utilization_percent": 18.25,
+        "active_drone_count": 1,
+        "sortie_count": 8
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "boustrophedon_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 77.74,
+        "total_flight_minutes": 56.736387718653596,
+        "active_drone_count": 1,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 4,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 120.092,
+          "baseline_total_flight_minutes": 253.84,
+          "baseline_transit_minutes": 229.24300955819243,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": null
+      },
+      "schedule": {
+        "variants_evaluated": 1,
+        "dispatch_priority": "ready_first",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 77.74,
+        "reference_total_flight_minutes": 56.736387718653596,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 77.74,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 0,
+        "resolved_conflicts": []
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 33.51458366999734,
+      "return_minutes": 11.490003338422124,
+      "failed_checks": [],
+      "seconds": 16.781379199994262
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "bounded_cp_productive",
+      "criterion": "balanced",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 19.27456039999379,
+      "process_peak_rss_mib": 179.73,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 77.74,
+        "total_flight_minutes": 56.74,
+        "total_distance_km": 80.376,
+        "survey_distance_km": 32.897,
+        "transit_distance_km": 47.48,
+        "useful_flight_percent": 40.93,
+        "average_fleet_utilization_percent": 18.25,
+        "active_drone_count": 1,
+        "sortie_count": 8
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "boustrophedon_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 77.74,
+        "total_flight_minutes": 56.736387718653596,
+        "active_drone_count": 1,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 5,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 120.092,
+          "baseline_total_flight_minutes": 253.84,
+          "baseline_transit_minutes": 229.24300955819243,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": {
+          "status": "retained_baseline",
+          "solver_statuses": [
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL"
+          ],
+          "runtime_seconds": 0.013789999997243285,
+          "integer_assignment_proven": true,
+          "candidate_audited": true,
+          "candidate_accepted": false,
+          "message": "Исходное расписание лучше, равноценное либо безопаснее варианта CP-SAT."
+        }
+      },
+      "schedule": {
+        "variants_evaluated": 1,
+        "dispatch_priority": "ready_first",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 77.74,
+        "reference_total_flight_minutes": 56.736387718653596,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 77.74,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 0,
+        "resolved_conflicts": []
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 33.51458366999734,
+      "return_minutes": 11.490003338422124,
+      "failed_checks": [],
+      "seconds": 19.31013030000031
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "adaptive_cp_productive",
+      "criterion": "balanced",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 83.41164449998178,
+      "process_peak_rss_mib": 200.73,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 77.423,
+        "total_flight_minutes": 56.42,
+        "total_distance_km": 79.928,
+        "survey_distance_km": 32.707,
+        "transit_distance_km": 47.221,
+        "useful_flight_percent": 40.92,
+        "average_fleet_utilization_percent": 18.22,
+        "active_drone_count": 1,
+        "sortie_count": 8
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "adaptive_decomposed_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 77.423,
+        "total_flight_minutes": 56.419603801900955,
+        "active_drone_count": 1,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 5,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 120.277,
+          "baseline_total_flight_minutes": 227.8,
+          "baseline_transit_minutes": 203.44995697229194,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": {
+          "status": "retained_baseline",
+          "solver_statuses": [
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL"
+          ],
+          "runtime_seconds": 0.011676699999952689,
+          "integer_assignment_proven": true,
+          "candidate_audited": true,
+          "candidate_accepted": false,
+          "message": "Исходное расписание лучше, равноценное либо безопаснее варианта CP-SAT."
+        }
+      },
+      "schedule": {
+        "variants_evaluated": 1,
+        "dispatch_priority": "ready_first",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 77.423,
+        "reference_total_flight_minutes": 56.419603801900955,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 77.423,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 0,
+        "resolved_conflicts": []
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 33.33191802808733,
+      "return_minutes": 11.229827951301223,
+      "failed_checks": [],
+      "seconds": 83.44098949999898
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "production",
+      "criterion": "balanced",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 19.29432069999166,
+      "process_peak_rss_mib": 200.73,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 77.74,
+        "total_flight_minutes": 56.74,
+        "total_distance_km": 80.376,
+        "survey_distance_km": 32.897,
+        "transit_distance_km": 47.48,
+        "useful_flight_percent": 40.93,
+        "average_fleet_utilization_percent": 18.25,
+        "active_drone_count": 1,
+        "sortie_count": 8
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "automatic_portfolio",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 77.74,
+        "total_flight_minutes": 56.736387718653596,
+        "active_drone_count": 1,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 5,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 120.092,
+          "baseline_total_flight_minutes": 253.84,
+          "baseline_transit_minutes": 229.24300955819243,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": {
+          "status": "retained_baseline",
+          "solver_statuses": [
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL"
+          ],
+          "runtime_seconds": 0.01287520001642406,
+          "integer_assignment_proven": true,
+          "candidate_audited": true,
+          "candidate_accepted": false,
+          "message": "Исходное расписание лучше, равноценное либо безопаснее варианта CP-SAT."
+        }
+      },
+      "schedule": {
+        "variants_evaluated": 1,
+        "dispatch_priority": "ready_first",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 77.74,
+        "reference_total_flight_minutes": 56.736387718653596,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 77.74,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 0,
+        "resolved_conflicts": []
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 33.51458366999734,
+      "return_minutes": 11.490003338422124,
+      "failed_checks": [],
+      "seconds": 19.321525400009705
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "bounded",
+      "criterion": "completion_time",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 13.329201199987438,
+      "process_peak_rss_mib": 200.73,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 121.215,
+        "total_flight_minutes": 256.02,
+        "total_distance_km": 329.957,
+        "survey_distance_km": 32.898,
+        "transit_distance_km": 297.059,
+        "useful_flight_percent": 9.97,
+        "average_fleet_utilization_percent": 52.8,
+        "active_drone_count": 4,
+        "sortie_count": 73
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "multistart_local_search",
+        "coverage_algorithm": "boustrophedon_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "generated_route_assignment",
+        "optimality": "heuristic",
+        "completion_minutes": 121.215,
+        "total_flight_minutes": 256.0220551067669,
+        "active_drone_count": 4,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": null,
+        "assignment_search": null
+      },
+      "schedule": {
+        "variants_evaluated": 2,
+        "dispatch_priority": "longest_remaining",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 129.95,
+        "reference_total_flight_minutes": 256.0220551067669,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 121.215,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 48,
+        "resolved_conflicts": [
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-324-2",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-324-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-334-3",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-324-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-334-3",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-324-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-334-1",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-324-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-334-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.417,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-27",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-28",
+            "coordinate": {
+              "longitude": 38.554671019316906,
+              "latitude": 55.10159931524447,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 19.501,
+            "nominal_distance_m": 20.47,
+            "required_distance_m": 52.497,
+            "applied_delay_minutes": 1.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-27",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-324-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 15.967,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-29",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-30",
+            "coordinate": {
+              "longitude": 38.55094544186034,
+              "latitude": 55.10806248205147,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 27.895,
+            "nominal_distance_m": 38.606,
+            "required_distance_m": 52.573,
+            "applied_delay_minutes": 0.833,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-13",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-291-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 37.992,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-15",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-13",
+            "coordinate": {
+              "longitude": 38.55795174430127,
+              "latitude": 55.0996682120293,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 41.357,
+            "nominal_distance_m": 3.348,
+            "required_distance_m": 52.494,
+            "applied_delay_minutes": 1.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-15",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-18",
+            "coordinate": {
+              "longitude": 38.558911458965866,
+              "latitude": 55.10198447392679,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 41.834,
+            "nominal_distance_m": 49.628,
+            "required_distance_m": 52.418,
+            "applied_delay_minutes": 1.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-15",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-18",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 42.385,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-7",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-18",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 42.465,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-7",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-15",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 42.632,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-7",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-15",
+            "coordinate": {
+              "longitude": 38.55666601125333,
+              "latitude": 55.09723280603298,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 42.698,
+            "nominal_distance_m": 11.868,
+            "required_distance_m": 52.578,
+            "applied_delay_minutes": 1.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-17",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-15",
+            "coordinate": {
+              "longitude": 38.55847702353089,
+              "latitude": 55.101770850114264,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 45.913,
+            "nominal_distance_m": 43.566,
+            "required_distance_m": 52.411,
+            "applied_delay_minutes": 1.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-408-17",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-15",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 46.478,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-16",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-17",
+            "coordinate": {
+              "longitude": 38.558259382612505,
+              "latitude": 55.10032298125117,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 49.908,
+            "nominal_distance_m": 22.9,
+            "required_distance_m": 52.405,
+            "applied_delay_minutes": 1.0,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-16",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-17",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 50.308,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.0,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-1",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-15",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 46.633,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-1",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-17",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 46.719,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-12",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-16",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 54.408,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-26",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-4",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 74.519,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-289-5",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-278-7",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 76.107,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-3",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-289-5",
+            "coordinate": {
+              "longitude": 38.555202015547245,
+              "latitude": 55.094726011480404,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 79.212,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 52.574,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-3",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-289-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 79.325,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-289-10",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-15",
+            "coordinate": {
+              "longitude": 38.555338028282726,
+              "latitude": 55.09254304217099,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 88.565,
+            "nominal_distance_m": 29.049,
+            "required_distance_m": 52.585,
+            "applied_delay_minutes": 0.833,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-289-10",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-15",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 88.877,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.833,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-278-5",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-289-10",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 91.929,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-278-5",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-278-4",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 92.127,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-8",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-350-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 97.763,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-8",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-278-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 95.304,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-4",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-289-8",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 98.304,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-14",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-4",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 101.344,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-289-14",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-16",
+            "coordinate": {
+              "longitude": 38.555504761176316,
+              "latitude": 55.091512787306335,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 106.707,
+            "nominal_distance_m": 35.293,
+            "required_distance_m": 52.574,
+            "applied_delay_minutes": 1.0,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-289-14",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-16",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 107.11,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.0,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-3",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-16",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 107.11,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-3",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-289-14",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 107.329,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.583,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-9",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-3",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 110.111,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-278-9",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-9",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 112.905,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-17",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-9",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 113.063,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-17",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-278-9",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 113.146,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-8",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-278-9",
+            "coordinate": {
+              "longitude": 38.55003783526788,
+              "latitude": 55.09487393792552,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 115.174,
+            "nominal_distance_m": 32.216,
+            "required_distance_m": 52.501,
+            "applied_delay_minutes": 1.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-8",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-278-9",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 115.47,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-8",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-289-17",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 115.712,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 1.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-277-1",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-278-8",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 115.92,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-11",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-278-8",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 118.713,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-11",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-277-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 118.931,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.417,
+            "applied_vertical_offset_m": 0.0
+          }
+        ]
+      },
+      "feasibility": "infeasible",
+      "transit_minutes": 230.59502369751462,
+      "return_minutes": 115.3927613162988,
+      "failed_checks": [],
+      "seconds": 13.36025410000002
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "bounded_productive",
+      "criterion": "completion_time",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 16.99936830002116,
+      "process_peak_rss_mib": 200.73,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 32.35,
+        "total_flight_minutes": 86.63,
+        "total_distance_km": 111.571,
+        "survey_distance_km": 32.898,
+        "transit_distance_km": 78.675,
+        "useful_flight_percent": 29.49,
+        "average_fleet_utilization_percent": 66.95,
+        "active_drone_count": 4,
+        "sortie_count": 17
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "boustrophedon_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 32.35,
+        "total_flight_minutes": 86.63220507549683,
+        "active_drone_count": 4,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 4,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 121.215,
+          "baseline_total_flight_minutes": 256.02,
+          "baseline_transit_minutes": 230.59502369751462,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": null
+      },
+      "schedule": {
+        "variants_evaluated": 2,
+        "dispatch_priority": "longest_remaining",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 32.516,
+        "reference_total_flight_minutes": 86.63220507549683,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 32.35,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 10,
+        "resolved_conflicts": [
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-334-productive-1",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-324-productive-1",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-324-productive-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-3",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-3",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-3",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-324-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.333,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-4",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 8.042,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-productive-6",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 19.912,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-productive-5",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 24.796,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-277-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-408-productive-9",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 31.936,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          }
+        ]
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 61.20184544443261,
+      "return_minutes": 25.420001265744563,
+      "failed_checks": [],
+      "seconds": 17.022219800011953
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "bounded_cp_productive",
+      "criterion": "completion_time",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 20.766480299993418,
+      "process_peak_rss_mib": 200.73,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 32.242,
+        "total_flight_minutes": 86.08,
+        "total_distance_km": 111.571,
+        "survey_distance_km": 32.898,
+        "transit_distance_km": 78.675,
+        "useful_flight_percent": 29.49,
+        "average_fleet_utilization_percent": 66.75,
+        "active_drone_count": 4,
+        "sortie_count": 17
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "boustrophedon_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 32.242,
+        "total_flight_minutes": 86.0798061423409,
+        "active_drone_count": 4,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 5,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 119.898,
+          "baseline_total_flight_minutes": 254.58,
+          "baseline_transit_minutes": 229.94815923970526,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": {
+          "status": "accepted",
+          "solver_statuses": [
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL"
+          ],
+          "runtime_seconds": 0.40854330000001937,
+          "integer_assignment_proven": true,
+          "candidate_audited": true,
+          "candidate_accepted": true,
+          "message": "Назначение CP-SAT улучшило исходное расписание и прошло аудит."
+        }
+      },
+      "schedule": {
+        "variants_evaluated": 2,
+        "dispatch_priority": "longest_remaining",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 33.641,
+        "reference_total_flight_minutes": 86.0798061423409,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 32.242,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 12,
+        "resolved_conflicts": [
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-productive-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-324-productive-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-324-productive-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-324-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.333,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-10",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-productive-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 16.006,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-1",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-productive-4",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 24.063,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-productive-6",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-productive-10",
+            "coordinate": {
+              "longitude": 38.557899454500415,
+              "latitude": 55.098614983505804,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 19.931,
+            "nominal_distance_m": 11.748,
+            "required_distance_m": 52.496,
+            "applied_delay_minutes": 0.75,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-productive-6",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-productive-10",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 20.2,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.75,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-3",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-productive-7",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 31.573,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-277-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-278-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 32.075,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          }
+        ]
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 61.09682818530345,
+      "return_minutes": 25.53044475978077,
+      "failed_checks": [],
+      "seconds": 20.790294500009622
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "adaptive_cp_productive",
+      "criterion": "completion_time",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 83.4866003000061,
+      "process_peak_rss_mib": 202.01,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 19.683,
+        "total_flight_minutes": 60.98,
+        "total_distance_km": 79.928,
+        "survey_distance_km": 32.707,
+        "transit_distance_km": 47.221,
+        "useful_flight_percent": 40.92,
+        "average_fleet_utilization_percent": 77.45,
+        "active_drone_count": 4,
+        "sortie_count": 8
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "adaptive_decomposed_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 19.683,
+        "total_flight_minutes": 60.97861671198405,
+        "active_drone_count": 4,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 5,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 109.273,
+          "baseline_total_flight_minutes": 232.8,
+          "baseline_transit_minutes": 207.1073587761319,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": {
+          "status": "retained_baseline",
+          "solver_statuses": [
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL"
+          ],
+          "runtime_seconds": 0.01877350002177991,
+          "integer_assignment_proven": true,
+          "candidate_audited": true,
+          "candidate_accepted": false,
+          "message": "Исходное расписание лучше, равноценное либо безопаснее варианта CP-SAT."
+        }
+      },
+      "schedule": {
+        "variants_evaluated": 2,
+        "dispatch_priority": "longest_remaining",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 20.011,
+        "reference_total_flight_minutes": 60.97861671198405,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 19.683,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 8,
+        "resolved_conflicts": [
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-334-productive-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-productive-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-289-productive-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-productive-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-productive-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-278-productive-1",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.333,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-324-productive-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-408-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 19.516,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-277-1",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-291-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 17.537,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          }
+        ]
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 36.64698752349724,
+      "return_minutes": 12.543361001080063,
+      "failed_checks": [],
+      "seconds": 83.5156946000061
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "production",
+      "criterion": "completion_time",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 19.957711399998516,
+      "process_peak_rss_mib": 202.01,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 32.242,
+        "total_flight_minutes": 86.08,
+        "total_distance_km": 111.571,
+        "survey_distance_km": 32.898,
+        "transit_distance_km": 78.675,
+        "useful_flight_percent": 29.49,
+        "average_fleet_utilization_percent": 66.75,
+        "active_drone_count": 4,
+        "sortie_count": 17
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "productive_route_pool",
+        "coverage_algorithm": "automatic_portfolio",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "fixed_track_route_pool",
+        "optimality": "heuristic",
+        "completion_minutes": 32.242,
+        "total_flight_minutes": 86.0798061423409,
+        "active_drone_count": 4,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": {
+          "selected_variant": "multi-area-1+global-assignment",
+          "evaluated_variants": 5,
+          "freeform_candidates_checked": 0,
+          "baseline_makespan_minutes": 119.898,
+          "baseline_total_flight_minutes": 254.58,
+          "baseline_transit_minutes": 229.94815923970526,
+          "pre_cross_objective": null,
+          "pre_cross_makespan_minutes": null,
+          "pre_cross_total_flight_minutes": null,
+          "cross_objective_variants_evaluated": 0,
+          "message": "Проверены совместные расписания для 8 областей. Областей для перегруппировки по холостому налёту: 6. Выбран улучшенный план."
+        },
+        "assignment_search": {
+          "status": "accepted",
+          "solver_statuses": [
+            "OPTIMAL",
+            "OPTIMAL",
+            "OPTIMAL"
+          ],
+          "runtime_seconds": 0.40000930000678636,
+          "integer_assignment_proven": true,
+          "candidate_audited": true,
+          "candidate_accepted": true,
+          "message": "Назначение CP-SAT улучшило исходное расписание и прошло аудит."
+        }
+      },
+      "schedule": {
+        "variants_evaluated": 2,
+        "dispatch_priority": "longest_remaining",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 33.641,
+        "reference_total_flight_minutes": 86.0798061423409,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 32.242,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 12,
+        "resolved_conflicts": [
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-289-productive-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-324-productive-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-1",
+            "delayed_segment_id": "zone-324-productive-1",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-334-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.0,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-3",
+            "conflicting_segment_id": "zone-289-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.167,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-8",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-324-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 0.333,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.5,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-408-productive-10",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-productive-2",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 16.006,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.333,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-1",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-productive-4",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 24.063,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.083,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "route",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-productive-6",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-productive-10",
+            "coordinate": {
+              "longitude": 38.557899454500415,
+              "latitude": 55.098614983505804,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 19.931,
+            "nominal_distance_m": 11.748,
+            "required_distance_m": 52.496,
+            "applied_delay_minutes": 0.75,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-2",
+            "delayed_segment_id": "zone-408-productive-6",
+            "conflicting_drone_id": "demo-0",
+            "conflicting_segment_id": "zone-408-productive-10",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 20.2,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.75,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-3",
+            "delayed_segment_id": "zone-408-productive-3",
+            "conflicting_drone_id": "demo-1",
+            "conflicting_segment_id": "zone-408-productive-7",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 31.573,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.25,
+            "applied_vertical_offset_m": 0.0
+          },
+          {
+            "conflict_type": "flight_site",
+            "delayed_drone_id": "demo-0",
+            "delayed_segment_id": "zone-277-1",
+            "conflicting_drone_id": "demo-2",
+            "conflicting_segment_id": "zone-278-productive-1",
+            "coordinate": {
+              "longitude": 38.55587475868689,
+              "latitude": 55.0960369664262,
+              "altitude_m": null
+            },
+            "conflict_offset_minutes": 32.075,
+            "nominal_distance_m": 0.0,
+            "required_distance_m": 50.0,
+            "applied_delay_minutes": 0.167,
+            "applied_vertical_offset_m": 0.0
+          }
+        ]
+      },
+      "feasibility": "feasible",
+      "transit_minutes": 61.09682818530345,
+      "return_minutes": 25.53044475978077,
+      "failed_checks": [],
+      "seconds": 19.980114100006176
+    },
+    {
+      "phase": "pipeline",
+      "anchor": 1,
+      "ids": [
+        "zone-277",
+        "zone-278",
+        "zone-289",
+        "zone-334",
+        "zone-350",
+        "zone-324",
+        "zone-291",
+        "zone-408"
+      ],
+      "algorithm": "bounded",
+      "criterion": "total_flight_time",
+      "area_km2": 2.341149756853151,
+      "planning_seconds": 12.974173900001915,
+      "process_peak_rss_mib": 202.01,
+      "status": 200,
+      "metrics": {
+        "completion_minutes": 448.945,
+        "total_flight_minutes": 232.91,
+        "total_distance_km": 329.957,
+        "survey_distance_km": 32.898,
+        "transit_distance_km": 297.059,
+        "useful_flight_percent": 9.97,
+        "average_fleet_utilization_percent": 12.97,
+        "active_drone_count": 1,
+        "sortie_count": 73
+      },
+      "audit": "passed",
+      "optimization": {
+        "algorithm": "minimum_cost",
+        "coverage_algorithm": "boustrophedon_sweep",
+        "route_algorithm": "bidirectional_visibility_graph",
+        "scope": "generated_route_assignment",
+        "optimality": "heuristic",
+        "completion_minutes": 448.945,
+        "total_flight_minutes": 232.9108822651499,
+        "active_drone_count": 1,
+        "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {
+          "demo-0": 0.0,
+          "demo-1": 0.0,
+          "demo-2": 0.0,
+          "demo-3": 0.0
+        },
+        "coverage_angle_cost": "geometric_distance",
+        "coverage_reference_airspeed_kmh": null,
+        "productive_routing": null,
+        "assignment_search": null
+      },
+      "schedule": {
+        "variants_evaluated": 1,
+        "dispatch_priority": "ready_first",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 448.945,
+        "reference_total_flight_minutes": 232.9108822651499,
+        "reference_audited": true,
+        "algorithm": "priority_deconfliction",
+        "makespan_minutes": 448.945,
+        "minimum_separation_m": 50.0,
+        "minimum_vertical_separation_m": 30.0,
+        "vertically_deconflicted_mission_count": 0,
+        "position_uncertainty_m": 0.0,
+        "start_time_uncertainty_seconds": 0.0,
+        "speed_uncertainty_percent": 0.0,
+        "flight_site_occupancy_seconds": 10.0,
+        "turnaround_minutes": 0.0,
+        "resolved_conflict_count": 0,
+        "resolved_conflicts": []
+      },
+      "feasibility": "infeasible",
+      "transit_minutes": 209.68907772292073,
+      "return_minutes": 104.88770329501212,
+      "failed_checks": [],
+      "seconds": 12.999929200013867
+    }
+  ]
+}

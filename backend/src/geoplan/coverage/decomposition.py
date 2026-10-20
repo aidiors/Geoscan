@@ -4,6 +4,7 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import split
 
 from geoplan.coverage.models import CoverageArea, CoveragePlanRequest
+from geoplan.domain.identifiers import derived_id
 from geoplan.navigation.geometry import (
     polygon_from_coordinates,
     polygon_parts,
@@ -28,7 +29,7 @@ def automatic_partition_requests(
     return [
         CoveragePlanRequest(
             area=CoverageArea(
-                area_id=f"{request.area.area_id}-adaptive-{index + 1}"[:64],
+                area_id=derived_id(request.area.area_id, f"-adaptive-{index + 1}"),
                 name=f"{request.area.name}, adaptive part {index + 1}"[:128],
                 coordinates=[
                     projection.unproject(float(x), float(y))

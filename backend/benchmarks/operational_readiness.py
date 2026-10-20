@@ -129,6 +129,7 @@ def _measure_readiness(scenario: ReadinessScenario) -> ReadinessMeasurement:
             dependencies.sweep_transition_planner,
             dependencies.safety_auditor,
             dependencies.vertical_profile_planner,
+            dependencies.freeform_optimizer,
         )
     except PlanningError as error:
         return ReadinessMeasurement(

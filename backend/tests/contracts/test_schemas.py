@@ -9,6 +9,20 @@ from geoplan.domain.geo import Coordinate
 from geoplan.planning.models import PlanRequest
 
 
+def test_allowed_airspace_cannot_silently_discard_unsupported_holes() -> None:
+    coordinates = [{"longitude": x, "latitude": y} for x, y in ((37, 55), (37.01, 55), (37, 55.01))]
+    with pytest.raises(ValidationError, match="interior_rings"):
+        AllowedAirspace.model_validate(
+            {
+                "airspace_id": "permission",
+                "coordinates": coordinates,
+                "minimum_altitude_m": 0,
+                "maximum_altitude_m": 500,
+                "interior_rings": [coordinates],
+            }
+        )
+
+
 def test_plan_request_rejects_empty_drone_list() -> None:
     with pytest.raises(ValidationError):
         PlanRequest(

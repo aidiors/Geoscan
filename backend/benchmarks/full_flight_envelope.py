@@ -107,6 +107,7 @@ def _measure(
         dependencies.sweep_transition_planner,
         dependencies.safety_auditor,
         dependencies.vertical_profile_planner,
+        dependencies.freeform_optimizer,
     )
     elapsed_ms = (perf_counter() - started) * 1_000
     mission = response.drone_plans[0].missions[0]

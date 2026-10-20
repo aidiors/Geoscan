@@ -3,8 +3,25 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GEOPLAN_BUILD_REVISION: ${GEOPLAN_BUILD_REVISION:-unknown}
     image: geoplan:local
     ports:
       - "${GEOPLAN_PORT:-8000}:8000"
     restart: unless-stopped
     init: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Use the same persistent secret (32+ bytes) across replicas/restarts.
+    # If absent, export attestations last only for the current server process.
+    environment:
+      - GEOPLAN_EXPORT_SIGNING_KEY
+      - GEOPLAN_DATA_DIR=/app/work/server-data
+    volumes:
+      - geoplan-data:/app/work/server-data
+
+volumes:
+  geoplan-data:

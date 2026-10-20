@@ -1,11 +1,19 @@
 import type { MissionTask, SweepDirectionMode, AutopilotFirmware, AirframeType, ImportedZone, WorkSegment, PayloadCapability } from "@/shared/api/types";
 import type { Coordinate } from "@/shared/geo/types";
+import type { SensorProfile, VerticalTakeoffLandingProfile, FlightPhaseOperatingProfile } from "@/shared/api/types";
 
 export type Objective = "time" | "flight" | "balanced";
+export type WorkAreaSource = "scenario" | "imported";
 
 export type SiteRole = "takeoff" | "landing" | "alternate";
 
 export interface DroneProfile {
+  takeoffLandingProfile?: VerticalTakeoffLandingProfile | null;
+  fixedWingPhaseProfile?: FlightPhaseOperatingProfile | null;
+  modelId?: string;
+  availableBatterySets?: number | null;
+  installedSensor?: SensorProfile | null;
+  minimumTurnRadius?: number;
   id: string;
   name: string;
   color: string;
@@ -93,6 +101,11 @@ export interface SurveySettings {
 }
 
 export interface PlanningSettings {
+  altitudeReference?: "msl" | "agl";
+  terrainSamplingInterval?: number;
+  flatGroundElevation?: number;
+  terrainVerticalUncertainty?: number;
+  planningTimeLimitSeconds?: number;
   altitude: number;
   windSpeed: number;
   windDirection: number;
@@ -114,4 +127,5 @@ export interface PlanningSettings {
   planningEnd: string;
   turnRadius: number;
   fastHeuristic: boolean;
+  productiveRouting: boolean;
 }

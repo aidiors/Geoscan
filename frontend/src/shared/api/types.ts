@@ -1,5 +1,63 @@
 import type { Coordinate } from "@/shared/geo/types";
 
+export interface SensorProfile {
+  sensor_id: string;
+  name: string;
+  sensor_width_mm: number;
+  sensor_height_mm: number;
+  focal_length_mm: number;
+  image_width_px: number;
+  image_height_px: number;
+  minimum_trigger_interval_s: number;
+}
+
+export interface FlightPhaseOperatingProfile {
+  climb_rate_mps: number;
+  descent_rate_mps: number;
+  climb_energy_multiplier: number;
+  descent_energy_multiplier: number;
+}
+
+export type VerticalTakeoffLandingProfile = FlightPhaseOperatingProfile;
+
+export interface ForwardFlightPhases {
+  climb_minutes: number;
+  descent_minutes: number;
+  maximum_climb_rate_mps: number;
+  maximum_descent_rate_mps: number;
+  energy_surcharge_minutes: number;
+}
+
+export interface SurveyQualityReport {
+  status: "checked" | "issues" | "partial" | "not_evaluated";
+  frame_count: number;
+  covered_percent: number | null;
+  maximum_gsd_cm: number | null;
+  minimum_forward_overlap_percent: number | null;
+  minimum_side_overlap_percent: number | null;
+  minimum_capture_interval_s: number | null;
+  cross_sortie_pairs_checked: number;
+  issues: string[];
+  assumptions: string[];
+  features: Array<{ type: "Feature"; properties: { kind: string }; geometry: {
+    type: "Polygon" | "MultiPolygon"; coordinates: number[][][] | number[][][][];
+  } }>;
+}
+
+export interface AdvisorResponse {
+  baseline: PlanResponse | null;
+  baseline_error: string | null;
+  message: string;
+  variants: Array<{
+    label: string;
+    status: "verified" | "not_found" | "error";
+    explanation: string;
+    changed_parameters: string[];
+    request: PlanRequest;
+    plan: PlanResponse | null;
+  }>;
+}
+
 export interface PayloadCapability {
   payload_id: string;
   name: string;
@@ -39,6 +97,8 @@ export interface AutopilotProfile {
 }
 
 export interface ImportedZone {
+  enabled?: boolean;
+  metadata?: Record<string, string>;
   zone_id: string;
   name: string;
   zone_type: ZoneType;
@@ -68,9 +128,14 @@ export interface MissionStage {
   stage_type: "takeoff" | "transit" | "survey" | "landing";
   coordinates: Coordinate[];
   duration_minutes: number;
+  leg_durations_minutes?: number[] | null;
 }
 
 export interface Mission {
+  coverage_area_ids?: string[];
+  sensor?: SensorProfile | null;
+  camera_trigger_spacing_m?: number | null;
+  minimum_turn_radius_m?: number;
   drone_id: string;
   segment_id: string;
   duration_minutes: number;
@@ -78,6 +143,7 @@ export interface Mission {
   route: Coordinate[];
   altitude_m: number;
   altitude_reference: "msl" | "agl";
+  flat_ground_elevation_m?: number;
   vertical_profile: Array<{
     coordinate: Coordinate;
     distance_from_start_m: number;
@@ -94,6 +160,8 @@ export interface Mission {
   vertical_distance_m: number;
   vertical_energy_equivalent_minutes: number;
   vertical_climb_duration_minutes: number;
+  route_altitudes_msl_m?: number[] | null;
+  forward_flight_phases?: ForwardFlightPhases | null;
   vertical_descent_duration_minutes: number;
   terrain_vertical_uncertainty_m?: number;
   vertical_deconfliction_offset_m?: number;
@@ -125,6 +193,7 @@ export interface Mission {
   start_time?: string | null;
   end_time?: string | null;
   stages: MissionStage[];
+  photo_capture_route_indices?: number[] | null;
 }
 
 export interface FeasibilityRecommendation {
@@ -169,6 +238,25 @@ export interface DronePlan {
 }
 
 export interface PlanResponse {
+  engine_version?: string | null;
+  engine_build_revision?: string | null;
+  export_authorization?: string | null;
+  search?: {
+    status: string;
+    elapsed_seconds: number;
+    time_limit_seconds: number;
+    request_fingerprint: string;
+    pipelines_started?: number;
+    pipelines?: Array<{
+      name: string; status: string; elapsed_seconds: number;
+      candidate_events: number; audited_events: number; improvements: number;
+      failed_check_codes: string[]; error_code: string | null;
+    }>;
+    checkpoints: Array<{
+      stage: string; elapsed_seconds: number; completion_minutes: number;
+      total_flight_minutes: number; sortie_count: number; objective: number[];
+    }>;
+  } | null;
   criterion: OptimizationCriterion;
   drone_plans: DronePlan[];
   metrics: {
@@ -194,24 +282,57 @@ export interface PlanResponse {
   } | null;
   optimization: {
     algorithm:
+      | "cp_sat"
+      | "productive_route_pool"
       | "exact_branch_and_bound"
       | "fast_greedy"
       | "multistart_local_search"
       | "minimum_cost"
       | "deadline_aware_local_search";
-    coverage_algorithm: "boustrophedon_sweep" | "adaptive_decomposed_sweep";
+    coverage_algorithm: "automatic_portfolio" | "boustrophedon_sweep" | "adaptive_decomposed_sweep" | "freeform_pattern_pool";
     route_algorithm: "bidirectional_visibility_graph";
-    scope: "generated_route_assignment";
+    scope: "generated_route_assignment" | "fixed_track_route_pool" | "freeform_coverage_route_pool";
     optimality: "proven_optimal" | "heuristic";
     completion_minutes: number;
     total_flight_minutes: number;
     active_drone_count: number;
     survey_turn_radius_m: number;
+    turn_radii_by_drone?: Record<string, number>;
     coverage_angle_cost: "geometric_distance" | "wind_adjusted_duration";
     coverage_reference_airspeed_kmh: number | null;
+    assignment_search?: {
+      status: string;
+      solver_statuses: string[];
+      runtime_seconds: number;
+      integer_assignment_proven: boolean;
+      candidate_audited: boolean;
+      candidate_accepted: boolean;
+      message: string;
+    } | null;
+    productive_routing?: {
+      cross_area_variants_evaluated?: number;
+      cross_area_sortie_count?: number;
+      selected_variant: string;
+      evaluated_variants: number;
+      pre_cross_objective?: number[] | null;
+      pre_cross_makespan_minutes?: number | null;
+      pre_cross_total_flight_minutes?: number | null;
+      cross_objective_variants_evaluated?: number;
+      freeform_candidates_checked?: number;
+      baseline_makespan_minutes: number | null;
+      baseline_total_flight_minutes: number | null;
+      baseline_transit_minutes: number | null;
+      message: string;
+    } | null;
   } | null;
   schedule: {
     algorithm: "priority_deconfliction";
+    variants_evaluated?: number;
+    dispatch_priority?: "ready_first" | "longest_remaining" | "tightest_window";
+    layer_preference?: "earliest_finish" | "minimum_flight";
+    reference_makespan_minutes?: number | null;
+    reference_total_flight_minutes?: number | null;
+    reference_audited?: boolean | null;
     makespan_minutes: number;
     minimum_separation_m: number;
     minimum_vertical_separation_m?: number;
@@ -244,6 +365,7 @@ export interface PlanResponse {
         | "airspace_compliance"
         | "alternate_reserve"
         | "battery_reserve"
+        | "fleet_resources"
         | "coverage_completeness"
         | "drone_separation"
         | "export_consistency"
@@ -251,6 +373,8 @@ export interface PlanResponse {
         | "no_fly_clearance"
         | "obstacle_clearance"
         | "schedule_integrity"
+        | "survey_resolution"
+        | "camera_timing"
         | "vertical_profile";
       status: "passed" | "failed" | "not_applicable";
       measured_value: number | null;
@@ -266,6 +390,9 @@ export interface PlanResponse {
 export interface PlanRequest {
   criterion: OptimizationCriterion;
   drones: Array<{
+    available_battery_sets?: number | null;
+    installed_sensor?: SensorProfile | null;
+    minimum_turn_radius_m?: number;
     drone_id: string;
     name: string;
     cruise_speed_kmh: number;
@@ -282,6 +409,8 @@ export interface PlanRequest {
     completed_flights_since_maintenance: number;
     flight_hours_since_maintenance: number;
     maximum_climb_rate_mps: number | null;
+    takeoff_landing_profile?: VerticalTakeoffLandingProfile | null;
+    fixed_wing_phase_profile?: FlightPhaseOperatingProfile | null;
     maximum_descent_rate_mps: number | null;
     minimum_mission_altitude_m: number | null;
     maximum_mission_altitude_m: number | null;
@@ -338,12 +467,13 @@ export interface PlanRequest {
     obstacle_id: string;
     geometry_type: GeometryType;
     coordinates: Coordinate[];
-    height_m: number;
+    height_m: number | null;
     altitude_mode: string;
     safety_radius_m: number;
   }>;
   mission_altitude_m: number;
   altitude_reference?: "msl" | "agl";
+  flat_ground_elevation_m?: number;
   terrain_elevation_samples?: Array<{
     coordinate: Coordinate;
     elevation_m: number;
@@ -386,9 +516,13 @@ export interface PlanRequest {
   planning_end_time: string | null;
   minimum_turn_radius_m: number;
   optimization_mode: "optimized" | "fast_heuristic";
+  assignment_strategy?: "automatic" | "hybrid" | "cp_sat_portfolio";
+  productive_routing?: boolean;
+  planning_time_limit_seconds?: number;
 }
 
 export interface TurnRadiusAnalysisRequest {
+  flight_altitude_msl_m?: number;
   coverage: {
     area: PlanRequest["coverage_areas"][number];
     mission_altitude_m: number;

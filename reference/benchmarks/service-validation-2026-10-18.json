@@ -1,0 +1,1044 @@
+{
+  "date": "2026-10-18",
+  "base_commit": "5f0ea4b232c32dac688f9e2606342706ec4a2f70",
+  "uncommitted_source_snapshot": true,
+  "limits": "Synthetic fleets and one selected organizer polygon; local Windows timings; fixed search budgets; no global optimality claim.",
+  "checks": {
+    "backend_full_passed": 462,
+    "additional_lateral_cases_passed": 7,
+    "frontend_passed": 37,
+    "ruff_ty_architecture_docs": "passed"
+  },
+  "camera_regression": {
+    "rectangle_m": [
+      1205,
+      600
+    ],
+    "before_minimum_interval_s": 3.3627857975390043,
+    "required_interval_s": 4,
+    "health": "healthy",
+    "new_endpoints": true,
+    "camera_timing_audit": "passed",
+    "minimum_capture_interval_s": 3.999999999999986,
+    "covered_percent": 100.0,
+    "quality_issues": [],
+    "exports": 4,
+    "cp_sat_status": "retained_baseline",
+    "advice_verified": true
+  },
+  "lateral_regression": {
+    "before_reported_minimum_percent": 60,
+    "actual_minimum_percent": 20,
+    "after_reported_minimum_percent": 20,
+    "rotations_degrees": [
+      0,
+      35,
+      90
+    ],
+    "both_directions": true
+  },
+  "allocation_ablation": [
+    {
+      "scenario": "flat_100",
+      "criterion": "balanced",
+      "identical": true,
+      "full_rescore_seconds": 5.279948400013382,
+      "incremental_seconds": 1.4499509000161197
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "completion_time",
+      "identical": true,
+      "full_rescore_seconds": 5.96845299997949,
+      "incremental_seconds": 1.2277633000048809
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "total_flight_time",
+      "identical": true,
+      "full_rescore_seconds": 3.851997300022049,
+      "incremental_seconds": 1.3527522000076715
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "balanced",
+      "identical": true,
+      "full_rescore_seconds": 6.097821899980772,
+      "incremental_seconds": 1.084997799975099
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "completion_time",
+      "identical": true,
+      "full_rescore_seconds": 6.14087329999893,
+      "incremental_seconds": 1.1716124000085983
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "total_flight_time",
+      "identical": true,
+      "full_rescore_seconds": 3.7333728999947198,
+      "incremental_seconds": 1.0456929999927524
+    }
+  ],
+  "scale": [
+    {
+      "scenario": "flat_100",
+      "criterion": "completion_time",
+      "mode": "reference",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 157.688,
+        "total_flight_minutes": 1308.24,
+        "total_distance_km": 1791.167,
+        "survey_distance_km": 1394.4,
+        "transit_distance_km": 396.764,
+        "useful_flight_percent": 77.85,
+        "average_fleet_utilization_percent": 82.96,
+        "active_drone_count": 10,
+        "sortie_count": 35
+      },
+      "objective": [
+        157.688,
+        1308.238571202867,
+        10.0,
+        0.0,
+        282.96588887208804
+      ],
+      "runtime_seconds": 1.068035800009966
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "completion_time",
+      "mode": "portfolio",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 149.433,
+        "total_flight_minutes": 1177.52,
+        "total_distance_km": 1676.912,
+        "survey_distance_km": 1386.872,
+        "transit_distance_km": 290.042,
+        "useful_flight_percent": 82.7,
+        "average_fleet_utilization_percent": 78.8,
+        "active_drone_count": 9,
+        "sortie_count": 24
+      },
+      "objective": [
+        149.433,
+        1177.5160859910834,
+        9.0,
+        0.0,
+        203.7365134384293
+      ],
+      "runtime_seconds": 6.937030200002482
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "completion_time",
+      "mode": "cross",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 139.418,
+        "total_flight_minutes": 1106.34,
+        "total_distance_km": 1565.807,
+        "survey_distance_km": 1386.87,
+        "transit_distance_km": 178.933,
+        "useful_flight_percent": 88.57,
+        "average_fleet_utilization_percent": 79.35,
+        "active_drone_count": 9,
+        "sortie_count": 16
+      },
+      "objective": [
+        139.418,
+        1106.3361361422444,
+        9.0,
+        0.0,
+        129.69297077945106
+      ],
+      "runtime_seconds": 9.572081100021023
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "total_flight_time",
+      "mode": "reference",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 1125.54,
+        "total_flight_minutes": 1023.52,
+        "total_distance_km": 1791.167,
+        "survey_distance_km": 1394.4,
+        "transit_distance_km": 396.764,
+        "useful_flight_percent": 77.85,
+        "average_fleet_utilization_percent": 9.09,
+        "active_drone_count": 1,
+        "sortie_count": 35
+      },
+      "objective": [
+        1023.5222066322864,
+        1125.54,
+        1.0,
+        0.0,
+        226.721479203715
+      ],
+      "runtime_seconds": 0.3872132000105921
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "total_flight_time",
+      "mode": "portfolio",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 863.272,
+        "total_flight_minutes": 845.27,
+        "total_distance_km": 1479.219,
+        "survey_distance_km": 1386.87,
+        "transit_distance_km": 92.349,
+        "useful_flight_percent": 93.76,
+        "average_fleet_utilization_percent": 9.79,
+        "active_drone_count": 1,
+        "sortie_count": 7
+      },
+      "objective": [
+        845.2687812730253,
+        863.272,
+        1.0,
+        0.0,
+        52.77094009998339
+      ],
+      "runtime_seconds": 1.4447833000158425
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "total_flight_time",
+      "mode": "cross",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 863.272,
+        "total_flight_minutes": 845.27,
+        "total_distance_km": 1479.219,
+        "survey_distance_km": 1386.87,
+        "transit_distance_km": 92.349,
+        "useful_flight_percent": 93.76,
+        "average_fleet_utilization_percent": 9.79,
+        "active_drone_count": 1,
+        "sortie_count": 7
+      },
+      "objective": [
+        845.2687812730253,
+        863.272,
+        1.0,
+        0.0,
+        52.77094009998339
+      ],
+      "runtime_seconds": 3.2817002999945544
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "balanced",
+      "mode": "reference",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 163.512,
+        "total_flight_minutes": 1263.56,
+        "total_distance_km": 1791.167,
+        "survey_distance_km": 1394.4,
+        "transit_distance_km": 396.764,
+        "useful_flight_percent": 77.85,
+        "average_fleet_utilization_percent": 77.28,
+        "active_drone_count": 9,
+        "sortie_count": 35
+      },
+      "objective": [
+        0.0,
+        1263.5581529007281,
+        163.512,
+        9.0,
+        262.61558007489555
+      ],
+      "runtime_seconds": 0.7249698000086937
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "balanced",
+      "mode": "portfolio",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 169.984,
+        "total_flight_minutes": 1010.57,
+        "total_distance_km": 1548.806,
+        "survey_distance_km": 1386.871,
+        "transit_distance_km": 161.935,
+        "useful_flight_percent": 89.54,
+        "average_fleet_utilization_percent": 59.45,
+        "active_drone_count": 7,
+        "sortie_count": 13
+      },
+      "objective": [
+        0.0,
+        1010.5667054898157,
+        169.984,
+        7.0,
+        106.31258199709215
+      ],
+      "runtime_seconds": 6.6849872000166215
+    },
+    {
+      "scenario": "flat_100",
+      "criterion": "balanced",
+      "mode": "cross",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 169.984,
+        "total_flight_minutes": 1010.57,
+        "total_distance_km": 1548.806,
+        "survey_distance_km": 1386.871,
+        "transit_distance_km": 161.935,
+        "useful_flight_percent": 89.54,
+        "average_fleet_utilization_percent": 59.45,
+        "active_drone_count": 7,
+        "sortie_count": 13
+      },
+      "objective": [
+        0.0,
+        1010.5667054898157,
+        169.984,
+        7.0,
+        106.31258199709215
+      ],
+      "runtime_seconds": 10.187894600006985
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "completion_time",
+      "mode": "reference",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 181.117,
+        "total_flight_minutes": 1554.56,
+        "total_distance_km": 2038.667,
+        "survey_distance_km": 1394.4,
+        "transit_distance_km": 644.262,
+        "useful_flight_percent": 68.4,
+        "average_fleet_utilization_percent": 85.83,
+        "active_drone_count": 10,
+        "sortie_count": 35
+      },
+      "objective": [
+        181.117,
+        1554.5619871527383,
+        10.0,
+        0.0,
+        485.56709800576925
+      ],
+      "runtime_seconds": 1.1220024999929592
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "completion_time",
+      "mode": "portfolio",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 181.117,
+        "total_flight_minutes": 1554.56,
+        "total_distance_km": 2038.667,
+        "survey_distance_km": 1386.87,
+        "transit_distance_km": 651.797,
+        "useful_flight_percent": 68.03,
+        "average_fleet_utilization_percent": 85.83,
+        "active_drone_count": 10,
+        "sortie_count": 35
+      },
+      "objective": [
+        181.117,
+        1554.5619871527383,
+        10.0,
+        0.0,
+        492.1475881997564
+      ],
+      "runtime_seconds": 3.9035748000023887
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "completion_time",
+      "mode": "cross",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 162.704,
+        "total_flight_minutes": 1273.29,
+        "total_distance_km": 1763.919,
+        "survey_distance_km": 1386.87,
+        "transit_distance_km": 377.046,
+        "useful_flight_percent": 78.62,
+        "average_fleet_utilization_percent": 78.26,
+        "active_drone_count": 9,
+        "sortie_count": 19
+      },
+      "objective": [
+        162.704,
+        1273.2861198564115,
+        9.0,
+        0.0,
+        292.0430945194316
+      ],
+      "runtime_seconds": 7.94690750000882
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "total_flight_time",
+      "mode": "reference",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 1295.635,
+        "total_flight_minutes": 1193.62,
+        "total_distance_km": 2038.667,
+        "survey_distance_km": 1394.4,
+        "transit_distance_km": 644.262,
+        "useful_flight_percent": 68.4,
+        "average_fleet_utilization_percent": 9.21,
+        "active_drone_count": 1,
+        "sortie_count": 35
+      },
+      "objective": [
+        1193.6196586134322,
+        1295.635,
+        1.0,
+        0.0,
+        377.4490842968838
+      ],
+      "runtime_seconds": 0.5143962999864016
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "total_flight_time",
+      "mode": "portfolio",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 924.026,
+        "total_flight_minutes": 903.02,
+        "total_distance_km": 1544.188,
+        "survey_distance_km": 1386.872,
+        "transit_distance_km": 157.317,
+        "useful_flight_percent": 89.81,
+        "average_fleet_utilization_percent": 9.77,
+        "active_drone_count": 1,
+        "sortie_count": 8
+      },
+      "objective": [
+        903.0222239201715,
+        924.026,
+        1.0,
+        0.0,
+        91.72838095413799
+      ],
+      "runtime_seconds": 1.5748320999846328
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "total_flight_time",
+      "mode": "cross",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 924.026,
+        "total_flight_minutes": 903.02,
+        "total_distance_km": 1544.188,
+        "survey_distance_km": 1386.872,
+        "transit_distance_km": 157.317,
+        "useful_flight_percent": 89.81,
+        "average_fleet_utilization_percent": 9.77,
+        "active_drone_count": 1,
+        "sortie_count": 8
+      },
+      "objective": [
+        903.0222239201715,
+        924.026,
+        1.0,
+        0.0,
+        91.72838095413799
+      ],
+      "runtime_seconds": 3.358932700008154
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "balanced",
+      "mode": "reference",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 173.871,
+        "total_flight_minutes": 1543.5,
+        "total_distance_km": 2038.667,
+        "survey_distance_km": 1394.4,
+        "transit_distance_km": 644.262,
+        "useful_flight_percent": 68.4,
+        "average_fleet_utilization_percent": 88.77,
+        "active_drone_count": 10,
+        "sortie_count": 35
+      },
+      "objective": [
+        1.0,
+        3.8710000000000093,
+        1543.5039545967861,
+        10.0,
+        473.1154945068926
+      ],
+      "runtime_seconds": 0.8332110999908764
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "balanced",
+      "mode": "portfolio",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 169.11,
+        "total_flight_minutes": 1204.36,
+        "total_distance_km": 1729.442,
+        "survey_distance_km": 1386.87,
+        "transit_distance_km": 342.572,
+        "useful_flight_percent": 80.19,
+        "average_fleet_utilization_percent": 71.22,
+        "active_drone_count": 8,
+        "sortie_count": 17
+      },
+      "objective": [
+        0.0,
+        1204.363954785173,
+        169.11,
+        8.0,
+        251.6190886607592
+      ],
+      "runtime_seconds": 4.738876599993091
+    },
+    {
+      "scenario": "wind_distant_100",
+      "criterion": "balanced",
+      "mode": "cross",
+      "audited": true,
+      "metrics": {
+        "completion_minutes": 169.11,
+        "total_flight_minutes": 1204.36,
+        "total_distance_km": 1729.442,
+        "survey_distance_km": 1386.87,
+        "transit_distance_km": 342.572,
+        "useful_flight_percent": 80.19,
+        "average_fleet_utilization_percent": 71.22,
+        "active_drone_count": 8,
+        "sortie_count": 17
+      },
+      "objective": [
+        0.0,
+        1204.363954785173,
+        169.11,
+        8.0,
+        251.6190886607592
+      ],
+      "runtime_seconds": 6.423057499981951
+    }
+  ],
+  "same_run_cross_summary": {
+    "improved": 2,
+    "tie": 4,
+    "regression": 0,
+    "invalid": 0
+  },
+  "wind_balanced_repeats": [
+    {
+      "completion_minutes": 169.11,
+      "total_flight_minutes": 1204.36,
+      "audited": true,
+      "runtime_seconds": 5.845058100007009
+    },
+    {
+      "completion_minutes": 169.11,
+      "total_flight_minutes": 1204.36,
+      "audited": true,
+      "runtime_seconds": 7.0651997000095434
+    },
+    {
+      "completion_minutes": 169.11,
+      "total_flight_minutes": 1204.36,
+      "audited": true,
+      "runtime_seconds": 6.524598300020443
+    }
+  ],
+  "ortools": {
+    "assignment_summary": {
+      "tie": 10,
+      "ortools_better": 8,
+      "current_better": 0,
+      "no_solution": 0
+    },
+    "scheduled_summary": {
+      "tie": 5,
+      "ortools_better": 3,
+      "current_better": 1,
+      "audit_failed": 0
+    },
+    "physical_cases": [
+      {
+        "name": "mixed_near",
+        "criterion": "balanced",
+        "verdict": "tie",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 22.006,
+          "ortools_completion_minutes": 22.006,
+          "current_total_minutes": 22.33360519072568,
+          "ortools_total_minutes": 22.33360519072568,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "tie"
+        }
+      },
+      {
+        "name": "mixed_near",
+        "criterion": "completion_time",
+        "verdict": "ortools_better",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 8.385,
+          "ortools_completion_minutes": 8.385,
+          "current_total_minutes": 25.802656872408605,
+          "ortools_total_minutes": 25.779917499137383,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "ortools_better"
+        }
+      },
+      {
+        "name": "mixed_near",
+        "criterion": "total_flight_time",
+        "verdict": "tie",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 35.684,
+          "ortools_completion_minutes": 35.684,
+          "current_total_minutes": 21.67844399205828,
+          "ortools_total_minutes": 21.67844399205828,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "tie"
+        }
+      },
+      {
+        "name": "mixed_distant",
+        "criterion": "balanced",
+        "verdict": "tie",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 22.679,
+          "ortools_completion_minutes": 22.679,
+          "current_total_minutes": 33.388081896671835,
+          "ortools_total_minutes": 33.388081896671835,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "tie"
+        }
+      },
+      {
+        "name": "mixed_distant",
+        "criterion": "completion_time",
+        "verdict": "ortools_better",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 12.03,
+          "ortools_completion_minutes": 12.03,
+          "current_total_minutes": 37.68763172757197,
+          "ortools_total_minutes": 37.65944315330471,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "ortools_better"
+        }
+      },
+      {
+        "name": "mixed_distant",
+        "criterion": "total_flight_time",
+        "verdict": "tie",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 46.066,
+          "ortools_completion_minutes": 46.066,
+          "current_total_minutes": 32.06060790873488,
+          "ortools_total_minutes": 32.06060790873488,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "tie"
+        }
+      },
+      {
+        "name": "mixed_larger",
+        "criterion": "balanced",
+        "verdict": "ortools_better",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 24.443,
+          "ortools_completion_minutes": 25.323,
+          "current_total_minutes": 91.5885877737593,
+          "ortools_total_minutes": 91.28154069576564,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "current_better"
+        }
+      },
+      {
+        "name": "mixed_larger",
+        "criterion": "completion_time",
+        "verdict": "ortools_better",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 24.174,
+          "ortools_completion_minutes": 23.38,
+          "current_total_minutes": 92.11920161584204,
+          "ortools_total_minutes": 92.51112013324384,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "ortools_better"
+        }
+      },
+      {
+        "name": "mixed_larger",
+        "criterion": "total_flight_time",
+        "verdict": "tie",
+        "scheduled": {
+          "current_audit": "passed",
+          "ortools_audit": "passed",
+          "current_completion_minutes": 109.412,
+          "ortools_completion_minutes": 109.412,
+          "current_total_minutes": 77.4055615646405,
+          "ortools_total_minutes": 77.4055615646405,
+          "ortools_failed_checks": [],
+          "failure_details": [],
+          "failed_schedule_timeline": [],
+          "verdict": "tie"
+        }
+      }
+    ]
+  },
+  "readiness": {
+    "scenarios": {
+      "organizer": {
+        "runs": [
+          {
+            "http_status": 200,
+            "seconds": 0.529400400002487,
+            "metrics": {
+              "completion_minutes": 6.009,
+              "total_flight_minutes": 6.01,
+              "total_distance_km": 4.074,
+              "survey_distance_km": 2.113,
+              "transit_distance_km": 1.961,
+              "useful_flight_percent": 51.87,
+              "average_fleet_utilization_percent": 100.0,
+              "active_drone_count": 1,
+              "sortie_count": 1
+            },
+            "audit": "passed"
+          },
+          {
+            "http_status": 200,
+            "seconds": 0.5200026000093203,
+            "metrics": {
+              "completion_minutes": 6.009,
+              "total_flight_minutes": 6.01,
+              "total_distance_km": 4.074,
+              "survey_distance_km": 2.113,
+              "transit_distance_km": 1.961,
+              "useful_flight_percent": 51.87,
+              "average_fleet_utilization_percent": 100.0,
+              "active_drone_count": 1,
+              "sortie_count": 1
+            },
+            "audit": "passed"
+          }
+        ],
+        "quality": {
+          "status": "partial",
+          "frame_count": 73,
+          "covered_percent": 100.0,
+          "maximum_gsd_cm": 3.289473684210526,
+          "minimum_forward_overlap_percent": 75.02821982990801,
+          "minimum_side_overlap_percent": 62.655446328693756,
+          "minimum_capture_interval_s": 3.999999999999986,
+          "cross_sortie_pairs_checked": 0,
+          "issues": []
+        }
+      },
+      "curved_camera": {
+        "runs": [
+          {
+            "http_status": 200,
+            "seconds": 0.2636707999918144,
+            "metrics": {
+              "completion_minutes": 8.486,
+              "total_flight_minutes": 8.49,
+              "total_distance_km": 12.729,
+              "survey_distance_km": 9.589,
+              "transit_distance_km": 3.141,
+              "useful_flight_percent": 75.33,
+              "average_fleet_utilization_percent": 100.0,
+              "active_drone_count": 1,
+              "sortie_count": 1
+            },
+            "audit": "passed"
+          },
+          {
+            "http_status": 200,
+            "seconds": 0.2508172999951057,
+            "metrics": {
+              "completion_minutes": 8.486,
+              "total_flight_minutes": 8.49,
+              "total_distance_km": 12.729,
+              "survey_distance_km": 9.589,
+              "transit_distance_km": 3.141,
+              "useful_flight_percent": 75.33,
+              "average_fleet_utilization_percent": 100.0,
+              "active_drone_count": 1,
+              "sortie_count": 1
+            },
+            "audit": "passed"
+          }
+        ],
+        "quality": {
+          "status": "checked",
+          "frame_count": 320,
+          "covered_percent": 100.0,
+          "maximum_gsd_cm": 3.289473684210526,
+          "minimum_forward_overlap_percent": 75.0,
+          "minimum_side_overlap_percent": 59.99999999994613,
+          "minimum_capture_interval_s": 1.1999999999999886,
+          "cross_sortie_pairs_checked": 0,
+          "issues": []
+        }
+      },
+      "parallel": {
+        "runs": [
+          {
+            "http_status": 200,
+            "seconds": 0.6442031000042334,
+            "metrics": {
+              "completion_minutes": 18.903,
+              "total_flight_minutes": 35.47,
+              "total_distance_km": 44.149,
+              "survey_distance_km": 39.954,
+              "transit_distance_km": 4.195,
+              "useful_flight_percent": 90.5,
+              "average_fleet_utilization_percent": 93.83,
+              "active_drone_count": 2,
+              "sortie_count": 2
+            },
+            "audit": "passed"
+          },
+          {
+            "http_status": 200,
+            "seconds": 0.7801094000169542,
+            "metrics": {
+              "completion_minutes": 18.903,
+              "total_flight_minutes": 35.47,
+              "total_distance_km": 44.149,
+              "survey_distance_km": 39.954,
+              "transit_distance_km": 4.195,
+              "useful_flight_percent": 90.5,
+              "average_fleet_utilization_percent": 93.83,
+              "active_drone_count": 2,
+              "sortie_count": 2
+            },
+            "audit": "passed"
+          }
+        ],
+        "quality": {
+          "status": "checked",
+          "frame_count": 1332,
+          "covered_percent": 100.0,
+          "maximum_gsd_cm": 3.289473684210526,
+          "minimum_forward_overlap_percent": 75.0,
+          "minimum_side_overlap_percent": 59.99999999994613,
+          "minimum_capture_interval_s": 1.349999999999909,
+          "cross_sortie_pairs_checked": 1,
+          "issues": []
+        }
+      },
+      "missed_deadline": {
+        "runs": [
+          {
+            "http_status": 200,
+            "seconds": 0.7219661999843083,
+            "metrics": {
+              "completion_minutes": 18.903,
+              "total_flight_minutes": 35.47,
+              "total_distance_km": 44.149,
+              "survey_distance_km": 39.954,
+              "transit_distance_km": 4.195,
+              "useful_flight_percent": 90.5,
+              "average_fleet_utilization_percent": 93.83,
+              "active_drone_count": 2,
+              "sortie_count": 2
+            },
+            "audit": "passed"
+          },
+          {
+            "http_status": 200,
+            "seconds": 0.6660398000094574,
+            "metrics": {
+              "completion_minutes": 18.903,
+              "total_flight_minutes": 35.47,
+              "total_distance_km": 44.149,
+              "survey_distance_km": 39.954,
+              "transit_distance_km": 4.195,
+              "useful_flight_percent": 90.5,
+              "average_fleet_utilization_percent": 93.83,
+              "active_drone_count": 2,
+              "sortie_count": 2
+            },
+            "audit": "passed"
+          }
+        ],
+        "quality": {
+          "status": "checked",
+          "frame_count": 1332,
+          "covered_percent": 100.0,
+          "maximum_gsd_cm": 3.289473684210526,
+          "minimum_forward_overlap_percent": 75.0,
+          "minimum_side_overlap_percent": 59.99999999994613,
+          "minimum_capture_interval_s": 1.349999999999909,
+          "cross_sortie_pairs_checked": 1,
+          "issues": []
+        }
+      }
+    },
+    "negative_refused": true,
+    "exports_checked": 24
+  },
+  "source_sha256": {
+    "__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "airspace/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "airspace/windows.py": "998f364296c663f54f14d4cdc8b9db78b476e3fa63ff6b581211e77c890b1c41",
+    "api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "api/app.py": "05a3b2ed5ec47bd937a8d1bf72d612d69073a78215b4d9c9714026a20c6d9629",
+    "api/models.py": "f60283367006e7146022ea59f123066e0e781914f751d0991918291c9a423b75",
+    "api/routes.py": "726edddc2c9124e4092c1edb88793d548542c2f6dba2267d6a2f9e9721361725",
+    "assignment/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "assignment/alternatives.py": "7579983014bdbbe769ce10cb8ff2bdbe4141cde7c96ac761c2609bf83b521784",
+    "assignment/cp_sat.py": "b7a40537f9f6af1625c0c8c963c37db0c19a0eb4673748ff49fc6bfb8d92f12b",
+    "assignment/models.py": "00b6e1f189bd3f2dc633f213b4ccc85c7f67c5c7e46e9d480135e0dcc16ebb5a",
+    "assignment/neighborhood.py": "a55a7cf3a57a432b9beae0e190f2f30f4fa8573d22ea8562bc4ae0caca36d7c6",
+    "assignment/solver.py": "6570e7224fcd5f8f4a598d925a05f24b104d12e3ca15d5b876a4345cafa286cc",
+    "bootstrap.py": "59daa9d4b3890084709b159571a0909131a5f055af0f458568ad176fc40fc98f",
+    "composition.py": "44d7559b90b1b1beee0cadb3c21079986095d0020a5b1e38fd883a0e98ea7586",
+    "coverage/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "coverage/adaptive.py": "8d5ef39516095ac547a576297dd5d66fef9f1652224baff509a9592b5dd98e76",
+    "coverage/decomposition.py": "eee7e2b28acfea3955e132186a74b73bf605988305e1f1d8641ee948788ba903",
+    "coverage/models.py": "6036d7431b8ff49d1fb742bccf542a5f61580e88787eeb0717a16880a617e24d",
+    "coverage/resolution.py": "be06f936562aa7c2fa538a39971d474cc27ca03443b0f9dd6f9e8f2065a7385a",
+    "coverage/scoring.py": "bd77f1544670707fc774ab43cdeb395c987497b085a2ee3ba35c41940536b558",
+    "coverage/sweep.py": "66dd7b11095d30f4286b09b9c8aefd50ecbbbb9d5f0bd82edfc5f68e9c981033",
+    "domain/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "domain/airspace.py": "4ee83481fa11e672a86e78b5a235c926de94993cb19f26b972448ac93db923b1",
+    "domain/diagnostics.py": "2b114d014114fc3f75a5b11e23bac9555dc3b58d1142ed10c6f93d9c3838a83d",
+    "domain/enums.py": "2395a26e96fc703fb885bfef2d614e762162151857d071ee295620c857754cea",
+    "domain/environment.py": "6c1e0efd2b7f095550b12c5b34bdb1f70637e4091b1adb61510ecae6ed6a8d89",
+    "domain/fleet.py": "4eb0a9896f62f8b1fc11e99e13ed33c1a604c468243d231ab2953b5cb9668497",
+    "domain/geo.py": "074c22d6a6fb83ff726d02790563db4eef38fc7988a2e3ae72c652cab90b1bea",
+    "domain/mission.py": "3fe3013c338165bbcec875098790599401286ed7a11d7ef9123593f156c4834e",
+    "domain/survey.py": "bd8ba6707dfc199d84fe1da52523a554f7f221b9ae07d4e237609944afdfcff2",
+    "domain/terrain.py": "87a2660af016d9a86bbfc5a1c8240dba7ba5dce4904bfef4f63b16015d1613a6",
+    "errors.py": "3d4e4927f60104ca5646fc84b9b76d37538d3b46c51414dfef519d3d903bb40c",
+    "flight/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "flight/camera.py": "b0ad0aebdfc8726f7f411b94dde9d5a7e453aefe08bcbe5850da6796bc3dab0c",
+    "flight/duration.py": "5d2694560e909fb1e48380194741eef3ff63422627c4cf5f27ecea7c45ebaaf1",
+    "flight/emergency.py": "a0b31271cfe16d62b8c5774575cbc35629f374c94f2bfdb4a12b3a3c72c5bb31",
+    "flight/energy.py": "a4f0ab9b0a13c11dbe6add3f7425d7328279b1db37f3d18285fe185ccc2c4acd",
+    "flight/envelope.py": "5fbb905be14a45916a4e82a2a1f00287be51055f8d6ff18250203841907368fa",
+    "flight/models.py": "d44dd8a0a39e41537c2caf38b0fb3df7b15f35421210d1e207acb8fcae8c3b68",
+    "flight/performance.py": "fdf6d16a1f7bc6c9dd178639b03f79628b7df8a431379d30bfa363ab456dbfe3",
+    "flight/photography.py": "a888aad468bec703bfb37de2e3eb79129eb75770433b2d10efaa5c38f1d3af56",
+    "flight/sites.py": "2bf2ead35247fd41e3f8620775de994691b9f1861fa4d869ec94491fc1c746d7",
+    "flight/terrain.py": "d4885fbf15012790da5985e7eb4f2453defd71ca5a3560e6dd8f8a6c472639a5",
+    "flight/trajectory.py": "6951510866317d0a11c220572b10d5f8381207bb66e9611c1b576d7ef977090e",
+    "flight/vertical.py": "070195d85d97651fcd5f37073f5b50a0bcfc10d3c5378e9245b444ae129c7b1d",
+    "geodata/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "geodata/exporters.py": "2be2459ce03b3c021e21dce3ecca4d2c05d6545a9fe5ae4f140b0a60d5bf3783",
+    "geodata/importers.py": "4c08187aaf60421f72654028f48b994d9b255ed9fcc0a87c8589e0241b40ef4e",
+    "geodata/models.py": "097cec0dfd8bb758f16a6efc623330ccff57180d58918d25e84681c366685ecf",
+    "navigation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "navigation/connections.py": "7d1b2e7bf2804c1db2a4e65054ae5bb7d618592d313bf67e75c07326e6c60337",
+    "navigation/curvature.py": "37a063ca833e5f4ba9eade949336573d2f5788619110581d968c8d10463976e6",
+    "navigation/dubins.py": "5cf2f760e8f231bc18dcd43750d3b6a897431da8849e6c149cda8e72610f7fcb",
+    "navigation/geometry.py": "ce04ab984e9fedc41539df4633c3e55ac679c9f2c075ce875fa9e2bc58f42857",
+    "navigation/hybrid_astar.py": "d3f00cea19d9281d84ba80af81c1de1827184c81d31635d9280999cbdab66e17",
+    "navigation/models.py": "9cbd9661ee49c365b90854f78f1fc561a871a7e7012e90a19ed0020776157e16",
+    "navigation/optimizer.py": "49f097f7f2914f9254f38fdb82180c6acef7e196b5285b5e2eb01c05ecff4d07",
+    "navigation/routing.py": "3e8dc3804323a60e8a2bca2c954551f2be6072cc7a6361f38588eb1321fe878d",
+    "navigation/sections.py": "b1e091bb6a9fe59d1add1c4189cf2865f7dde9d190ef245d553e58cd696b74c6",
+    "navigation/turn_aware.py": "3ba102a6696505298e6c2154057fad5f8d3cb0881bf6ce81874ccd32ebf694bd",
+    "planning/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "planning/advisor.py": "256d194b27fb0b43dfbe717032f4449eb77e1fc9de96912756f32c1016376992",
+    "planning/assignment_portfolio.py": "a3ae77668bae5c990eb5a764a416428fb189b641f063a1aaa97037c5c7403527",
+    "planning/candidate_models.py": "d0aa4321a0d9aa418fcc02fb12585c10fc228552655c2d8eacf6ca9a98dffecf",
+    "planning/candidates.py": "3340acd0b2385f777ca420c151035587aee81e7afdb1338929e5734d4272170a",
+    "planning/constraints.py": "96cdbed48a8b3b568dbe6b445c03f431385743d7c3b37dc1df0ed062bed1815a",
+    "planning/curved_costs.py": "5608578445753f469c7748250646f95d6d8399bbc4cf0229327934c982d5bf7e",
+    "planning/eligibility.py": "fa5d917ab51e86ade723ba9524f03af3ee018f560f912a3e5665e0af55bf2b05",
+    "planning/engine.py": "38f2943c248034bb6bec6bdef536377263a17aabbac4e8891ace977e5a2fe82c",
+    "planning/execution.py": "1eec17692d086daa0ff62c97200f7a8c283c5587f2481f20c4b229c162873978",
+    "planning/fleet_survey.py": "f23a52e757bb149c54a921c21dda218fa1b244fd4a96ad6009839fd22454704a",
+    "planning/freeform.py": "dc686d97dc41f8f241e77c4bd7028cc1d2ca78ad2b351f0a5ebab8b48f792a4c",
+    "planning/freeform_costs.py": "ad9854625afc32b4c69093480409971292ac949a53965426492b1649adeaacfd",
+    "planning/freeform_missions.py": "451080b231b37ea13eec9c54b34361253db1eef798f822dbccf6f29dc65ecfe0",
+    "planning/freeform_ports.py": "4be9f6ba3e8e49fcd3c524eff2d3fa5161f0dbc11c87fd120ea9d82024d2e5ec",
+    "planning/lateral_overlap.py": "d7ce4c9ec1a545097365170e3c022a8af2565e43a3b5c2b55e3088f92489e33e",
+    "planning/models.py": "ef7bb5c63f9c26bbf3b2a914b49e809344d39143ed5af413cc63414294d2623a",
+    "planning/photography.py": "1df3e70875b0c7ce7750c820be4c18cee0d6c91a3620d90edf4a00634f873663",
+    "planning/plan_quality.py": "c11f06685e90cd202348e9446fde2b62f8f90c6da29dc356907d66cb073f5315",
+    "planning/productive.py": "16e046d69f5aaab856ba1d2c8f0398b3686dd3dbe542e4c042a01571abaed08f",
+    "planning/quality_models.py": "5343bac4a6570a9397e69d7e85e67bce3b4da41a9596cfad429078bb6c1fe703",
+    "planning/reporting.py": "8bd5a127b12978298a3b96472ac34f5c54f1d310b1fb582d6d3d66ad2da9ae19",
+    "planning/routes.py": "0b2ec84705c88ef9796b78dfe754a7a4daec865ea82d7d73de3dca56a4aee233",
+    "planning/schedule_portfolio.py": "fdd4eb328947676e28fcba465d24f4c64f0fcd05958a5e71a8cc5f072e12496b",
+    "planning/segments.py": "31989c54b8c9f03269632bac25634e23f81a757dab8f67f2e6faf0129de71f54",
+    "planning/survey_adapter.py": "d851fb5d70b14ee7d2eacc0a83a237932ebd059881bf3c4bd5d5428c2e6fafa2",
+    "planning/survey_phases.py": "e677426f627888cc07642f9baab20a10f3f90356bbb89f8626dfbabc9a5b077d",
+    "planning/survey_quality.py": "71c7b1f2b0aa52bc4a16a54012ce0f115f0095b4eb912e072ac352278c96e109",
+    "planning/turn_radius.py": "54ca5871fd4c69f255ab829f097c11b2ab51627fba0c2d16ab6b745ac35e3663",
+    "routing/__init__.py": "65c0c981a2fd298453d31cda6b1fc38773a238e65456128cd8ebbf693e71ac98",
+    "routing/allocation.py": "340adca439f7a1d2765b44cfdcb81b98937bcca37bfd381a11d0554c70b235d2",
+    "routing/coverage_patterns.py": "c76d57146c0e5ce5e77f129800634f5fdc781fdc93c151851c6f877b24cd6735",
+    "routing/cross_objective.py": "ba4895c61c7be9f3de4e892fb77cc2bef870b7c58b50c7d608aeae0fb5dcca68",
+    "routing/destroy.py": "155fac4f3a3fa5fe9ac83e9cc6fd5214b2346a5d324568601890dddbf085f747",
+    "routing/freeform.py": "d67efc9d14ddcffc5b3d540d4b9df2c241d4f6b5d0e18595552feb99422e7250",
+    "routing/greedy_seed.py": "d49238f7369b65eeb7e75228533e7bcb412d89fba4714697abe4b83ae143a473",
+    "routing/model.py": "617db2882cc3316bfdc40b8de6a11aabc3338f813b894a03516625972324aab7",
+    "routing/neighborhood.py": "4fb5ad3c75696024f0f51bb6534572edba1e5d3a5e8c6589b855e4b46755fd99",
+    "routing/ordering.py": "d7be9221d1511849566d1cebc512e8e88ef6691020146d7b92bf9786d3e7f1f2",
+    "routing/pattern_pool.py": "3418180b72d8037e1de388d2cafacc9af232fad2a59314806c598f6b2c0ceb5d",
+    "routing/photography.py": "dbcfece7cad5115fa16eb6f64d2c1140ec2a25f4ce0f48cd0b157fec1a65595d",
+    "routing/pool.py": "1ef6d3ec01f376d5f2b4add763f3f719c266e89a95bbd4bc14c647639648deb1",
+    "routing/split.py": "5d6c6503cddd6f0fd02763563920651d9910eac11415e5eb8402099263008aab",
+    "safety/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "safety/audit.py": "0906ef3e32ce4aee9546204465bbd6509124e9d2157d0c33fa4b81d717fb477a",
+    "safety/freeform.py": "827a8e4486f70b15ce066e6174c3aa582dc4f42d8b3c93444b676b66f7f7ccf8",
+    "scheduling/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "scheduling/models.py": "800d27416938c41ce1dc4e4cad4c0da98f6c8439a9aaf3a87b6c77421bbd0227",
+    "scheduling/scheduler.py": "5454479064e3297eb992573079452b890f7616cb4ac7c312ef9178b11b0b3a29",
+    "scheduling/vertical.py": "5bb52afd9eea49baa9c8181315f49b3dfe884ab4e16294a4da810a1fe97045f8"
+  },
+  "benchmark_sha256": {
+    "backend/benchmarks/optimization_scale.py": "25eed6d8a44f4122be0b2f67bd16a73ce86f972973fdcff4a42458b63da54a45",
+    "backend/benchmarks/compare_ortools.py": "4cba59b17eacb2eec2cee73b0c0c160afc1a52ff9673f2f6a7d6d773d22dc0c2",
+    "backend/benchmarks/verify_freeform_pipeline.py": "dd0fe4940d9b79b2af159b4e00a0269deff8cd06377c6f4e20171b35b621b6d7",
+    "backend/benchmarks/final_readiness.py": "3f3454b2d82e232d9f69f2da67134e832efd3e11e0f99c6554abb7770bcbdf33"
+  }
+}

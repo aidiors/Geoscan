@@ -1,18 +1,26 @@
-import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings } from "@/features/planner/model/types";
+import type { TerrainAsset } from "@/features/terrain/model/types";
+import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, Scenario, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
 import type { ImportedZone, MissionTask, PlanRequest } from "@/shared/api/types";
+import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
+import { maximumPlanningSeconds } from "@/features/planner/model/planningBudget";
 
-export function activeWorkAreas(importedZones: ImportedZone[], scenario: Scenario): ImportedZone[] {
+const obstacleMapper = new ImportedObstacleMapper();
+
+export function activeWorkAreas(importedZones: ImportedZone[], scenario: Scenario, source?: WorkAreaSource): ImportedZone[] {
   const imported = importedZones.filter(
     (zone) => zone.zone_type === "work_area" && zone.geometry_type === "polygon",
   );
-  return imported.length > 0 ? imported : scenario.workAreas;
+  return source === "imported" || importedZones.some((zone) => zone.zone_type === "work_area")
+    ? imported.filter((zone) => zone.enabled !== false) : scenario.workAreas;
 }
 
-export function activeNoFlyZones(importedZones: ImportedZone[], scenario: Scenario): ImportedZone[] {
+export function activeNoFlyZones(importedZones: ImportedZone[], scenario: Scenario, source?: WorkAreaSource): ImportedZone[] {
   const imported = importedZones.filter(
     (zone) => zone.zone_type === "no_fly_zone" && zone.geometry_type === "polygon",
   );
-  return imported.length > 0 ? imported : scenario.noFlyZones;
+  const hasImportedWork = source === "imported" || importedZones.some((zone) => zone.zone_type === "work_area");
+  const hasImportedRestrictions = importedZones.some((zone) => zone.zone_type === "no_fly_zone");
+  return hasImportedRestrictions || hasImportedWork ? imported : scenario.noFlyZones;
 }
 
 export function objectiveToCriterion(objective: Objective): PlanRequest["criterion"] {
@@ -34,14 +42,85 @@ export function buildPlanRequest(
   importedZones: ImportedZone[],
   survey: SurveySettings,
   settings: PlanningSettings,
+  source?: WorkAreaSource,
+  terrain?: TerrainAsset | null,
 ): PlanRequest {
+  const agl = settings.altitudeReference === "agl";
+  const ground = agl ? 0 : settings.flatGroundElevation ?? 0;
+  const groundUncertainty = settings.terrainVerticalUncertainty ?? 0;
+  if (!Number.isFinite(ground) || ground < -500 || ground > 10000
+    || !Number.isFinite(groundUncertainty) || groundUncertainty < 0 || groundUncertainty > 500) {
+    throw new Error("Задайте отметку поверхности от −500 до 10 000 м и погрешность от 0 до 500 м.");
+  }
+  if (!Number.isFinite(settings.altitude) || settings.altitude <= (agl ? 0 : ground + groundUncertainty)) {
+    throw new Error(agl ? "Высота AGL должна быть положительным числом." : "Высота полёта MSL должна превышать отметку поверхности с учётом погрешности.");
+  }
+  if (agl) {
+    if (!terrain || !terrain.metresConfirmed || !terrain.mslConfirmed || terrain.inspection.band !== terrain.band) {
+      throw new Error("Для AGL загрузите DEM и подтвердите метры и систему высот MSL.");
+    }
+    const interval = settings.terrainSamplingInterval ?? 25;
+    if (!Number.isFinite(interval) || interval < 5 || interval > 1000) throw new Error("Шаг профиля DEM должен быть от 5 до 1000 м.");
+  }
+  const unsupported = importedZones.find((zone) => zone.zone_type !== "obstacle"
+    && !(zone.zone_type === "work_area" && zone.enabled === false) && zone.geometry_type !== "polygon");
+  if (unsupported) throw new Error(`«${unsupported.name}»: для рабочей зоны или ограничения нужен полигон. Линия или точка не заменяют область.`);
+  const airspaceWithHoles = importedZones.find((zone) => zone.zone_type === "allowed_airspace"
+    && zone.interior_rings.length > 0);
+  if (airspaceWithHoles) throw new Error(`«${airspaceWithHoles.name}»: разрешённое пространство с внутренними вырезами пока не поддерживается. Вырезы нельзя игнорировать.`);
   const enabledDrones = drones.filter((drone) => drone.enabled);
+  const budget = settings.planningTimeLimitSeconds ?? maximumPlanningSeconds;
+  if (!Number.isFinite(budget) || budget < 1 || budget > maximumPlanningSeconds) throw new Error("Задайте бюджет расчёта от 1 до 1800 секунд (30 минут).");
   if (enabledDrones.length === 0) {
     throw new Error("Включите хотя бы один БВС.");
+  }
+  for (const drone of enabledDrones) {
+    if (agl && drone.tasks.includes(task)) {
+      if (![drone.maximumClimbRate, drone.maximumDescentRate].every((value) => value != null && Number.isFinite(value) && value > 0)) {
+        throw new Error(`${drone.name}: для DEM задайте подтверждённые пределы набора и снижения.`);
+      }
+      if (drone.fixedWingPhaseProfile) throw new Error(`${drone.name}: самолётные фазы пока поддерживают только плоскую поверхность MSL.`);
+      if (drone.takeoffLandingProfile && sites.some((site) => site.role === "alternate")) throw new Error("Взлёт и посадка над DEM пока не моделируют подход к резерву. Сохраните резерв и отключите профиль взлёта/посадки либо выделите отдельный сценарий.");
+    }
+    const forward = drone.fixedWingPhaseProfile;
+    if (forward) {
+      if (drone.airframeType !== "fixed_wing" || !(Number.isFinite(drone.minimumTurnRadius) && (drone.minimumTurnRadius ?? 0) > 0)) {
+        throw new Error(`${drone.name}: самолётный профиль требует тип «Самолёт» и подтверждённый радиус разворота.`);
+      }
+      if (![forward.climb_rate_mps, forward.descent_rate_mps].every((v) => Number.isFinite(v) && v > 0 && v <= 100)
+        || ![forward.climb_energy_multiplier, forward.descent_energy_multiplier].every((v) => Number.isFinite(v) && v >= 1 && v <= 10)) {
+        throw new Error(`${drone.name}: проверьте пределы набора и снижения и коэффициенты энергии самолётного профиля.`);
+      }
+      if ((drone.maximumClimbRate != null && forward.climb_rate_mps > drone.maximumClimbRate)
+        || (drone.maximumDescentRate != null && forward.descent_rate_mps > drone.maximumDescentRate)) {
+        throw new Error(`${drone.name}: плановый предел вертикальной скорости превышает возможности БВС.`);
+      }
+    }
+    const phase = drone.takeoffLandingProfile;
+    if (phase) {
+      if (["fixed_wing", "vtol_fixed_rotor"].includes(drone.airframeType)) {
+        throw new Error(`${drone.name}: вертикальная модель взлёта и посадки доступна только мультикоптерам.`);
+      }
+      if (![phase.climb_rate_mps, phase.descent_rate_mps].every((v) => Number.isFinite(v) && v > 0 && v <= 100)
+        || ![phase.climb_energy_multiplier, phase.descent_energy_multiplier].every((v) => Number.isFinite(v) && v >= 1 && v <= 10)) {
+        throw new Error(`${drone.name}: проверьте плановые скорости и коэффициенты энергии взлёта и посадки.`);
+      }
+      if ((drone.maximumClimbRate != null && phase.climb_rate_mps > drone.maximumClimbRate)
+        || (drone.maximumDescentRate != null && phase.descent_rate_mps > drone.maximumDescentRate)) {
+        throw new Error(`${drone.name}: плановая вертикальная скорость превышает предел БВС.`);
+      }
+    }
+    const sets = drone.availableBatterySets;
+    if (sets != null && (!Number.isInteger(sets) || sets < 0 || sets > 10000)) {
+      throw new Error(`${drone.name}: число готовых комплектов АКБ должно быть целым от 0 до 10 000.`);
+    }
   }
   const departureSites = sites.filter((flightSite) => flightSite.role === "takeoff");
   const landingSites = sites.filter((flightSite) => flightSite.role === "landing");
   const alternateSites = sites.filter((flightSite) => flightSite.role === "alternate");
+  if (alternateSites.length > 0 && enabledDrones.some((drone) => drone.fixedWingPhaseProfile != null)) {
+    throw new Error("Самолётный профиль пока не моделирует заход на резервную площадку. Сохраните резерв и отключите этот профиль либо создайте отдельный сценарий для GIS-проверки без резервных площадок.");
+  }
   if (departureSites.length === 0) {
     throw new Error("Добавьте хотя бы одну точку взлёта.");
   }
@@ -65,8 +144,10 @@ export function buildPlanRequest(
   if (settings.turnRadius > 0 && scenario.segments.length > 0) {
     throw new Error("Радиус разворота поддерживается для генерируемых галсов.");
   }
-  const workAreas = activeWorkAreas(importedZones, scenario);
-  const noFlyZones = activeNoFlyZones(importedZones, scenario);
+  const workAreas = activeWorkAreas(importedZones, scenario, source);
+  const hasImportedWork = source === "imported" || importedZones.some((zone) => zone.zone_type === "work_area");
+  if (hasImportedWork && workAreas.length === 0) throw new Error("Выберите хотя бы одну рабочую область из импортированных данных.");
+  const noFlyZones = activeNoFlyZones(importedZones, scenario, source);
   const allowedAirspaces = importedZones.filter(
     (zone) => zone.zone_type === "allowed_airspace" && zone.geometry_type === "polygon",
   );
@@ -96,12 +177,14 @@ export function buildPlanRequest(
   }
   return {
     criterion: objectiveToCriterion(objective),
+    planning_time_limit_seconds: budget,
     drones: enabledDrones.map((drone) => ({
       drone_id: drone.id,
       name: drone.name,
       cruise_speed_kmh: drone.speed,
       maximum_flight_minutes: drone.flightMinutes,
       initial_charge_percent: drone.battery,
+      available_battery_sets: drone.availableBatterySets ?? null,
       battery_health_percent: drone.batteryHealth,
       energy_consumption_multiplier: drone.energyConsumptionMultiplier,
       battery_reserve_percent: drone.reserve,
@@ -117,6 +200,8 @@ export function buildPlanRequest(
       completed_flights_since_maintenance: drone.completedFlights,
       flight_hours_since_maintenance: drone.accumulatedHours,
       maximum_climb_rate_mps: drone.maximumClimbRate,
+      takeoff_landing_profile: drone.takeoffLandingProfile ?? null,
+      fixed_wing_phase_profile: drone.fixedWingPhaseProfile ?? null,
       maximum_descent_rate_mps: drone.maximumDescentRate,
       minimum_mission_altitude_m: null,
       maximum_mission_altitude_m: null,
@@ -132,8 +217,10 @@ export function buildPlanRequest(
       maximum_control_range_km: drone.maximumControlRange ?? null,
       minimum_turnaround_minutes: drone.minimumTurnaroundMinutes ?? 0,
       payloads: drone.payloads ?? [],
+      installed_sensor: drone.installedSensor ?? null,
+      minimum_turn_radius_m: drone.minimumTurnRadius ?? 0,
     })),
-    segments: scenario.segments,
+    segments: hasImportedWork ? [] : scenario.segments,
     coverage_areas: workAreas.map((zone) => ({
       area_id: zone.zone_id,
       name: zone.name,
@@ -171,16 +258,12 @@ export function buildPlanRequest(
     })),
     obstacles: importedZones
       .filter((zone) => zone.zone_type === "obstacle")
-      .map((zone) => ({
-        obstacle_id: zone.zone_id,
-        geometry_type: zone.geometry_type,
-        coordinates: zone.coordinates,
-        height_m: Math.max(0, ...zone.coordinates.map((coordinate) => coordinate.altitude_m ?? 0)),
-        altitude_mode: zone.altitude_mode ?? "unknown",
-        safety_radius_m: 30,
-      })),
+      .map((zone) => obstacleMapper.toRequest(zone)),
     mission_altitude_m: settings.altitude,
-    altitude_reference: "msl",
+    altitude_reference: agl ? "agl" : "msl",
+    ...(agl && terrain ? { terrain_source: { source_type: "geotiff" as const, content: terrain.content, band: terrain.band }, terrain_sampling_interval_m: settings.terrainSamplingInterval ?? 25 } : {}),
+    flat_ground_elevation_m: ground,
+    terrain_vertical_uncertainty_m: groundUncertainty,
     task,
     departure_sites: departureSites.map(apiSite),
     landing_sites: landingSites.map(apiSite),
@@ -214,6 +297,8 @@ export function buildPlanRequest(
     planning_end_time: planningEndTime,
     minimum_turn_radius_m: settings.turnRadius,
     optimization_mode: settings.fastHeuristic ? "fast_heuristic" : "optimized",
+    assignment_strategy: settings.fastHeuristic ? "hybrid" : "automatic",
+    productive_routing: (settings.productiveRouting ?? true) && !settings.fastHeuristic,
   };
 }
 

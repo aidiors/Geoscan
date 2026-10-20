@@ -11,6 +11,9 @@ dependencies = [
   "uvicorn>=0.32,<1",
 ]
 
+[project.optional-dependencies]
+optimization = ["ortools>=9.15,<10"]
+
 [build-system]
 requires = ["setuptools>=80"]
 build-backend = "setuptools.build_meta"
@@ -19,6 +22,9 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [dependency-groups]
+benchmark = [
+    "ortools>=9.15,<10",
+]
 dev = [
   "httpx2>=0.1",
   "pytest>=8,<9",

@@ -16,7 +16,9 @@ from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import DronePlan, Mission, MissionStage
 from geoplan.domain.terrain import VerticalProfilePoint
 from geoplan.errors import PlanningError
+from geoplan.geodata.altitude import AutopilotAltitudePolicy
 from geoplan.geodata.exporters import (
+    CanonicalMissionExportVerifier,
     build_geojson_export,
     build_kml_export,
     build_mission_planner_export,
@@ -154,6 +156,51 @@ def test_terrain_following_exports_absolute_profile_and_mavlink_agl_frame() -> N
     assert position_items[0]["params"][6] == 128
     assert qgroundcontrol["mission"]["globalPlanAltitudeMode"] == 4
     assert qgroundcontrol["mission"]["plannedHomePosition"][2] == 100
+
+
+@pytest.mark.parametrize("ground", [-50, 150, 1500])
+def test_autopilot_commands_preserve_msl_with_nonzero_ground(ground: float) -> None:
+    request = _export_request()
+    drone = request.plan.drone_plans[0]
+    original = drone.missions[0]
+    mission = original.model_copy(
+        update={"altitude_m": ground + 100, "flat_ground_elevation_m": ground}
+    )
+    request = request.model_copy(
+        update={
+            "plan": request.plan.model_copy(
+                update={"drone_plans": [drone.model_copy(update={"missions": [mission]})]}
+            )
+        }
+    )
+    qgc = json.loads(build_qgroundcontrol_export(request).content)["mission"]
+    assert qgc["plannedHomePosition"][2] == ground
+    assert qgc["globalPlanAltitudeMode"] == 2  # QGC Absolute, not Relative/Mixed
+    positions = [item for item in qgc["items"] if item["command"] in {16, 21, 22}]
+    for item in positions:
+        assert item["frame"] == 0  # MAV_FRAME_GLOBAL (MSL)
+        assert item["AltitudeMode"] == 2
+        expected_msl = ground if item["command"] == 21 else ground + 100
+        assert item["params"][6] == item["Altitude"] == expected_msl
+    wpl = build_mission_planner_export(request).content.splitlines()[1:]
+    for line in wpl:
+        fields = line.split("\t")
+        if int(fields[3]) in {16, 21, 22}:
+            assert int(fields[2]) == 0
+            assert float(fields[10]) == (ground if int(fields[3]) == 21 else ground + 100)
+    assert CanonicalMissionExportVerifier().verify([mission]).consistent
+
+
+def test_export_audit_rejects_msl_mislabeled_as_relative_to_home(monkeypatch) -> None:
+    mission = _export_request().plan.drone_plans[0].missions[0]
+    monkeypatch.setattr(AutopilotAltitudePolicy, "position_frame", lambda *_: 3)
+    assert not CanonicalMissionExportVerifier().verify([mission]).consistent
+
+
+def test_export_audit_rejects_qgc_mode_that_disagrees_with_command_frame(monkeypatch) -> None:
+    mission = _export_request().plan.drone_plans[0].missions[0]
+    monkeypatch.setattr(AutopilotAltitudePolicy, "qgc_altitude_mode", lambda *_: 0)
+    assert not CanonicalMissionExportVerifier().verify([mission]).consistent
 
 
 def test_export_returns_stable_error_when_drone_is_not_in_plan() -> None:

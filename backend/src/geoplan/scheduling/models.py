@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -32,10 +33,23 @@ class VerticalLayerOption(BaseModel):
     extra_battery_percent: float = Field(ge=0, le=100)
 
 
+class DispatchPriority(StrEnum):
+    READY_FIRST = "ready_first"
+    LONGEST_REMAINING = "longest_remaining"
+    TIGHTEST_WINDOW = "tightest_window"
+
+
+class LayerPreference(StrEnum):
+    EARLIEST_FINISH = "earliest_finish"
+    MINIMUM_FLIGHT = "minimum_flight"
+
+
 class MissionScheduleRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     missions: list[Mission] = Field(min_length=1, max_length=10_000)
+    dispatch_priority: DispatchPriority = DispatchPriority.READY_FIRST
+    layer_preference: LayerPreference = LayerPreference.EARLIEST_FINISH
     minimum_separation_m: float = Field(gt=0, le=10_000)
     minimum_vertical_separation_m: float = Field(default=30, gt=0, le=1_000)
     position_uncertainty_m: float = Field(default=0, ge=0, le=1_000)
@@ -83,6 +97,12 @@ class MissionScheduleResult(BaseModel):
 class ScheduleSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    variants_evaluated: int = Field(default=1, ge=1, le=6)
+    dispatch_priority: DispatchPriority = DispatchPriority.READY_FIRST
+    layer_preference: LayerPreference = LayerPreference.EARLIEST_FINISH
+    reference_makespan_minutes: float | None = Field(default=None, gt=0)
+    reference_total_flight_minutes: float | None = Field(default=None, gt=0)
+    reference_audited: bool | None = None
     algorithm: ScheduleAlgorithm
     makespan_minutes: float = Field(gt=0)
     minimum_separation_m: float = Field(gt=0)

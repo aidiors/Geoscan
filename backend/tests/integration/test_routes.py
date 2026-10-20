@@ -54,6 +54,7 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "/v1/plans",
         json={
             "criterion": "completion_time",
+            "assignment_strategy": "hybrid",
             "drones": [
                 {
                     "drone_id": "201",
@@ -106,6 +107,12 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
     assert response.json()["feasibility"]["deadline_margin_minutes"] == 0.6
     assert response.json()["schedule"] == {
         "algorithm": "priority_deconfliction",
+        "dispatch_priority": "ready_first",
+        "layer_preference": "earliest_finish",
+        "reference_makespan_minutes": 14.4,
+        "reference_total_flight_minutes": 26.4,
+        "reference_audited": True,
+        "variants_evaluated": 1,
         "makespan_minutes": 14.4,
         "minimum_separation_m": 50.0,
         "minimum_vertical_separation_m": 30.0,
@@ -119,7 +126,9 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "resolved_conflicts": [],
     }
     assert response.json()["safety_audit"]["status"] == "passed"
-    assert len(response.json()["safety_audit"]["checks"]) == 12
+    assert "survey_resolution" in {
+        check["code"] for check in response.json()["safety_audit"]["checks"]
+    }
     missions = [
         mission
         for drone_plan in response.json()["drone_plans"]
@@ -137,8 +146,11 @@ def test_plan_route_returns_contract_for_completion_time() -> None:
         "total_flight_minutes": 26.4,
         "active_drone_count": 2,
         "survey_turn_radius_m": 0.0,
+        "turn_radii_by_drone": {"201": 0.0, "801": 0.0},
         "coverage_angle_cost": "geometric_distance",
         "coverage_reference_airspeed_kmh": None,
+        "productive_routing": None,
+        "assignment_search": None,
     }
 
 
@@ -171,7 +183,11 @@ def test_plan_route_applies_positive_survey_turn_radius() -> None:
     assert response.status_code == 200
     assert response.json()["optimization"]["survey_turn_radius_m"] == 10
     assert response.json()["safety_audit"]["status"] == "passed"
-    assert len(response.json()["drone_plans"][0]["missions"][0]["stages"][2]["coordinates"]) > 2
+    mission = response.json()["drone_plans"][0]["missions"][0]
+    assert len(mission["route"]) > 20
+    assert any(
+        s["stage_type"] == "transit" and s["duration_minutes"] > 0 for s in mission["stages"][2:-1]
+    )
 
 
 def test_plan_route_returns_stable_error_for_unplannable_segment() -> None:
@@ -291,10 +307,11 @@ def test_export_routes_return_planner_compatible_contracts() -> None:
     assert geojson_response.json()["features"][0]["geometry"]["type"] == "LineString"
     assert kml_response.status_code == 200
     assert kml_response.json()["file_name"] == "mission-201.kml"
-    assert qgroundcontrol_response.status_code == 200
-    assert qgroundcontrol_response.json()["file_name"] == "mission-201.plan"
-    assert mission_planner_response.status_code == 200
-    assert mission_planner_response.json()["file_name"] == "mission-201.waypoints"
+    # Arbitrary client-created plans remain inspectable in GIS, but cannot be released.
+    assert qgroundcontrol_response.status_code == 422
+    assert qgroundcontrol_response.json()["code"] == "export_release_required"
+    assert mission_planner_response.status_code == 422
+    assert mission_planner_response.json()["code"] == "export_release_required"
 
 
 def test_frontend_is_served_from_the_same_origin_as_api(tmp_path: Path) -> None:

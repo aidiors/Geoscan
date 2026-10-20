@@ -47,6 +47,16 @@ def _drones_capable_of_task(
     )
 
 
+def _drones_with_available_resources(drones: list[DroneSpec]) -> list[DroneSpec]:
+    eligible = [drone for drone in drones if drone.resource_limit().allows(1, 1e-6)]
+    if eligible:
+        return eligible
+    raise PlanningError(
+        code=ErrorCode.NO_CAPABLE_DRONE,
+        message="Нет доступных БВС: проверьте готовые комплекты АКБ и остаток до обслуживания.",
+    )
+
+
 def _drones_capable_of_environment(
     drones: list[DroneSpec],
     request: PlanRequest,
@@ -115,8 +125,18 @@ def _drones_capable_of_environment(
 def _drone_supports_altitude(drone: DroneSpec, request: PlanRequest) -> bool:
     minimum = drone.minimum_altitude_for(request.altitude_reference)
     maximum = drone.maximum_altitude_for(request.altitude_reference)
-    return (minimum is None or request.mission_altitude_m >= minimum) and (
-        maximum is None or request.mission_altitude_m <= maximum
+    height = request.survey_height_agl
+    return (
+        (minimum is None or request.mission_altitude_m >= minimum)
+        and (maximum is None or request.mission_altitude_m <= maximum)
+        and (
+            drone.minimum_mission_altitude_agl_m is None
+            or height.minimum_m >= drone.minimum_mission_altitude_agl_m
+        )
+        and (
+            drone.maximum_mission_altitude_agl_m is None
+            or height.maximum_m <= drone.maximum_mission_altitude_agl_m
+        )
     )
 
 

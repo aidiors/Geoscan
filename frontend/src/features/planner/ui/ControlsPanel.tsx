@@ -1,11 +1,26 @@
+import { TerrainFields } from "@/features/terrain/ui/TerrainFields";
+import type { TerrainAsset } from "@/features/terrain/model/types";
 import { BatteryCharging, Database, ShieldCheck, Wind } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { scenarios } from "@/features/demos/data/scenarios";
+import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
+import { InstalledCameraFields } from "@/features/planner/ui/InstalledCameraFields";
+import { FleetActions } from "@/features/planner/ui/FleetActions";
+import { TakeoffLandingFields } from "@/features/planner/ui/TakeoffLandingFields";
+import { FixedWingPhaseFields } from "@/features/planner/ui/FixedWingPhaseFields";
+import { fleetCatalog } from "@/features/planner/model/fleetCatalog";
+import { maximumPlanningSeconds } from "@/features/planner/model/planningBudget";
 import type { AirframeType, AutopilotFirmware, ImportedZone, MissionTask, ZoneType } from "@/shared/api/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
 
 interface ControlsPanelProps {
+  terrain?: TerrainAsset | null;
+  terrainImporting?: boolean;
+  onImportTerrain?: (file: File, band: number) => Promise<void>;
+  onTerrainChange?: (asset: TerrainAsset | null) => void;
+  scenario?: import("@/features/planner/model/types").Scenario;
+  projects?: import("react").ReactNode;
   scenarioId: string;
   task: MissionTask;
   objective: Objective;
@@ -22,7 +37,8 @@ interface ControlsPanelProps {
   onObjectiveChange: (objective: Objective) => void;
   onSelectDrone: (droneId: string) => void;
   onUpdateDrone: (droneId: string, patch: Partial<DroneProfile>) => void;
-  onAddDrone: () => void;
+  onAddDrone: (modelId: string, count: number) => void;
+  onCloneDrone: () => void;
   onRemoveDrone: () => void;
   onUpdateSurvey: (patch: Partial<SurveySettings>) => void;
   onUpdateSettings: (patch: Partial<PlanningSettings>) => void;
@@ -31,8 +47,12 @@ interface ControlsPanelProps {
   onRemoveSite: (siteId: string) => void;
   onImport: (file: File, zoneType: ZoneType) => Promise<void>;
   onRemoveZone: (zoneId: string) => void;
+  onRemoveInvalidZones: () => void;
+  onSelectZone: (zoneId: string, enabled: boolean) => void;
+  onSelectAllWorkAreas: (enabled: boolean) => void;
   onSave: () => void;
   onLoad: () => void;
+  onForgetSavedScenario: () => void;
 }
 
 const taskLabels: Record<MissionTask, string> = {
@@ -66,12 +86,17 @@ const airframeLabels: Record<AirframeType, string> = {
   generic_multirotor: "Мультиротор",
 };
 
+const obstacleMapper = new ImportedObstacleMapper();
+
 export function ControlsPanel(props: ControlsPanelProps) {
+  const horizontalObstacles = props.importedZones.filter((zone) => zone.zone_type === "obstacle"
+    && obstacleMapper.requiresHorizontalAvoidance(zone)).length;
   const [zoneType, setZoneType] = useState<ZoneType>("work_area");
+  const [zoneSearch, setZoneSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const selectedDrone = props.drones.find((drone) => drone.id === props.selectedDroneId) ?? props.drones[0];
-  const selectedScenario = scenarios.find((scenario) => scenario.id === props.scenarioId) ?? scenarios[0];
+  const selectedScenario = props.scenario ?? scenarios.find((scenario) => scenario.id === props.scenarioId) ?? scenarios[0];
 
   async function handleImport(): Promise<void> {
     if (selectedFile === null) {
@@ -86,13 +111,14 @@ export function ControlsPanel(props: ControlsPanelProps) {
   }
 
   return (
-    <aside className="panel controls-panel">
+    <aside className="panel controls-panel" id="mission-inputs" tabIndex={-1}>
       <div className="eyebrow"><Database size={15} /> Конструктор сценария</div>
       <h1>{selectedScenario.title}</h1>
       <p className="lead">{selectedScenario.description}</p>
 
       <PanelSection title="Тестовый сценарий" badge={`${scenarios.length} конфигураций`}>
         <select value={props.scenarioId} onChange={(event) => props.onScenarioChange(event.target.value)}>
+          {!scenarios.some((entry) => entry.id === props.scenarioId) && <option value={props.scenarioId}>{selectedScenario.title}</option>}
           {scenarios.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.title}</option>)}
         </select>
         <p className="hint">{selectedScenario.workAreas.length} рабочих зон · {selectedScenario.noFlyZones.length} запретных зон</p>
@@ -102,7 +128,24 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <select value={props.task} onChange={(event) => props.onTaskChange(event.target.value as MissionTask)}>
           {Object.entries(taskLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <NumberField label="Высота задания MSL, м" value={props.settings.altitude} min={20} max={10000} onChange={(altitude) => props.onUpdateSettings({ altitude })} />
+        <label className="field"><span>Режим высоты</span><select aria-label="Режим высоты" value={props.settings.altitudeReference ?? "msl"}
+          onChange={(event) => props.onUpdateSettings({ altitudeReference: event.target.value as "msl" | "agl" })}>
+          <option value="msl">MSL · плоская поверхность</option><option value="agl">AGL · по DEM</option>
+        </select></label>
+        <NumberField label={props.settings.altitudeReference === "agl" ? "Высота над рельефом AGL, м" : "Высота задания MSL, м"} value={props.settings.altitude} min={1} max={10000} onChange={(altitude) => props.onUpdateSettings({ altitude })} />
+        {props.settings.altitudeReference === "agl" ? <>
+          <TerrainFields terrain={props.terrain ?? null} busy={props.terrainImporting ?? false}
+            onImport={props.onImportTerrain ?? (async () => {})} onChange={props.onTerrainChange ?? (() => {})} />
+          <NumberField label="Погрешность DEM ±, м" value={props.settings.terrainVerticalUncertainty ?? 0} min={0} max={500} onChange={(terrainVerticalUncertainty) => props.onUpdateSettings({ terrainVerticalUncertainty })} />
+          <NumberField label="Шаг профиля DEM, м" value={props.settings.terrainSamplingInterval ?? 25} min={5} max={1000} onChange={(terrainSamplingInterval) => props.onUpdateSettings({ terrainSamplingInterval })} />
+          <p className="hint">Высота MSL = DEM + AGL + погрешность. Просвет проверяется в отсчётах профиля; пики между отсчётами не гарантируются. У каждого БВС нужны пределы набора и снижения. После смены режима проверьте числовую высоту задания.</p>
+        </> : <>
+        <div className="field-grid">
+          <NumberField label="Отметка поверхности MSL, м" value={props.settings.flatGroundElevation ?? 0} min={-500} max={10000} onChange={(flatGroundElevation) => props.onUpdateSettings({ flatGroundElevation })} />
+          <NumberField label="Погрешность поверхности ±, м" value={props.settings.terrainVerticalUncertainty ?? 0} min={0} max={500} onChange={(terrainVerticalUncertainty) => props.onUpdateSettings({ terrainVerticalUncertainty })} />
+        </div>
+        <p className="hint">Высота над поверхностью: {props.settings.altitude - (props.settings.flatGroundElevation ?? 0)} м, погрешность ±{props.settings.terrainVerticalUncertainty ?? 0} м. Поверхность считается плоской; отметка задаётся оператором и не заменяет реальный рельеф.</p>
+        </>}
       </PanelSection>
 
       <PanelSection title="Параметры съёмки" badge="Галсы">
@@ -167,11 +210,22 @@ export function ControlsPanel(props: ControlsPanelProps) {
 
       <PanelSection title="Критерий оптимизации">
         <div className="criteria">
-          <CriterionButton value="time" current={props.objective} label="Срок работ" onChange={props.onObjectiveChange} />
+          <CriterionButton value="time" current={props.objective} label="Быстрее" onChange={props.onObjectiveChange} />
           <CriterionButton value="flight" current={props.objective} label="Суммарный налёт" onChange={props.onObjectiveChange} />
-          <CriterionButton value="balanced" current={props.objective} label="Баланс" onChange={props.onObjectiveChange} />
+          <CriterionButton value="balanced" current={props.objective} label="К сроку" onChange={props.onObjectiveChange} />
         </div>
         <p className="hint">{objectiveHint(props.objective)}</p>
+        <label className="solver-option">
+          <input
+            type="checkbox"
+            checked={props.settings.productiveRouting}
+            disabled={props.settings.fastHeuristic}
+            onChange={(event) => props.onUpdateSettings({ productiveRouting: event.target.checked })}
+          />
+          <span><b>Оптимизация вылетов</b><small>Сравнивать порядок галсов и разбиения между аппаратами по итоговому расписанию</small></span>
+        </label>
+        {props.settings.productiveRouting && <p className="hint">{props.settings.fastHeuristic ? "Выключите быстрый расчёт, чтобы сравнивать варианты вылетов." : "«Макс. маршрут» задаёт исходное разбиение для сравнения. Новые вылеты ограничены запасом АКБ, дальностью БВС и условиями задания."}</p>}
+        <p className="hint">Первый проверенный план появится по готовности; затем сервис показывает улучшения, до 30 минут. Поиск можно остановить и сохранить найденный результат. Для нескольких областей оптимизируется общий план.</p>
         <label className="solver-option">
           <input
             type="checkbox"
@@ -183,6 +237,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <div className="field-grid">
           <TextNumberField label="Срок, мин" value={props.settings.deadline} placeholder="Без срока" onChange={(deadline) => props.onUpdateSettings({ deadline })} />
           <TextNumberField label="Макс. БВС" value={props.settings.maximumActiveDrones} placeholder="Весь парк" integer onChange={(maximumActiveDrones) => props.onUpdateSettings({ maximumActiveDrones })} />
+          <NumberField label="Бюджет расчёта, мин" value={(props.settings.planningTimeLimitSeconds ?? maximumPlanningSeconds) / 60} min={1 / 60} max={maximumPlanningSeconds / 60} step="any" onChange={(minutes) => props.onUpdateSettings({ planningTimeLimitSeconds: Math.round(minutes * 60) })} />
         </div>
       </PanelSection>
 
@@ -211,7 +266,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <p className="hint">Начало обязательно для временных зон. Окончание ограничивает полёты рабочим или световым окном. Эшелонирование выключено при максимальном повышении 0 м.</p>
       </PanelSection>
 
-      <PanelSection title="Парк БВС" badge={`${props.drones.filter((drone) => drone.enabled).length} активно`}>
+      <PanelSection title="Парк БВС" badge={`${props.drones.filter((drone) => drone.enabled).length} в расчёте / ${props.drones.length}`}>
         <div className="fleet-list">
           {props.drones.map((drone) => (
             <button type="button" key={drone.id} className={`fleet-row ${drone.id === props.selectedDroneId ? "active" : ""}`} onClick={() => props.onSelectDrone(drone.id)}>
@@ -228,6 +283,18 @@ export function ControlsPanel(props: ControlsPanelProps) {
               <span>Использовать в расчёте</span>
             </label>
             <label>Название<input value={selectedDrone.name} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { name: event.target.value })} /></label>
+            <p className="hint">Модель: {fleetCatalog.models.find((model) => model.id === selectedDrone.modelId)?.name ?? "Своя конфигурация"}. ID борта: {selectedDrone.id}</p>
+            <NumberField label="Радиус разворота этого БВС, м" value={selectedDrone.minimumTurnRadius ?? 0} min={0} max={10000} onChange={(minimumTurnRadius) => props.onUpdateDrone(selectedDrone.id, { minimumTurnRadius })} />
+            <label className="checkbox-row">
+              <input type="checkbox" checked={selectedDrone.installedSensor != null} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { installedSensor: event.target.checked ? {
+                sensor_id: `camera-${selectedDrone.id}`, name: `Камера ${selectedDrone.name}`,
+                sensor_width_mm: props.survey.sensorWidth, sensor_height_mm: props.survey.sensorHeight,
+                focal_length_mm: props.survey.focalLength, image_width_px: props.survey.imageWidth,
+                image_height_px: props.survey.imageHeight, minimum_trigger_interval_s: props.survey.triggerInterval,
+              } : null })} />
+              <span>Отдельная установленная камера</span>
+            </label>
+            {selectedDrone.installedSensor && <InstalledCameraFields sensor={selectedDrone.installedSensor} onChange={(installedSensor) => props.onUpdateDrone(selectedDrone.id, { installedSensor })} />}
             <div className="field-grid">
               <NumberField label="Текущий заряд, %" value={selectedDrone.battery} min={1} max={100} onChange={(battery) => props.onUpdateDrone(selectedDrone.id, { battery })} />
               <NumberField label="Состояние АКБ, %" value={selectedDrone.batteryHealth} min={1} max={100} onChange={(batteryHealth) => props.onUpdateDrone(selectedDrone.id, { batteryHealth })} />
@@ -236,7 +303,13 @@ export function ControlsPanel(props: ControlsPanelProps) {
               <NumberField label="Полёт, мин" value={selectedDrone.flightMinutes} min={1} onChange={(flightMinutes) => props.onUpdateDrone(selectedDrone.id, { flightMinutes })} />
               <NumberField label="Ветер, м/с" value={selectedDrone.maxWind} min={1} onChange={(maxWind) => props.onUpdateDrone(selectedDrone.id, { maxWind })} />
               <NumberField label="Резерв, %" value={selectedDrone.reserve} min={0} max={99} onChange={(reserve) => props.onUpdateDrone(selectedDrone.id, { reserve })} />
+              <OptionalNumberField label="Готовых комплектов АКБ" value={selectedDrone.availableBatterySets ?? null} min={0} max={10000} integer onChange={(availableBatterySets) => props.onUpdateDrone(selectedDrone.id, { availableBatterySets })} />
+              <OptionalNumberField label="Межсервисный ресурс, вылетов" value={selectedDrone.maintenanceFlights} min={1} max={100000} integer onChange={(maintenanceFlights) => props.onUpdateDrone(selectedDrone.id, { maintenanceFlights })} />
+              <NumberField label="Вылетов после ТО" value={selectedDrone.completedFlights} min={0} max={100000} onChange={(completedFlights) => props.onUpdateDrone(selectedDrone.id, { completedFlights })} />
+              <OptionalNumberField label="Межсервисный ресурс, ч" value={selectedDrone.maintenanceHours} min={0.01} max={100000} onChange={(maintenanceHours) => props.onUpdateDrone(selectedDrone.id, { maintenanceHours })} />
+              <NumberField label="Налёт после ТО, ч" value={selectedDrone.accumulatedHours} min={0} max={100000} step={0.1} onChange={(accumulatedHours) => props.onUpdateDrone(selectedDrone.id, { accumulatedHours })} />
             </div>
+            <p className="hint">Один готовый комплект АКБ — один вылет с указанным зарядом и состоянием. Пустое поле означает неограниченное число подготовленных комплектов. Зарядка в ходе задания не рассчитывается; время замены задайте в обслуживании между вылетами. Лимиты ТО ограничивают суммарные вылеты и налёт этого борта.</p>
             <div className="field-grid">
               <label className="field">
                 <span>Автопилот</span>
@@ -246,14 +319,18 @@ export function ControlsPanel(props: ControlsPanelProps) {
               </label>
               <label className="field">
                 <span>Тип аппарата</span>
-                <select value={selectedDrone.airframeType} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { airframeType: event.target.value as AirframeType })}>
+                <select value={selectedDrone.airframeType} onChange={(event) => props.onUpdateDrone(selectedDrone.id, { airframeType: event.target.value as AirframeType,
+                  ...(["fixed_wing", "vtol_fixed_rotor"].includes(event.target.value) ? { takeoffLandingProfile: null } : {}),
+                  ...(event.target.value !== "fixed_wing" ? { fixedWingPhaseProfile: null } : {}) })}>
                   {Object.entries(airframeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
               <NumberField label="Hover speed QGC, м/с" value={selectedDrone.hoverSpeed} min={0.1} max={100} step={0.1} onChange={(hoverSpeed) => props.onUpdateDrone(selectedDrone.id, { hoverSpeed })} />
-              <OptionalNumberField label="Набор, м/с" value={selectedDrone.maximumClimbRate} min={0.1} max={100} onChange={(maximumClimbRate) => props.onUpdateDrone(selectedDrone.id, { maximumClimbRate })} />
-              <OptionalNumberField label="Снижение, м/с" value={selectedDrone.maximumDescentRate} min={0.1} max={100} onChange={(maximumDescentRate) => props.onUpdateDrone(selectedDrone.id, { maximumDescentRate })} />
+              <OptionalNumberField label="Предельный набор, м/с" value={selectedDrone.maximumClimbRate} min={0.1} max={100} onChange={(maximumClimbRate) => props.onUpdateDrone(selectedDrone.id, { maximumClimbRate })} />
+              <OptionalNumberField label="Предельное снижение, м/с" value={selectedDrone.maximumDescentRate} min={0.1} max={100} onChange={(maximumDescentRate) => props.onUpdateDrone(selectedDrone.id, { maximumDescentRate })} />
             </div>
+            <TakeoffLandingFields drone={selectedDrone} onUpdate={(patch) => props.onUpdateDrone(selectedDrone.id, patch)} />
+            <FixedWingPhaseFields drone={selectedDrone} onUpdate={(patch) => props.onUpdateDrone(selectedDrone.id, patch)} />
             <div className="field-grid">
               <OptionalNumberField label="Мин. высота AGL, м" value={selectedDrone.minimumMissionAltitudeAgl} min={0} max={10000} onChange={(minimumMissionAltitudeAgl) => props.onUpdateDrone(selectedDrone.id, { minimumMissionAltitudeAgl })} />
               <OptionalNumberField label="Макс. высота AGL, м" value={selectedDrone.maximumMissionAltitudeAgl} min={1} max={10000} onChange={(maximumMissionAltitudeAgl) => props.onUpdateDrone(selectedDrone.id, { maximumMissionAltitudeAgl })} />
@@ -277,11 +354,11 @@ export function ControlsPanel(props: ControlsPanelProps) {
             }} /></label>
           </div>
         )}
-        <div className="mini-actions"><button type="button" onClick={props.onAddDrone}>＋ Добавить</button><button type="button" onClick={props.onRemoveDrone}>Удалить</button></div>
+        <FleetActions count={props.drones.length} onAdd={props.onAddDrone} onClone={props.onCloneDrone} onRemove={props.onRemoveDrone} />
       </PanelSection>
 
       <PanelSection title="Геоданные" badge="KML / GeoJSON">
-        <select value={zoneType} onChange={(event) => setZoneType(event.target.value as ZoneType)}>
+        <select aria-label="Тип импортируемых геоданных" value={zoneType} onChange={(event) => setZoneType(event.target.value as ZoneType)}>
           {Object.entries(zoneTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
         {zoneType === "allowed_airspace" && (
@@ -295,12 +372,24 @@ export function ControlsPanel(props: ControlsPanelProps) {
           <input ref={fileInput} type="file" accept=".geojson,.json,.kml" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
         </label>
         <button className="secondary-button import-button" type="button" disabled={props.importing} onClick={() => void handleImport()}>{props.importing ? "Импортируем…" : selectedFile ? "Импортировать зону" : "Выбрать геоданные"}</button>
+        {horizontalObstacles > 0 && <p className="hint" role="status">Препятствий без абсолютной отметки вершины: {horizontalObstacles}. Они обходятся по горизонтали на всех высотах; недостающие высоты не заменяются нулём.</p>}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Рабочие области взяты из импорта; демозапреты исключены. Парк и площадки сохранены — проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
+        {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
+          <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
+        )}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && (
+          <><p className="hint">Выбрано рабочих областей: {props.importedZones.filter((zone) => zone.zone_type === "work_area" && zone.enabled !== false).length}. Расчёт выполняется для выбранного пакета.</p>
+            <div className="mini-actions"><button type="button" onClick={() => props.onSelectAllWorkAreas(true)}>Выбрать все</button><button type="button" onClick={() => props.onSelectAllWorkAreas(false)}>Снять выбор</button></div>
+            <label className="field"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
+        )}
         <div className="zone-list">
-          {props.importedZones.map((zone) => <div className="zone-item" key={zone.zone_id}><span><b>{zone.name}</b><small>{zoneTypeLabels[zone.zone_type]}</small></span><button type="button" aria-label={`Удалить ${zone.name}`} onClick={() => props.onRemoveZone(zone.zone_id)}>×</button></div>)}
+          {props.importedZones.filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase())).map((zone) => <div className="zone-item" key={zone.zone_id}><span className="zone-selection">{zone.zone_type === "work_area" && <input type="checkbox" aria-label={`Включить область ${zone.name}`} checked={zone.enabled !== false} onChange={(event) => props.onSelectZone(zone.zone_id, event.target.checked)} />}<span><b>{zone.name}</b><small>{zone.metadata?.geometry_issue ?? zone.metadata?.geometry_warning ?? zoneTypeLabels[zone.zone_type]}</small></span></span><button type="button" aria-label={`Удалить ${zone.name}`} onClick={() => props.onRemoveZone(zone.zone_id)}>×</button></div>)}
         </div>
       </PanelSection>
 
-      <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить</button><button type="button" onClick={props.onLoad}>Восстановить</button></div>
+      <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить</button><button type="button" onClick={props.onLoad}>Восстановить</button><button type="button" onClick={props.onForgetSavedScenario}>Удалить локальное сохранение</button></div>
+      <p className="hint">Быстрый снимок настроек сохраняется в этом браузере. План, исходные файлы и историю сохраняйте в проекте.</p>
+      {props.projects}
     </aside>
   );
 }
@@ -309,12 +398,12 @@ function PanelSection({ title, badge, children }: { title: string; badge?: strin
   return <section className="panel-section"><div className="label-row"><span>{title}</span>{badge && <span className="check">{badge}</span>}</div>{children}</section>;
 }
 
-function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min?: number; max?: number; step?: number; onChange: (value: number) => void }) {
+function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min?: number; max?: number; step?: number | "any"; onChange: (value: number) => void }) {
   return <label className="field"><span>{label}</span><input type="number" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} /></label>;
 }
 
-function OptionalNumberField({ label, value, min, max, onChange }: { label: string; value: number | null; min?: number; max?: number; onChange: (value: number | null) => void }) {
-  return <label className="field"><span>{label}</span><input type="number" value={value ?? ""} min={min} max={max} step="any" placeholder="не задано" onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))} /></label>;
+function OptionalNumberField({ label, value, min, max, integer = false, onChange }: { label: string; value: number | null; min?: number; max?: number; integer?: boolean; onChange: (value: number | null) => void }) {
+  return <label className="field"><span>{label}</span><input type="number" value={value ?? ""} min={min} max={max} step={integer ? 1 : "any"} placeholder="не задано" onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))} /></label>;
 }
 
 function TextNumberField({ label, value, placeholder, integer = false, onChange }: { label: string; value: string; placeholder: string; integer?: boolean; onChange: (value: string) => void }) {

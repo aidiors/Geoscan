@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Literal
 from xml.sax.saxutils import escape
@@ -14,6 +14,8 @@ from geoplan.domain.fleet import AutopilotProfile
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import DronePlan, Mission, MissionStage
 from geoplan.errors import PlanningError
+from geoplan.flight.trajectory import mission_route_clock
+from geoplan.geodata.altitude import AutopilotAltitudePolicy
 from geoplan.geodata.models import (
     ExportRequest,
     GeoJsonFeature,
@@ -29,18 +31,20 @@ from geoplan.geodata.models import (
     QGroundControlPlan,
     QGroundControlSimpleItem,
 )
+from geoplan.navigation.routing import coordinate_distance_km
 from geoplan.safety.audit import ExportVerificationResult
 
-MavCommand = Literal[16, 21, 22, 178, 206]
-MavFrame = Literal[2, 3, 10]
+MavCommand = Literal[16, 21, 22, 178, 206, 2000]
+MavFrame = Literal[0, 2, 10]
 
 MAV_CMD_NAV_WAYPOINT: Literal[16] = 16
 MAV_CMD_NAV_LAND: Literal[21] = 21
 MAV_CMD_NAV_TAKEOFF: Literal[22] = 22
 MAV_CMD_DO_CHANGE_SPEED: Literal[178] = 178
 MAV_CMD_DO_SET_CAM_TRIGG_DIST: Literal[206] = 206
+MAV_CMD_IMAGE_START_CAPTURE: Literal[2000] = 2000
 MAV_FRAME_MISSION: Literal[2] = 2
-MAV_FRAME_GLOBAL_RELATIVE_ALT: Literal[3] = 3
+MAV_FRAME_GLOBAL: Literal[0] = 0
 MAV_FRAME_GLOBAL_TERRAIN_ALT: Literal[10] = 10
 
 FIRMWARE_TYPES: dict[AutopilotFirmware, Literal[0, 3, 12]] = {
@@ -78,7 +82,10 @@ class CanonicalMissionExportVerifier:
         return ExportVerificationResult(
             consistent=not affected,
             message=(
-                "GeoJSON, KML и форматы автопилотов соответствуют рассчитанным маршрутам."
+                "GIS-экспорт соответствует рассчитанным маршрутам. Для самолётного профиля "
+                "экспорт автопилоту недоступен до проверки команд взлёта и захода под прошивку."
+                if not affected and any(m.forward_flight_phases for m in missions)
+                else "GeoJSON, KML и форматы автопилотов соответствуют рассчитанным маршрутам."
                 if not affected
                 else "Хотя бы один экспортированный маршрут отличается от рассчитанного."
             ),
@@ -95,8 +102,14 @@ def _mission_exports_match(mission: Mission) -> bool:
     kml_matches = f"<coordinates>{kml_coordinates}</coordinates>" in _create_kml_mission_folder(
         mission
     )
+    if mission.forward_flight_phases is not None:
+        return geojson_matches and kml_matches
     autopilot_coordinates: list[list[float]] = []
-    commanded_altitude_m = _commanded_altitude_m(mission)
+    commanded_altitude_m = (
+        mission.altitude_m + mission.terrain_vertical_uncertainty_m
+        if mission.altitude_reference is AltitudeReference.AGL
+        else mission.altitude_m
+    )
     for command in _mission_commands(mission):
         if command.command not in {
             MAV_CMD_NAV_TAKEOFF,
@@ -108,28 +121,78 @@ def _mission_exports_match(mission: Mission) -> bool:
         longitude = command.params[5]
         if latitude is None or longitude is None:
             return False
-        expected_altitude_m = 0 if command.command == MAV_CMD_NAV_LAND else commanded_altitude_m
+        expected_altitude_m = (
+            (
+                0
+                if mission.altitude_reference is AltitudeReference.AGL
+                else mission.flat_ground_elevation_m
+            )
+            if command.command == MAV_CMD_NAV_LAND
+            else commanded_altitude_m
+        )
         if command.params[6] != expected_altitude_m:
             return False
         autopilot_coordinates.append([longitude, latitude])
         expected_frame = (
             MAV_FRAME_GLOBAL_TERRAIN_ALT
             if mission.altitude_reference is AltitudeReference.AGL
-            else MAV_FRAME_GLOBAL_RELATIVE_ALT
+            else MAV_FRAME_GLOBAL
         )
         if command.frame != expected_frame:
             return False
     expected_autopilot = [
         [coordinate.longitude, coordinate.latitude] for coordinate in mission.route
     ]
+    captures_match = True
+    if mission.photo_capture_route_indices is not None:
+        position = None
+        actual = []
+        for command in _mission_commands(mission):
+            if command.command in {16, 21, 22}:
+                position = (command.params[5], command.params[4])
+            if command.command == MAV_CMD_IMAGE_START_CAPTURE:
+                actual.append(position)
+                captures_match &= command.params[2:4] == [1, len(actual)]
+            if command.command == MAV_CMD_DO_SET_CAM_TRIGG_DIST:
+                captures_match = False
+        captures_match &= actual == [
+            (mission.route[i].longitude, mission.route[i].latitude)
+            for i in mission.photo_capture_route_indices
+        ]
     return (
-        geojson_matches
+        captures_match
+        and geojson_matches
         and kml_matches
+        and _qgc_altitudes_match(mission)
         and _deduplicate(autopilot_coordinates) == _deduplicate(expected_autopilot)
     )
 
 
+def _qgc_altitudes_match(mission: Mission) -> bool:
+    plan = _qgroundcontrol_plan([mission], AutopilotProfile()).mission
+    expected_mode = 4 if mission.altitude_reference is AltitudeReference.AGL else 2
+    expected_home = (
+        mission.vertical_profile[0].terrain_elevation_m
+        if mission.vertical_profile
+        else mission.flat_ground_elevation_m
+    )
+    return (
+        plan.global_plan_altitude_mode == expected_mode
+        and plan.planned_home_position[2] == expected_home
+        and all(
+            item.altitude_mode == expected_mode and item.altitude == item.params[6]
+            for item in plan.items
+            if item.command in {16, 21, 22}
+        )
+    )
+
+
 def _absolute_export_coordinates(mission: Mission) -> list[list[float]]:
+    if mission.route_altitudes_msl_m is not None:
+        return [
+            [p.longitude, p.latitude, altitude]
+            for p, altitude in zip(mission.route, mission.route_altitudes_msl_m, strict=True)
+        ]
     if mission.vertical_profile:
         return [
             [
@@ -174,7 +237,10 @@ def build_kml_export(request: ExportRequest) -> KmlExport:
 
 def build_qgroundcontrol_export(request: ExportRequest) -> QGroundControlExport:
     drone_plan = _drone_plan_for_request(request)
-    plan = _qgroundcontrol_plan(drone_plan.missions, drone_plan.autopilot_profile)
+    _require_executable_phases(drone_plan.missions)
+    missions = _execution_missions(request)
+    _require_executable_phases(missions)
+    plan = _qgroundcontrol_plan(missions, drone_plan.autopilot_profile)
     return QGroundControlExport(
         file_name=f"mission-{request.drone_id}.plan",
         content=plan.model_dump_json(by_alias=True),
@@ -182,7 +248,9 @@ def build_qgroundcontrol_export(request: ExportRequest) -> QGroundControlExport:
 
 
 def build_mission_planner_export(request: ExportRequest) -> MissionPlannerExport:
-    missions = _missions_for_drone(request)
+    _require_executable_phases(_missions_for_drone(request))
+    missions = _execution_missions(request)
+    _require_executable_phases(missions)
     content = "\n".join(["QGC WPL 110", *_mission_planner_lines(missions)])
     return MissionPlannerExport(
         file_name=f"mission-{request.drone_id}.waypoints",
@@ -190,8 +258,31 @@ def build_mission_planner_export(request: ExportRequest) -> MissionPlannerExport
     )
 
 
+def _require_executable_phases(missions: list[Mission]) -> None:
+    if any(m.forward_flight_phases is not None for m in missions):
+        raise PlanningError(
+            code=ErrorCode.AUTOPILOT_PHASE_EXPORT_UNSUPPORTED,
+            message="Самолётный профиль доступен для GIS-проверки. Команды взлёта и захода "
+            "нужно согласовать под конкретную прошивку; автоматический экспорт заблокирован.",
+        )
+
+
 def _missions_for_drone(request: ExportRequest) -> list[Mission]:
     return _drone_plan_for_request(request).missions
+
+
+def _execution_missions(request: ExportRequest) -> list[Mission]:
+    missions = _missions_for_drone(request)
+    if request.sortie_index is not None:
+        if request.sortie_index < len(missions):
+            return [missions[request.sortie_index]]
+    elif len(missions) == 1:
+        return missions
+    raise PlanningError(
+        ErrorCode.EXPORT_SORTIE_REQUIRED,
+        "Выберите существующий вылет по sortie_index или скачайте пакет заданий. "
+        "Несколько вылетов нельзя объединять в одну миссию автопилота.",
+    )
 
 
 def _drone_plan_for_request(request: ExportRequest) -> DronePlan:
@@ -223,14 +314,14 @@ def _qgroundcontrol_plan(
             cruise_speed=initial_mission.cruise_speed_kmh / 3.6,
             firmware_type=FIRMWARE_TYPES[autopilot_profile.firmware],
             global_plan_altitude_mode=(
-                4 if initial_mission.altitude_reference is AltitudeReference.AGL else 1
+                4 if initial_mission.altitude_reference is AltitudeReference.AGL else 2
             ),
             hover_speed=autopilot_profile.hover_speed_mps,
             items=[
                 QGroundControlSimpleItem(
                     type="SimpleItem",
                     altitude=_command_altitude(command),
-                    altitude_mode=(4 if command.frame == MAV_FRAME_GLOBAL_TERRAIN_ALT else 0),
+                    altitude_mode=AutopilotAltitudePolicy().qgc_altitude_mode(command.frame),
                     command=command.command,
                     do_jump_id=index + 1,
                     frame=command.frame,
@@ -241,7 +332,7 @@ def _qgroundcontrol_plan(
             planned_home_position=[
                 route[0].latitude,
                 route[0].longitude,
-                _planned_home_altitude_m(initial_mission),
+                AutopilotAltitudePolicy().home_elevation_msl_m(initial_mission),
             ],
             vehicle_type=VEHICLE_TYPES[autopilot_profile.airframe],
             version=2,
@@ -249,12 +340,6 @@ def _qgroundcontrol_plan(
         rally_points=QGroundControlEmptyCollection(points=[], version=2),
         version=1,
     )
-
-
-def _planned_home_altitude_m(mission: Mission) -> float:
-    if mission.vertical_profile:
-        return mission.vertical_profile[0].terrain_elevation_m
-    return mission.route[0].altitude_m or 0
 
 
 def _mission_planner_lines(missions: list[Mission]) -> list[str]:
@@ -279,14 +364,23 @@ def _mission_planner_lines(missions: list[Mission]) -> list[str]:
 
 def _autopilot_commands(missions: list[Mission]) -> list[AutopilotCommand]:
     commands: list[AutopilotCommand] = []
+    capture_sequence = 0
     for mission in missions:
-        commands.extend(_mission_commands(mission))
+        for command in _mission_commands(mission):
+            if command.command == MAV_CMD_IMAGE_START_CAPTURE:
+                capture_sequence += 1
+                command = replace(
+                    command,
+                    params=[*command.params[:3], capture_sequence, *command.params[4:]],
+                )
+            commands.append(command)
     return commands
 
 
 def _mission_commands(mission: Mission) -> list[AutopilotCommand]:
-    position_frame = _position_frame(mission)
-    commanded_altitude_m = _commanded_altitude_m(mission)
+    altitude_policy = AutopilotAltitudePolicy()
+    position_frame = altitude_policy.position_frame(mission)
+    commanded_altitude_m = altitude_policy.flight_altitude_m(mission)
     commands = [
         _position_command(
             MAV_CMD_NAV_TAKEOFF,
@@ -300,6 +394,23 @@ def _mission_commands(mission: Mission) -> list[AutopilotCommand]:
             params=[0, mission.cruise_speed_kmh / 3.6, -1, 0, 0, 0, 0],
         ),
     ]
+    clock = mission_route_clock(mission)
+    route_index = 0
+    capture_indices = set(mission.photo_capture_route_indices or [])
+    captured = set()
+
+    def capture_at(index: int) -> None:
+        if index in capture_indices and index not in captured:
+            captured.add(index)
+            commands.append(
+                AutopilotCommand(
+                    command=MAV_CMD_IMAGE_START_CAPTURE,
+                    frame=MAV_FRAME_MISSION,
+                    params=[0, 0, 1, len(captured), 0, 0, 0],
+                )
+            )
+
+    last_speed = None
     last_coordinate = mission.route[0]
     route_stages = [
         stage for stage in mission.stages if stage.stage_type is not MissionStageType.TAKEOFF
@@ -313,30 +424,78 @@ def _mission_commands(mission: Mission) -> list[AutopilotCommand]:
             position_frame,
         )
     else:
-        trigger_spacing_m = _camera_trigger_spacing_m(mission)
+        trigger_spacing_m = (
+            None
+            if mission.photo_capture_route_indices is not None
+            else _camera_trigger_spacing_m(mission)
+        )
         for stage in route_stages:
+            if stage.stage_type is MissionStageType.SURVEY:
+                capture_at(route_index)
             if stage.stage_type is MissionStageType.SURVEY and trigger_spacing_m is not None:
                 commands.append(_camera_trigger_command(trigger_spacing_m))
             coordinates = stage.coordinates
             if stage.stage_type is MissionStageType.LANDING:
                 coordinates = coordinates[:-1]
-            last_coordinate = _append_waypoint_commands(
-                commands,
-                coordinates,
-                commanded_altitude_m,
-                last_coordinate,
-                position_frame,
-            )
+            if clock.phase_timed:
+                for coordinate in coordinates:
+                    if coordinate == last_coordinate:
+                        continue
+                    duration = (
+                        clock.offsets_minutes[route_index + 1] - clock.offsets_minutes[route_index]
+                    )
+                    speed = (
+                        coordinate_distance_km(last_coordinate, coordinate) * 1000 / (duration * 60)
+                        if duration > 0
+                        else 0.0
+                    )
+                    if speed > 0 and (last_speed is None or abs(speed - last_speed) > 1e-7):
+                        commands.append(
+                            AutopilotCommand(
+                                command=MAV_CMD_DO_CHANGE_SPEED,
+                                frame=MAV_FRAME_MISSION,
+                                params=[1, speed, -1, 0, 0, 0, 0],
+                            )
+                        )
+                        last_speed = speed
+                    commands.append(
+                        _position_command(
+                            MAV_CMD_NAV_WAYPOINT, coordinate, commanded_altitude_m, position_frame
+                        )
+                    )
+                    last_coordinate = coordinate
+                    route_index += 1
+                    capture_at(route_index)
+            else:
+                last_coordinate = _append_waypoint_commands(
+                    commands, coordinates, commanded_altitude_m, last_coordinate, position_frame
+                )
             if stage.stage_type is MissionStageType.SURVEY and trigger_spacing_m is not None:
                 commands.append(_camera_trigger_command(0))
-    commands.append(_position_command(MAV_CMD_NAV_LAND, mission.route[-1], 0, position_frame))
+    if clock.phase_timed and last_coordinate != mission.route[-1]:
+        duration = clock.offsets_minutes[route_index + 1] - clock.offsets_minutes[route_index]
+        speed = (
+            coordinate_distance_km(last_coordinate, mission.route[-1]) * 1000 / (duration * 60)
+            if duration > 0
+            else 0.0
+        )
+        if speed > 0 and (last_speed is None or abs(speed - last_speed) > 1e-7):
+            commands.append(
+                AutopilotCommand(
+                    command=MAV_CMD_DO_CHANGE_SPEED,
+                    frame=MAV_FRAME_MISSION,
+                    params=[1, speed, -1, 0, 0, 0, 0],
+                )
+            )
+    commands.append(
+        _position_command(
+            MAV_CMD_NAV_LAND,
+            mission.route[-1],
+            altitude_policy.landing_altitude_m(mission),
+            position_frame,
+        )
+    )
     return commands
-
-
-def _commanded_altitude_m(mission: Mission) -> float:
-    if mission.altitude_reference is AltitudeReference.AGL:
-        return mission.altitude_m + mission.terrain_vertical_uncertainty_m
-    return mission.altitude_m
 
 
 def _append_waypoint_commands(
@@ -344,7 +503,7 @@ def _append_waypoint_commands(
     coordinates: list[Coordinate],
     altitude_m: float,
     last_coordinate: Coordinate,
-    frame: Literal[3, 10],
+    frame: Literal[0, 10],
 ) -> Coordinate:
     current = last_coordinate
     for coordinate in coordinates:
@@ -359,19 +518,13 @@ def _position_command(
     command: Literal[16, 21, 22],
     coordinate: Coordinate,
     altitude_m: float,
-    frame: Literal[3, 10],
+    frame: Literal[0, 10],
 ) -> AutopilotCommand:
     return AutopilotCommand(
         command=command,
         frame=frame,
         params=[0, 0, 0, None, coordinate.latitude, coordinate.longitude, altitude_m],
     )
-
-
-def _position_frame(mission: Mission) -> Literal[3, 10]:
-    if mission.altitude_reference is AltitudeReference.AGL:
-        return MAV_FRAME_GLOBAL_TERRAIN_ALT
-    return MAV_FRAME_GLOBAL_RELATIVE_ALT
 
 
 def _camera_trigger_command(distance_m: float) -> AutopilotCommand:
@@ -383,13 +536,9 @@ def _camera_trigger_command(distance_m: float) -> AutopilotCommand:
 
 
 def _camera_trigger_spacing_m(mission: Mission) -> float | None:
-    if (
-        mission.survey_distance_km is None
-        or mission.image_count is None
-        or mission.image_count <= 1
-    ):
-        return None
-    return mission.survey_distance_km * 1_000 / (mission.image_count - 1)
+    from geoplan.flight.camera import DistanceCameraPolicy
+
+    return DistanceCameraPolicy().spacing_m(mission)
 
 
 def _command_altitude(command: AutopilotCommand) -> float:
@@ -403,12 +552,17 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
     return GeoJsonFeature(
         type="Feature",
         properties=GeoJsonProperties(
+            coverage_area_ids=mission.coverage_area_ids,
             drone_id=mission.drone_id,
             segment_id=mission.segment_id,
             duration_minutes=mission.duration_minutes,
             distance_km=mission.distance_km,
             altitude_m=mission.altitude_m,
+            route_altitudes_msl_m=mission.route_altitudes_msl_m,
+            forward_flight_phases=mission.forward_flight_phases,
             altitude_reference=mission.altitude_reference,
+            flat_ground_elevation_m=mission.flat_ground_elevation_m,
+            maximum_agl_m=mission.height_agl.maximum_m,
             minimum_agl_m=mission.minimum_agl_m,
             minimum_terrain_elevation_m=mission.minimum_terrain_elevation_m,
             maximum_terrain_elevation_m=mission.maximum_terrain_elevation_m,
@@ -436,6 +590,7 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
             start_time=mission.start_time,
             end_time=mission.end_time,
             image_count=mission.image_count,
+            photo_capture_route_indices=mission.photo_capture_route_indices,
             computed_gsd_cm=mission.computed_gsd_cm,
             strip_spacing_m=mission.strip_spacing_m,
             stages=mission.stages,
@@ -448,8 +603,12 @@ def _create_geojson_feature(mission: Mission) -> GeoJsonFeature:
 
 
 def _create_kml_mission_folder(mission: Mission) -> str:
-    stage_placemarks = "".join(
-        _create_kml_stage_placemark(stage, mission.altitude_m) for stage in mission.stages
+    stage_placemarks = (
+        ""
+        if mission.forward_flight_phases
+        else "".join(
+            _create_kml_stage_placemark(stage, mission.altitude_m) for stage in mission.stages
+        )
     )
     return (
         "<Folder>"
@@ -499,9 +658,15 @@ def _create_kml_route_placemark(mission: Mission) -> str:
         f'<Data name="start_time"><value>{_optional_isoformat(mission.start_time)}</value></Data>'
         f'<Data name="end_time"><value>{_optional_isoformat(mission.end_time)}</value></Data>'
         f'<Data name="image_count"><value>{mission.image_count or 0}</value></Data>'
+        '<Data name="photo_capture_route_indices"><value>'
+        f"{mission.photo_capture_route_indices or []}</value></Data>"
         f'<Data name="computed_gsd_cm"><value>{mission.computed_gsd_cm or 0}</value></Data>'
         f'<Data name="strip_spacing_m"><value>{mission.strip_spacing_m or 0}</value></Data>'
         f'<Data name="altitude_reference"><value>{mission.altitude_reference.value}</value></Data>'
+        '<Data name="flat_ground_elevation_m">'
+        f"<value>{mission.flat_ground_elevation_m}</value></Data>"
+        '<Data name="maximum_agl_m">'
+        f"<value>{mission.height_agl.maximum_m}</value></Data>"
         f'<Data name="minimum_agl_m"><value>{mission.minimum_agl_m or 0}</value></Data>'
         '<Data name="vertical_energy_equivalent_minutes">'
         f"<value>{mission.vertical_energy_equivalent_minutes}</value></Data>"

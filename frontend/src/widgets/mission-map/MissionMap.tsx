@@ -1,4 +1,4 @@
-import { Crosshair, MapPinPlus, MapPinned, Minus, Plus, Trash2 } from "lucide-react";
+import { Crosshair, Map, MapPinPlus, MapPinned, Minus, Mountain, Plus, Trash2 } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -11,11 +11,14 @@ import {
   zoomAtPoint,
 } from "@/shared/geo/map";
 import type { MapSize } from "@/shared/geo/map";
+import type { Basemap } from "@/shared/geo/basemaps";
 import type { Coordinate, MapView, Point } from "@/shared/geo/types";
 import type { DroneProfile, FlightSiteState, SiteRole } from "@/features/planner/model/types";
 import type { ImportedZone, PlanResponse, TurnRadiusAnalysisResult } from "@/shared/api/types";
+import type { SurveyQualityReport } from "@/shared/api/types";
 
 interface MissionMapProps {
+  quality?: SurveyQualityReport | null;
   zones: ImportedZone[];
   sites: FlightSiteState[];
   drones: DroneProfile[];
@@ -45,6 +48,7 @@ const siteLabels: Record<SiteRole, string> = {
 };
 
 export function MissionMap({
+  quality,
   zones,
   sites,
   drones,
@@ -71,7 +75,19 @@ export function MissionMap({
   );
   const [view, setView] = useState<MapView>(() => fitCoordinates(allCoordinates));
   const [mapSize, setMapSize] = useState<MapSize>(DEFAULT_MAP_SIZE);
-  const tiles = useMemo(() => visibleTiles(view, mapSize), [mapSize, view]);
+  const [basemap, setBasemap] = useState<Basemap>(() => {
+    try { return window.localStorage.getItem("geoplan-basemap") === "terrain" ? "terrain" : "streets"; }
+    catch { return "streets"; }
+  });
+  const [failedBasemap, setFailedBasemap] = useState<Basemap | null>(null);
+  const tiles = useMemo(() => visibleTiles(view, mapSize, basemap), [mapSize, view, basemap]);
+
+  function changeBasemap(next: Basemap): void {
+    setBasemap(next);
+    setFailedBasemap(null);
+    try { window.localStorage.setItem("geoplan-basemap", next); }
+    catch { /* The layer remains usable when browser storage is unavailable. */ }
+  }
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -154,10 +170,25 @@ export function MissionMap({
         >
           <rect width={mapSize.width} height={mapSize.height} fill="#d7e2d9" />
           <g className="map-tiles">
-            {tiles.map((tile) => <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={256} height={256} />)}
+            {tiles.map((tile) => <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.size} height={tile.size} onError={() => setFailedBasemap(basemap)} />)}
           </g>
           <g className="zone-layer">
             {zones.slice(0, 1_600).map((zone) => <ZoneShape key={zone.zone_id} zone={zone} view={view} mapSize={mapSize} />)}
+          </g>
+          <g className="quality-layer" pointerEvents="none">
+            {quality?.features.flatMap((feature, index) => {
+              const polygons = feature.geometry.type === "Polygon"
+                ? [feature.geometry.coordinates as number[][][]]
+                : feature.geometry.coordinates as number[][][][];
+              const color = feature.properties.kind === "footprint" ? "#0d9488" : "#dc2626";
+              return polygons.map((polygon, part) => <path key={`quality-${index}-${part}`} fill={color} fillOpacity={feature.properties.kind === "footprint" ? 0.08 : 0.4} stroke={color} strokeWidth={0.7} fillRule="evenodd"
+                d={polygon.map((ring) => ring.map(([longitude, latitude], i) => {
+                  const point = coordinateToMapPoint({ longitude, latitude }, view, mapSize);
+                  return `${i === 0 ? "M" : "L"}${point.x},${point.y}`;
+                }).join(" ") + " Z").join(" ")}>
+                <title>{feature.properties.kind === "footprint" ? "Плановый отпечаток кадра" : feature.properties.kind === "coverage_gap" ? "Пробел покрытия кадрами" : feature.properties.kind.includes("overlap") ? "Недостаточное перекрытие" : "Нарушение GSD"}</title>
+              </path>);
+            })}
           </g>
           <g className="route-layer" fill="none" strokeLinecap="round" strokeLinejoin="round">
             {plan?.drone_plans.flatMap((dronePlan) => {
@@ -226,14 +257,19 @@ export function MissionMap({
           </g>
         </svg>
         <div className="map-controls">
+          <div className="basemap-switch" role="group" aria-label="Подложка карты">
+            <button type="button" aria-pressed={basemap === "streets"} onClick={() => changeBasemap("streets")}><Map size={15} /> Карта</button>
+            <button type="button" aria-pressed={basemap === "terrain"} onClick={() => changeBasemap("terrain")} title="Топографическая карта: рельеф, горизонтали и отметки высот"><Mountain size={15} /> Рельеф</button>
+          </div>
           <button type="button" aria-label="Приблизить" onClick={() => setView((current) => zoomAtPoint(current, 1, { x: mapSize.width / 2, y: mapSize.height / 2 }, mapSize))}><Plus size={17} /></button>
           <button type="button" aria-label="Отдалить" onClick={() => setView((current) => zoomAtPoint(current, -1, { x: mapSize.width / 2, y: mapSize.height / 2 }, mapSize))}><Minus size={17} /></button>
-          <button type="button" onClick={() => setView(fitCoordinates(allCoordinates, mapSize))}><Crosshair size={15} /> Вписать</button>
+          <button type="button" title="Подобрать масштаб, чтобы показать все зоны, площадки и маршруты" onClick={() => setView(fitCoordinates(allCoordinates, mapSize))}><Crosshair size={15} /> Показать всё</button>
           <button type="button" onClick={onClearZones}><Trash2 size={15} /> Очистить зоны</button>
         </div>
+        {failedBasemap === basemap && <div className="map-layer-notice" role="status">Часть карты не загрузилась. Проверьте подключение или выберите другую подложку.</div>}
         {pendingSiteRole && <div className="placement-hint"><MapPinPlus size={17} /> Укажите точку: {siteLabels[pendingSiteRole]}</div>}
         <div className={`feasibility-card ${plan?.feasibility?.status === "infeasible" ? "danger" : ""}`}><b>Проверка выполнимости</b><span>{feasibility}</span></div>
-        <div className="map-attribution">Карта © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a></div>
+        <div className="map-attribution">Данные © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>{basemap === "terrain" && <> · SRTM · <a href="https://opentopomap.org/about" target="_blank" rel="noreferrer">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA</a>)</>}</div>
       </div>
     </section>
   );

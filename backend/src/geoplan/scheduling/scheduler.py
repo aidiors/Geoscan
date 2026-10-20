@@ -6,11 +6,15 @@ from itertools import pairwise
 from math import ceil, hypot
 from typing import Protocol
 
+from geoplan.budget import check_planning_budget
 from geoplan.domain.enums import ScheduleAlgorithm, ScheduleConflictType
 from geoplan.domain.geo import Coordinate
 from geoplan.domain.mission import Mission
+from geoplan.flight.trajectory import mission_route_clock
 from geoplan.navigation.geometry import LocalProjection, projection_for_coordinates
 from geoplan.scheduling.models import (
+    DispatchPriority,
+    LayerPreference,
     MissionScheduleRequest,
     MissionScheduleResult,
     ResolvedScheduleConflict,
@@ -19,7 +23,6 @@ from geoplan.scheduling.models import (
 )
 from geoplan.scheduling.vertical import (
     apply_vertical_layer,
-    horizontal_duration_minutes,
     vertical_interval_gap_m,
 )
 
@@ -85,15 +88,16 @@ class ConflictAwareMissionScheduler:
     maximum_delay_iterations: int = 100_000
 
     def schedule(self, request: MissionScheduleRequest) -> MissionScheduleResult:
-        queues = _mission_queues(request.missions)
+        queues = _mission_queues(request.missions, request)
         ready_at = {drone_id: 0.0 for drone_id in queues}
         scheduled: list[ScheduledEntry] = []
         resolved_conflicts: list[ResolvedScheduleConflict] = []
         delay_step_minutes = request.delay_step_seconds / 60
         while any(queues.values()):
+            check_planning_budget()
             drone_id = min(
                 (candidate for candidate, queue in queues.items() if queue),
-                key=lambda candidate: (ready_at[candidate], candidate),
+                key=lambda candidate: _dispatch_key(candidate, queues, ready_at, request),
             )
             original_mission = queues[drone_id].pop(0)
             choice, base_conflicts = _best_schedule_choice(
@@ -177,11 +181,37 @@ class ConflictAwareMissionScheduler:
         )
 
 
-def _mission_queues(missions: list[Mission]) -> dict[str, list[Mission]]:
+def _mission_queues(
+    missions: list[Mission], request: MissionScheduleRequest
+) -> dict[str, list[Mission]]:
     queues: dict[str, list[Mission]] = {}
     for mission in missions:
         queues.setdefault(mission.drone_id, []).append(mission)
+    for queue in queues.values():
+        if request.dispatch_priority is DispatchPriority.LONGEST_REMAINING:
+            queue.sort(key=lambda mission: -mission.duration_minutes)
+        elif request.dispatch_priority is DispatchPriority.TIGHTEST_WINDOW:
+            queue.sort(key=lambda mission: _window_deadline(mission, request))
     return queues
+
+
+def _window_deadline(mission: Mission, request: MissionScheduleRequest) -> float:
+    windows = request.time_windows_by_segment_id.get(mission.segment_id)
+    return min(window.end_offset_minutes for window in windows) if windows else float("inf")
+
+
+def _dispatch_key(
+    drone_id: str,
+    queues: dict[str, list[Mission]],
+    ready_at: dict[str, float],
+    request: MissionScheduleRequest,
+) -> tuple[float, float, str]:
+    queue = queues[drone_id]
+    if request.dispatch_priority is DispatchPriority.LONGEST_REMAINING:
+        return -sum(mission.duration_minutes for mission in queue), ready_at[drone_id], drone_id
+    if request.dispatch_priority is DispatchPriority.TIGHTEST_WINDOW:
+        return _window_deadline(queue[0], request), ready_at[drone_id], drone_id
+    return ready_at[drone_id], 0.0, drone_id
 
 
 def _ceil_output_minute(value: float) -> float:
@@ -207,26 +237,37 @@ def _best_schedule_choice(
         )
     ]
     choices: list[ScheduleChoice] = []
+    window_error: ScheduleWindowUnavailableError | None = None
     for option in available:
         adjusted = apply_vertical_layer(mission, option)
-        start, conflicts, delay = _safe_start_time(
-            adjusted,
-            earliest_start_minutes,
-            scheduled,
-            request.minimum_separation_m,
-            request.minimum_vertical_separation_m,
-            request.position_uncertainty_m,
-            request.start_time_uncertainty_seconds / 60,
-            request.speed_uncertainty_percent / 100,
-            request.flight_site_occupancy_seconds / 60,
-            delay_step_minutes,
-            maximum_iterations,
-            request.time_windows_by_segment_id.get(mission.segment_id),
-        )
+        try:
+            start, conflicts, delay = _safe_start_time(
+                adjusted,
+                earliest_start_minutes,
+                scheduled,
+                request.minimum_separation_m,
+                request.minimum_vertical_separation_m,
+                request.position_uncertainty_m,
+                request.start_time_uncertainty_seconds / 60,
+                request.speed_uncertainty_percent / 100,
+                request.flight_site_occupancy_seconds / 60,
+                delay_step_minutes,
+                maximum_iterations,
+                request.time_windows_by_segment_id.get(mission.segment_id),
+            )
+        except ScheduleWindowUnavailableError as error:
+            window_error = error
+            continue
         choices.append(ScheduleChoice(adjusted, option, start, conflicts, delay))
+    if not choices:
+        assert window_error is not None
+        raise window_error
     best = min(
         choices,
         key=lambda choice: (
+            choice.mission.duration_minutes
+            if request.layer_preference is LayerPreference.MINIMUM_FLIGHT
+            else 0.0,
             choice.start_minutes + choice.mission.duration_minutes,
             choice.start_minutes,
             choice.option.offset_m,
@@ -258,6 +299,7 @@ def _safe_start_time(
     baseline_start_minutes: float | None = None
     conflicting_missions: dict[tuple[str, str, ScheduleConflictType], ConflictDetection] = {}
     for _ in range(maximum_iterations):
+        check_planning_budget()
         allowed_start = _next_allowed_start(
             mission,
             start_minutes,
@@ -678,7 +720,7 @@ def _timed_legs(
     projection: LocalProjection,
 ) -> list[TimedLeg]:
     horizontal_start = start_minutes + mission.vertical_climb_duration_minutes
-    horizontal_duration = horizontal_duration_minutes(mission)
+    offsets = mission_route_clock(mission).offsets_minutes
     legs: list[TimedLeg] = []
     if mission.vertical_climb_duration_minutes > 0:
         departure = projection.project(mission.route[0])
@@ -690,7 +732,15 @@ def _timed_legs(
                 end_xy=departure,
             )
         )
-    legs.extend(_route_legs(mission.route, horizontal_start, horizontal_duration, projection))
+    legs.extend(
+        TimedLeg(
+            horizontal_start + offsets[i],
+            horizontal_start + offsets[i + 1],
+            projection.project(a),
+            projection.project(b),
+        )
+        for i, (a, b) in enumerate(pairwise(mission.route))
+    )
     if mission.vertical_descent_duration_minutes > 0:
         landing = projection.project(mission.route[-1])
         legs.append(

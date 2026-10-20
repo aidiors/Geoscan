@@ -42,9 +42,11 @@ class SafetyAuditStatus(StrEnum):
 
 
 class SafetyCheckCode(StrEnum):
+    FLEET_RESOURCES = "fleet_resources"
     AIRSPACE_COMPLIANCE = "airspace_compliance"
     ALTERNATE_RESERVE = "alternate_reserve"
     BATTERY_RESERVE = "battery_reserve"
+    CAMERA_TIMING = "camera_timing"
     COVERAGE_COMPLETENESS = "coverage_completeness"
     DRONE_SEPARATION = "drone_separation"
     EXPORT_CONSISTENCY = "export_consistency"
@@ -52,11 +54,20 @@ class SafetyCheckCode(StrEnum):
     NO_FLY_CLEARANCE = "no_fly_clearance"
     OBSTACLE_CLEARANCE = "obstacle_clearance"
     SCHEDULE_INTEGRITY = "schedule_integrity"
+    SURVEY_RESOLUTION = "survey_resolution"
     VERTICAL_PROFILE = "vertical_profile"
     VERTICAL_SEPARATION = "vertical_separation"
 
 
+class AssignmentStrategy(StrEnum):
+    AUTOMATIC = "automatic"
+    HYBRID = "hybrid"
+    CP_SAT_PORTFOLIO = "cp_sat_portfolio"
+
+
 class AssignmentAlgorithm(StrEnum):
+    CP_SAT = "cp_sat"
+    PRODUCTIVE_ROUTE_POOL = "productive_route_pool"
     EXACT_BRANCH_AND_BOUND = "exact_branch_and_bound"
     FAST_GREEDY = "fast_greedy"
     MULTISTART_LOCAL_SEARCH = "multistart_local_search"
@@ -75,8 +86,10 @@ class ScheduleConflictType(StrEnum):
 
 
 class CoverageAlgorithm(StrEnum):
+    AUTOMATIC_PORTFOLIO = "automatic_portfolio"
     BOUSTROPHEDON_SWEEP = "boustrophedon_sweep"
     ADAPTIVE_DECOMPOSED_SWEEP = "adaptive_decomposed_sweep"
+    FREEFORM_PATTERN_POOL = "freeform_pattern_pool"
 
 
 class CoverageAngleCost(StrEnum):
@@ -109,6 +122,7 @@ class SweepAngleAlgorithm(StrEnum):
     ADAPTIVE_TURN_AWARE = "adaptive_turn_aware"
     PRODUCTION_ADAPTIVE = "production_adaptive"
     GEOMETRY_AWARE = "geometry_aware"
+    BOUNDED_PORTFOLIO = "bounded_portfolio"
 
 
 class RouteAlgorithm(StrEnum):
@@ -116,6 +130,8 @@ class RouteAlgorithm(StrEnum):
 
 
 class OptimizationScope(StrEnum):
+    FIXED_TRACK_ROUTE_POOL = "fixed_track_route_pool"
+    FREEFORM_COVERAGE_ROUTE_POOL = "freeform_coverage_route_pool"
     GENERATED_ROUTE_ASSIGNMENT = "generated_route_assignment"
 
 
@@ -168,6 +184,16 @@ class AltitudeReference(StrEnum):
 
 
 class ErrorCode(StrEnum):
+    PROJECT_CONFLICT = "project_conflict"
+    PROJECT_NOT_FOUND = "project_not_found"
+    PROJECT_INVALID = "project_invalid"
+    PROJECT_STORAGE_UNAVAILABLE = "project_storage_unavailable"
+    EXPORT_RELEASE_REQUIRED = "export_release_required"
+    EXPORT_SORTIE_REQUIRED = "export_sortie_required"
+    AUTOPILOT_PHASE_EXPORT_UNSUPPORTED = "autopilot_phase_export_unsupported"
+    PLANNING_CANCELLED = "planning_cancelled"
+    PLANNING_BUSY = "planning_busy"
+    PLANNING_FAILED = "planning_failed"
     ALTERNATE_LANDING_UNREACHABLE = "alternate_landing_unreachable"
     AIRSPACE_WINDOW_UNAVAILABLE = "airspace_window_unavailable"
     COVERAGE_GENERATION_FAILED = "coverage_generation_failed"
@@ -176,6 +202,7 @@ class ErrorCode(StrEnum):
     FLIGHT_ENVELOPE_EXCEEDED = "flight_envelope_exceeded"
     INVALID_IMPORT = "invalid_import"
     INVALID_REQUEST = "invalid_request"
+    PLANNING_TIME_LIMIT = "planning_time_limit"
     NO_CAPABLE_DRONE = "no_capable_drone"
     NO_ELIGIBLE_FLIGHT_SITE = "no_eligible_flight_site"
     NO_EXPORTABLE_MISSIONS = "no_exportable_missions"
