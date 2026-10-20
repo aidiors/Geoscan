@@ -1,3 +1,6 @@
+import type { SitePatch, ZoneLayerPatch } from "./objects";
+import type { DraftResult } from "./draft";
+import { assignedDroneIds } from "./siteAssignments";
 import { TerrainRepository } from "@/features/terrain/api/TerrainRepository";
 import type { TerrainAsset } from "@/features/terrain/model/types";
 import { cloneFleet, fleetCatalog } from "./fleetCatalog";
@@ -8,7 +11,7 @@ import { importGeodata } from "@/features/geodata/api/importGeodata";
 import { mergeZones } from "@/features/geodata/model/mergeZones";
 import { defaultDemoCaseForScenario, demoCaseById, demoCases } from "@/features/demos/data/demoCases";
 import { cloneSites, scenarios } from "@/features/demos/data/scenarios";
-import { activeNoFlyZones, activeWorkAreas, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
+import { activeNoFlyZones, buildPlanRequest } from "@/features/planner/api/buildPlanRequest";
 import { radiusSamples } from "@/features/planner/model/radii";
 import type { Coordinate } from "@/shared/geo/types";
 import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings, WorkAreaSource } from "@/features/planner/model/types";
@@ -65,8 +68,8 @@ export function usePlanner() {
 
   const scenario = scenarioOverride?.id === scenarioId ? scenarioOverride : scenarios.find((candidate) => candidate.id === scenarioId) ?? initialScenario;
   const mapZones = useMemo(() => {
-    const supplemental = importedZones.filter((zone) => zone.zone_type !== "work_area" && zone.zone_type !== "no_fly_zone");
-    return [...activeWorkAreas(importedZones, scenario, workAreaSource), ...activeNoFlyZones(importedZones, scenario, workAreaSource), ...supplemental];
+    const custom = workAreaSource === "imported" || importedZones.some((zone) => zone.zone_type === "work_area");
+    return custom ? importedZones : [...scenario.workAreas, ...activeNoFlyZones(importedZones, scenario, workAreaSource), ...importedZones.filter((zone) => zone.zone_type !== "no_fly_zone")];
   }, [importedZones, scenario, workAreaSource]);
   const fitKey = `${scenarioId}:${importedZones.map((zone) => zone.zone_id).join(",")}:${revision}`;
 
@@ -222,18 +225,23 @@ export function usePlanner() {
     const remaining = drones.filter((drone) => drone.id !== selectedDroneId);
     setDrones(remaining);
     setSelectedDroneId(remaining[0].id);
-    setSites((current) => current.map((flightSite) => flightSite.assignedDroneId === selectedDroneId ? { ...flightSite, assignedDroneId: "" } : flightSite));
+    setSites((current) => current.flatMap((site) => {
+      const ids = assignedDroneIds(site);
+      if (!ids.includes(selectedDroneId)) return [site];
+      const remainingIds = ids.filter((id) => id !== selectedDroneId);
+      return remainingIds.length ? [{ ...site, assignedDroneId: "", assignedDroneIds: remainingIds }] : [];
+    }));
     invalidate("БВС удалён из парка");
   }
 
-  function handleAddSite(coordinate: Coordinate): void {
+  function handleAddSite(coordinate: Coordinate, name = ""): void {
     if (pendingSiteRole === null) return;
     const role = pendingSiteRole;
     const ordinal = sites.filter((flightSite) => flightSite.role === role).length + 1;
     const roleName = role === "takeoff" ? "Взлёт" : role === "landing" ? "Посадка" : "Резерв";
     setSites((current) => [...current, {
       site_id: `site-${role}-${Date.now()}`,
-      name: `${roleName} ${ordinal}`,
+      name: name.trim().slice(0, 128) || `${roleName} ${ordinal}`,
       role,
       coordinate,
       assignedDroneId: selectedDroneId,
@@ -346,7 +354,9 @@ export function usePlanner() {
     try {
       request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource, terrain);
     } catch (error: unknown) {
-      setStatus(errorMessage(error));
+      const message = errorMessage(error);
+      setStatus(message);
+      setPlanningIssue(message);
       return;
     }
     await calculatePlan(request, selectedDroneId);
@@ -455,47 +465,43 @@ export function usePlanner() {
     };
   }
 
-  function saveScenario(): void {
+  function saveScenario(): DraftResult {
     const snapshot = scenarioSnapshot();
     try {
       window.localStorage.setItem("geoplan-scenario", JSON.stringify(snapshot));
       setStatus("Сценарий сохранён");
+      return { success: true, message: "Черновик сохранён в этом браузере." };
     } catch (error: unknown) {
-      setStatus(error instanceof DOMException && error.name === "QuotaExceededError"
+      const message = error instanceof DOMException && error.name === "QuotaExceededError"
         ? "Недостаточно места в браузере для полного сценария. Предыдущее сохранение не изменено."
-        : errorMessage(error));
+        : errorMessage(error);
+      setStatus(message);
+      return { success: false, message };
     }
   }
 
-  function forgetSavedScenario(): void {
+  function loadScenario(): DraftResult {
     try {
-      window.localStorage.removeItem("geoplan-scenario");
-      setStatus("Локальное сохранение сценария удалено");
-    } catch (error: unknown) {
-      setStatus(errorMessage(error));
+      const serialized = window.localStorage.getItem("geoplan-scenario");
+      if (serialized === null) {
+        const message = "Сохранённый сценарий не найден";
+        setStatus(message);
+        return { success: false, message };
+      }
+      const snapshot = parseSavedScenario(JSON.parse(serialized));
+      if (!applyScenarioSnapshot(snapshot)) return { success: false, message: "Сохранённый сценарий имеет неподдерживаемый формат" };
+      return { success: true, message: "Черновик открыт. Настройки восстановлены; требуется новый расчёт." };
+    } catch {
+      const message = "Сохранённый сценарий повреждён или недоступен. Текущие настройки сохранены.";
+      setStatus(message);
+      return { success: false, message };
     }
   }
 
-  function loadScenario(): void {
-    const serialized = window.localStorage.getItem("geoplan-scenario");
-    if (serialized === null) {
-      setStatus("Сохранённый сценарий не найден");
-      return;
-    }
-    let snapshot: SavedScenario;
-    try {
-      snapshot = parseSavedScenario(JSON.parse(serialized));
-    } catch (error: unknown) {
-      setStatus(error instanceof Error ? "Сохранённый сценарий повреждён" : "Не удалось восстановить сценарий");
-      return;
-    }
-    applyScenarioSnapshot(snapshot);
-  }
-
-  function applyScenarioSnapshot(snapshot: SavedScenario): void {
+  function applyScenarioSnapshot(snapshot: SavedScenario): boolean {
     if ((!snapshot.baseScenario && !scenarios.some((candidate) => candidate.id === snapshot.scenarioId)) || snapshot.drones.length === 0) {
       setStatus("Сохранённый сценарий имеет неподдерживаемый формат");
-      return;
+      return false;
     }
     terrainImportVersion.current += 1;
     setTerrainImporting(false);
@@ -538,6 +544,7 @@ export function usePlanner() {
     invalidate(snapshot.workAreaSource === undefined && !snapshot.importedZones.some((zone) => zone.zone_type === "work_area")
       ? "Старое сохранение не содержит импортированных рабочих областей. Используется выбранный демосценарий; при необходимости импортируйте исходный файл повторно."
       : "Сценарий восстановлен — требуется новый расчёт");
+    return true;
   }
 
   function captureProject(): ProjectDocument {
@@ -616,6 +623,43 @@ export function usePlanner() {
     handleCloneDrone,
     handleRemoveDrone,
     handleAddSite,
+    handleUpdateSite: (id: string, patch: SitePatch) => {
+      setSites((current) => current.map((site) => site.site_id === id ? { ...site, ...patch } : site));
+      invalidate("Параметры площадки изменены — требуется новый расчёт");
+    },
+    handleSelectAllWorkAreas: (enabled: boolean) => {
+      setImportedZones(mapZones.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone));
+      setWorkAreaSource("imported");
+      invalidate("Выбор рабочих областей изменён");
+    },
+    handleDrawZone: (zone: ImportedZone) => {
+      setImportedZones([...mapZones, zone]);
+      setWorkAreaSource("imported");
+      invalidate("Контур добавлен. Проверьте геометрию и пересчитайте план");
+    },
+    handleUpdateLayer: (id: string, patch: ZoneLayerPatch) => {
+      const update = (zone: ImportedZone) => zone.zone_id === id ? { ...zone, ...patch } : zone;
+      if (workAreaSource === "scenario" && !importedZones.some((zone) => zone.zone_type === "work_area")) {
+        setScenarioOverride({ ...scenario, workAreas: scenario.workAreas.map(update), noFlyZones: scenario.noFlyZones.map(update) });
+      }
+      setImportedZones((current) => current.map(update));
+      if (patch.name !== undefined) invalidate("Название зоны изменено — требуется новый расчёт");
+    },
+    handleRemoveZone: (id: string) => {
+      setImportedZones(mapZones.filter((zone) => zone.zone_id !== id || zone.locked));
+      setWorkAreaSource("imported");
+      invalidate("Незащищённая зона удалена");
+    },
+    handleClearZones: () => {
+      setImportedZones(mapZones.filter((zone) => zone.locked));
+      setWorkAreaSource("imported");
+      invalidate("Незащищённые зоны удалены");
+    },
+    handleSelectZone: (id: string, enabled: boolean) => {
+      setImportedZones(mapZones.map((zone) => zone.zone_id === id && zone.zone_type === "work_area" ? { ...zone, enabled } : zone));
+      setWorkAreaSource("imported");
+      invalidate("Выбор рабочих областей изменён");
+    },
     handleImport,
     handleCalculate,
     handleCancelPlanning: () => planningController.current?.abort(),
@@ -624,7 +668,6 @@ export function usePlanner() {
     handleExport,
     saveScenario,
     loadScenario,
-    forgetSavedScenario,
     captureProject,
     restoreProject,
     archivedPlan,

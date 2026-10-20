@@ -9,12 +9,14 @@ test("loads a DEM, plans AGL, displays the profile and restores the exact raster
   }] });
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name: "field.geojson", mimeType: "application/geo+json", buffer: Buffer.from(field) });
   await page.getByRole("button", { name: "Импортировать зону" }).click();
-  await expect(page.getByText("Рабочие области взяты из импорта", { exact: false })).toBeVisible();
+  await expect(page.getByText("Используется собственная геометрия задания", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   for (const name of ["Геоскан 201", "Геоскан 801"]) {
     await page.locator(".fleet-row").filter({ hasText: name }).click();
     await page.getByRole("checkbox", { name: "Использовать в расчёте", exact: true }).uncheck();
   }
   await page.locator(".fleet-row").filter({ hasText: "Геоскан Gemini" }).click();
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
   await page.getByLabel("Режим высоты", { exact: true }).selectOption("agl");
   await page.getByLabel("Высота над рельефом AGL, м", { exact: true }).fill("100");
   await page.getByLabel("Погрешность DEM ±, м", { exact: true }).fill("3");

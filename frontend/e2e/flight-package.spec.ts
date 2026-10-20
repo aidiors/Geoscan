@@ -10,11 +10,13 @@ test("downloads separate sortie files and a readable dispatch sheet", async ({ p
   }] };
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name: "dispatch.geojson", mimeType: "application/geo+json", buffer: Buffer.from(JSON.stringify(field)) });
   await page.getByRole("button", { name: "Импортировать зону" }).click();
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   for (const name of ["Геоскан 201", "Геоскан 801"]) {
     await page.locator(".fleet-row").filter({ hasText: name }).click();
     await page.getByLabel("Использовать в расчёте", { exact: true }).uncheck();
   }
-  await page.getByLabel("Макс. маршрут, км", { exact: true }).first().fill("1");
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
+  await page.locator(".panel-section").filter({ hasText: "Параметры съёмки" }).getByLabel("Макс. маршрут, км", { exact: true }).fill("1");
   await page.getByRole("checkbox", { name: /Быстрый расчёт/ }).check();
   await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
   await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled();

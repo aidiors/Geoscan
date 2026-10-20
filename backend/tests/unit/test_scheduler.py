@@ -680,3 +680,64 @@ def test_mission_rejects_incomplete_schedule_offsets() -> None:
                 "end_time": "2026-09-27T07:10:00Z",
             }
         )
+
+
+@pytest.mark.parametrize("vertical_phase_minutes", [0, 0.5])
+def test_ten_aircraft_share_a_base_without_remaining_airborne_conflicts(
+    vertical_phase_minutes: float,
+) -> None:
+    from geoplan.coverage.models import WorkSegment
+    from geoplan.domain.enums import MissionTask, OptimizationCriterion, SafetyAuditStatus
+    from geoplan.domain.fleet import DroneSpec
+    from geoplan.planning.models import PlanRequest
+    from geoplan.safety.audit import _drone_separation_check
+
+    base = Coordinate(longitude=37.4, latitude=55.7)
+    site = FlightSite(site_id="base", name="Shared base", coordinate=base)
+    flights = [
+        mission(
+            f"uav-{i}",
+            f"field-{i}",
+            [base, Coordinate(longitude=37.42 + i * 0.001, latitude=55.71), base],
+            duration_minutes=10 + 2 * vertical_phase_minutes,
+        ).model_copy(
+            update={
+                "departure_site": site,
+                "landing_site": site,
+                "vertical_climb_duration_minutes": vertical_phase_minutes,
+                "vertical_descent_duration_minutes": vertical_phase_minutes,
+            }
+        )
+        for i in range(10)
+    ]
+    result = ConflictAwareMissionScheduler().schedule(
+        MissionScheduleRequest(
+            missions=flights,
+            minimum_separation_m=50,
+            flight_site_occupancy_seconds=30,
+            turnaround_minutes=0,
+        )
+    )
+    assert len(result.missions) == 10
+    assert result.resolved_conflict_count > 0
+    assert len({flight.start_offset_minutes for flight in result.missions}) == 10
+    request = PlanRequest(
+        segments=[
+            WorkSegment(segment_id=f.segment_id, distance_km=1, route=f.route) for f in flights
+        ],
+        criterion=OptimizationCriterion.TOTAL_FLIGHT_TIME,
+        task=MissionTask.RGB,
+        drones=[
+            DroneSpec(
+                drone_id=flight.drone_id,
+                name=flight.drone_id,
+                cruise_speed_kmh=60,
+                maximum_flight_minutes=60,
+                battery_reserve_percent=20,
+                supported_tasks=[MissionTask.RGB],
+            )
+            for flight in flights
+        ],
+        mission_altitude_m=120,
+    )
+    assert _drone_separation_check(request, result.missions).status is SafetyAuditStatus.PASSED

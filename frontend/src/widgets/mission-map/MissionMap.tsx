@@ -1,3 +1,4 @@
+import { useMapDrawing } from "./useMapDrawing";
 import { Crosshair, Map, MapPinPlus, MapPinned, Minus, Mountain, Plus, Trash2 } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -19,6 +20,7 @@ import type { SurveyQualityReport } from "@/shared/api/types";
 
 interface MissionMapProps {
   quality?: SurveyQualityReport | null;
+  fitKey?: string;
   zones: ImportedZone[];
   sites: FlightSiteState[];
   drones: DroneProfile[];
@@ -26,8 +28,11 @@ interface MissionMapProps {
   radiusAnalysis: TurnRadiusAnalysisResult | null;
   selectedDroneId: string;
   pendingSiteRole: SiteRole | null;
-  onAddSite: (coordinate: Coordinate) => void;
+  onAddSite: (coordinate: Coordinate, name?: string) => void;
   onClearZones: () => void;
+  onAddZone?: (zone: ImportedZone) => void;
+  onCancelSite?: () => void;
+  onArmSite?: (role: SiteRole) => void;
 }
 
 interface DragState {
@@ -49,6 +54,7 @@ const siteLabels: Record<SiteRole, string> = {
 
 export function MissionMap({
   quality,
+  fitKey,
   zones,
   sites,
   drones,
@@ -58,14 +64,22 @@ export function MissionMap({
   pendingSiteRole,
   onAddSite,
   onClearZones,
+  onAddZone,
+  onCancelSite,
+  onArmSite,
 }: MissionMapProps) {
+  const editor = useMapDrawing(onAddZone);
+  const [siteName, setSiteName] = useState("");
+  const [siteRole, setSiteRole] = useState<SiteRole>("takeoff");
+  const editMode = pendingSiteRole !== null || editor.mode === "edit";
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const initialFitRef = useRef(false);
+  const lastFitKey = useRef(fitKey);
   const allCoordinates = useMemo(
     () => [
-      ...zones.flatMap((zone) => [...zone.coordinates, ...zone.interior_rings.flat()]),
+      ...zones.filter((zone) => zone.visible !== false).flatMap((zone) => [...zone.coordinates, ...zone.interior_rings.flat()]),
       ...sites.map((flightSite) => flightSite.coordinate),
       ...(plan?.drone_plans.flatMap((dronePlan) => dronePlan.missions.flatMap((mission) => mission.route)) ?? []),
       ...(plan?.schedule?.resolved_conflicts.map((conflict) => conflict.coordinate) ?? []),
@@ -76,7 +90,7 @@ export function MissionMap({
   const [view, setView] = useState<MapView>(() => fitCoordinates(allCoordinates));
   const [mapSize, setMapSize] = useState<MapSize>(DEFAULT_MAP_SIZE);
   const [basemap, setBasemap] = useState<Basemap>(() => {
-    try { return window.localStorage.getItem("geoplan-basemap") === "terrain" ? "terrain" : "streets"; }
+    try { const saved = window.localStorage.getItem("geoplan-basemap"); return saved === "terrain" || saved === "satellite" ? saved : "streets"; }
     catch { return "streets"; }
   });
   const [failedBasemap, setFailedBasemap] = useState<Basemap | null>(null);
@@ -90,6 +104,10 @@ export function MissionMap({
   }
 
   useLayoutEffect(() => {
+    if (lastFitKey.current !== fitKey) {
+      lastFitKey.current = fitKey;
+      setView(fitCoordinates(allCoordinates, mapSize));
+    }
     const frame = frameRef.current;
     if (frame === null) return undefined;
 
@@ -111,7 +129,7 @@ export function MissionMap({
 
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [allCoordinates]);
+  }, [allCoordinates, fitKey, mapSize]);
 
   function pointerPoint(clientX: number, clientY: number): Point {
     const svg = svgRef.current;
@@ -127,9 +145,11 @@ export function MissionMap({
     event.preventDefault();
     const point = pointerPoint(event.clientX, event.clientY);
     if (pendingSiteRole !== null) {
-      onAddSite(mapPointToCoordinate(point, view, mapSize));
+      onAddSite(mapPointToCoordinate(point, view, mapSize), siteName);
+      setSiteName("");
       return;
     }
+    if (editMode && editor.drawing) { editor.add(mapPointToCoordinate(point, view, mapSize)); return; }
     dragRef.current = { point, view };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -147,7 +167,7 @@ export function MissionMap({
     setView((current) => zoomAtPoint(current, event.deltaY < 0 ? 1 : -1, point, mapSize));
   }
 
-  const feasibility = plan?.feasibility?.message ?? "Маршрут ещё не рассчитан. Зоны и площадки готовы к проверке.";
+  const feasibility = plan?.feasibility?.message ?? "Маршрут ещё не рассчитан.";
 
   return (
     <section className="map-zone">
@@ -155,7 +175,34 @@ export function MissionMap({
         <div><div className="eyebrow"><MapPinned size={15} /> GIS-карта миссий</div><h2>План покрытия территории</h2></div>
         <div className="legend"><span><i className="legend-route" />Съёмка</span><span><i className="legend-transit" />Перелёт</span>{radiusAnalysis?.common_survey_route && <span><i className="legend-radius" />Условный маршрут</span>}<span><i className="legend-target" />Целевая зона</span><span><i className="legend-restricted" />Запретная зона</span></div>
       </div>
-      <div ref={frameRef} className={`map-frame ${pendingSiteRole ? "placing-site" : ""}`}>
+        <div className="map-editor-controls">
+          <div className="map-mode-switch" role="group" aria-label="Режим карты">
+            <button type="button" aria-pressed={!editMode} onClick={() => { editor.changeMode("view"); onCancelSite?.(); }}>Просмотр</button>
+            <button type="button" aria-pressed={editMode} onClick={() => { editor.changeMode("edit"); onCancelSite?.(); }}>Редактирование</button>
+          </div>
+          {editMode && <div className="map-tool-switch" role="group" aria-label="Инструменты редактирования">
+            <button type="button" aria-pressed={editor.drawing} disabled={!onAddZone} onClick={() => { onCancelSite?.(); editor.begin(); }}>Нарисовать область</button>
+            <button type="button" aria-pressed={pendingSiteRole !== null} disabled={!onArmSite} onClick={() => { editor.pause(); onArmSite?.(pendingSiteRole ?? siteRole); }}>Добавить площадку</button>
+          </div>}
+          {pendingSiteRole && <div className="drawing-controls site-placement-controls">
+            <label>Название площадки<input aria-label="Название новой площадки" maxLength={128} value={siteName} onChange={(event) => setSiteName(event.target.value)} placeholder="Автоматически по роли" /></label>
+            <label>Роль площадки<select aria-label="Роль новой площадки" value={pendingSiteRole} onChange={(event) => { const role = event.target.value as SiteRole; setSiteRole(role); onArmSite?.(role); }}>
+              <option value="takeoff">Взлёт</option><option value="landing">Посадка</option><option value="alternate">Резерв</option>
+            </select></label>
+            <p>Щёлкните по карте. Назначение: {drones.find((drone) => drone.id === selectedDroneId)?.name ?? "выбранный БВС"}. Список БВС можно изменить в панели площадок.</p>
+            <button type="button" onClick={onCancelSite}>Отменить площадку</button>
+          </div>}
+          {editor.drawing && <div className="drawing-controls">
+            <label>Название<input aria-label="Название контура" value={editor.name} onChange={(event) => editor.setName(event.target.value)} maxLength={100} placeholder="Новая область" /></label>
+            <label>Тип контура<select aria-label="Тип контура" value={editor.type} onChange={(event) => editor.setType(event.target.value as typeof editor.type)}><option value="work_area">Рабочая область</option><option value="no_fly_zone">Запретная зона</option></select></label>
+            <p>Отметьте вершины на карте: {editor.vertices.length}. Кнопка «Замкнуть» соединит последнюю вершину с первой.</p>
+            <button type="button" disabled={editor.vertices.length < 3} onClick={editor.finish}>Замкнуть контур</button>
+            <button type="button" disabled={!editor.vertices.length} onClick={editor.undo}>Убрать вершину</button>
+            <button type="button" onClick={editor.cancel}>Отменить контур</button>
+            {editor.error && <p role="alert">{editor.error}</p>}
+          </div>}
+        </div>
+      <div ref={frameRef} className={`map-frame ${pendingSiteRole || editor.drawing ? "placing-site" : ""}`}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${mapSize.width} ${mapSize.height}`}
@@ -173,8 +220,12 @@ export function MissionMap({
             {tiles.map((tile) => <image key={tile.key} href={tile.href} x={tile.x} y={tile.y} width={tile.size} height={tile.size} onError={() => setFailedBasemap(basemap)} />)}
           </g>
           <g className="zone-layer">
-            {zones.slice(0, 1_600).map((zone) => <ZoneShape key={zone.zone_id} zone={zone} view={view} mapSize={mapSize} />)}
+            {zones.filter((zone) => zone.visible !== false).slice(0, 1_600).map((zone) => <ZoneShape key={zone.zone_id} zone={zone} view={view} mapSize={mapSize} />)}
           </g>
+          {editor.drawing && <g className="drawing-layer" pointerEvents="none">
+            <polyline points={points(editor.vertices, view, mapSize)} fill="#8b5cf633" stroke="#7c3aed" strokeWidth={3} strokeDasharray="6 4" />
+            {editor.vertices.map((vertex, index) => { const p = coordinateToMapPoint(vertex, view, mapSize); return <g key={index}><circle cx={p.x} cy={p.y} r={5} fill="white" stroke="#7c3aed" strokeWidth={2} /><text x={p.x + 8} y={p.y - 8} fill="#7c3aed">{index + 1}</text></g>; })}
+          </g>}
           <g className="quality-layer" pointerEvents="none">
             {quality?.features.flatMap((feature, index) => {
               const polygons = feature.geometry.type === "Polygon"
@@ -227,49 +278,56 @@ export function MissionMap({
             {plan?.schedule?.resolved_conflicts.map((conflict, index) => {
               const point = coordinateToMapPoint(conflict.coordinate, view, mapSize);
               const label = conflict.conflict_type === "route"
-                ? "Конфликт маршрутов"
+                ? "Конфликт маршрутов устранён"
                 : conflict.conflict_type === "flight_site"
-                  ? "Конфликт площадки"
-                  : "Конфликт аварийного коридора";
+                  ? "Конфликт площадки устранён"
+                  : "Конфликт аварийного коридора устранён";
               return (
                 <g
                   key={`${conflict.delayed_drone_id}-${conflict.delayed_segment_id}-${conflict.conflicting_segment_id}-${index}`}
                   transform={`translate(${point.x} ${point.y})`}
                   pointerEvents="none"
                 >
-                  <circle r={9} fill="#dc2626" fillOpacity={0.18} stroke="#dc2626" strokeWidth={2} />
-                  <path d="M -4 -4 L 4 4 M 4 -4 L -4 4" stroke="#dc2626" strokeWidth={2} />
+                  <circle r={9} fill="#0f766e" fillOpacity={0.18} stroke="#0f766e" strokeWidth={2} />
+                  <path d="M -4 0 L -1 3 L 5 -4" stroke="#0f766e" strokeWidth={2} />
                   <title>{label}: {conflict.nominal_distance_m.toFixed(1)} / {conflict.required_distance_m.toFixed(1)} м · задержка {conflict.applied_delay_minutes.toFixed(1)} мин</title>
                 </g>
               );
             })}
           </g>
           <g className="site-layer">
-            {sites.map((flightSite) => {
+            {sites.map((flightSite, siteIndex) => {
               const point = coordinateToMapPoint(flightSite.coordinate, view, mapSize);
+              const nearbyBefore = sites.slice(0, siteIndex).filter((site) => {
+                const other = coordinateToMapPoint(site.coordinate, view, mapSize);
+                return Math.hypot(other.x - point.x, other.y - point.y) < 20;
+              }).length;
               return (
                 <g key={flightSite.site_id} transform={`translate(${point.x} ${point.y})`}>
                   <circle r={8} fill={siteColors[flightSite.role]} stroke="#fff" strokeWidth={2.5} />
-                  <text className="site-label" x={12} y={4}>{siteLabels[flightSite.role]}</text>
+                  <title>{flightSite.name} · {siteLabels[flightSite.role]}</title>
+                  <text className="site-label" x={12} y={4 + nearbyBefore * 16}>{flightSite.name} · {siteLabels[flightSite.role]}</text>
                 </g>
               );
             })}
           </g>
         </svg>
+        <div className="map-compass" title="Север сверху. Карта не вращается" aria-label="Компас: север сверху"><b>С</b><span>▲</span></div>
         <div className="map-controls">
           <div className="basemap-switch" role="group" aria-label="Подложка карты">
             <button type="button" aria-pressed={basemap === "streets"} onClick={() => changeBasemap("streets")}><Map size={15} /> Карта</button>
+            <button type="button" aria-pressed={basemap === "satellite"} onClick={() => changeBasemap("satellite")}>Спутник</button>
             <button type="button" aria-pressed={basemap === "terrain"} onClick={() => changeBasemap("terrain")} title="Топографическая карта: рельеф, горизонтали и отметки высот"><Mountain size={15} /> Рельеф</button>
           </div>
           <button type="button" aria-label="Приблизить" onClick={() => setView((current) => zoomAtPoint(current, 1, { x: mapSize.width / 2, y: mapSize.height / 2 }, mapSize))}><Plus size={17} /></button>
           <button type="button" aria-label="Отдалить" onClick={() => setView((current) => zoomAtPoint(current, -1, { x: mapSize.width / 2, y: mapSize.height / 2 }, mapSize))}><Minus size={17} /></button>
-          <button type="button" title="Подобрать масштаб, чтобы показать все зоны, площадки и маршруты" onClick={() => setView(fitCoordinates(allCoordinates, mapSize))}><Crosshair size={15} /> Показать всё</button>
-          <button type="button" onClick={onClearZones}><Trash2 size={15} /> Очистить зоны</button>
+          <button type="button" aria-label="Показать всё" title="Подобрать масштаб, чтобы показать все видимые зоны, площадки и маршруты" onClick={() => setView(fitCoordinates(allCoordinates, mapSize))}><Crosshair size={15} /></button>
+          {editMode && <button type="button" aria-label="Удалить незакреплённые" title="Удалить все зоны без защиты от удаления" onClick={onClearZones}><Trash2 size={15} /></button>}
         </div>
         {failedBasemap === basemap && <div className="map-layer-notice" role="status">Часть карты не загрузилась. Проверьте подключение или выберите другую подложку.</div>}
         {pendingSiteRole && <div className="placement-hint"><MapPinPlus size={17} /> Укажите точку: {siteLabels[pendingSiteRole]}</div>}
         <div className={`feasibility-card ${plan?.feasibility?.status === "infeasible" ? "danger" : ""}`}><b>Проверка выполнимости</b><span>{feasibility}</span></div>
-        <div className="map-attribution">Данные © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>{basemap === "terrain" && <> · SRTM · <a href="https://opentopomap.org/about" target="_blank" rel="noreferrer">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA</a>)</>}</div>
+        <div className="map-attribution">{basemap === "satellite" ? <>Tiles © Esri · Maxar · Earthstar Geographics · GIS User Community · <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer" target="_blank" rel="noreferrer">Источники снимков</a></> : <>Данные © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>{basemap === "terrain" && <> · SRTM · <a href="https://opentopomap.org/about" target="_blank" rel="noreferrer">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA</a>)</>}</>}</div>
       </div>
     </section>
   );
@@ -285,7 +343,7 @@ function ZoneShape({ zone, view, mapSize }: { zone: ImportedZone; view: MapView;
     return <polyline points={points(zone.coordinates, view, mapSize)} fill="none" stroke={style.stroke} strokeWidth={3}><title>{zone.name}</title></polyline>;
   }
   return (
-    <path d={polygonPath(zone, view, mapSize)} fill={style.fill} stroke={style.stroke} strokeWidth={2.5} fillRule="evenodd">
+    <path d={polygonPath(zone, view, mapSize)} fill={style.fill} stroke={style.stroke} strokeWidth={2.5} fillRule="evenodd" opacity={zone.zone_type === "work_area" && zone.enabled === false ? 0.3 : 1}>
       <title>{zone.name}{zone.altitude_text ? ` · ${zone.altitude_text}` : ""}</title>
     </path>
   );

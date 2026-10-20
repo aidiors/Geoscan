@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from geoplan.api.app import create_app
 from geoplan.composition import create_default_dependencies
+from geoplan.navigation.geometry import LocalProjection
 from geoplan.planning.models import PlanRequest
 from scenarios.customer import customer_polygons, customer_request
 from scenarios.planning import productive_survey_request
@@ -84,12 +85,28 @@ def test_camera_speed_refusal_quantifies_required_interval():
 
 def test_terrain_camera_refusal_explains_short_boundary_interval():
     request = productive_survey_request(optimization_mode="fast_heuristic")
-    assert request.departure_site is not None
+    assert request.departure_site is not None and request.survey_parameters is not None
+    projection = LocalProjection(37, 55)
     request = PlanRequest.model_validate(
         {
             **request.model_dump(),
             "altitude_reference": "agl",
             "mission_altitude_m": 100,
+            # The strip end lies shortly after a capture; the next strip starts
+            # before the real camera can trigger again. Transit is not survey.
+            "coverage_areas": [
+                request.coverage_areas[0].model_copy(
+                    update={
+                        "coordinates": [
+                            projection.unproject(x, y)
+                            for x, y in ((0, 0), (1205, 0), (1205, 600), (0, 600))
+                        ]
+                    }
+                )
+            ],
+            "survey_parameters": request.survey_parameters.model_copy(
+                update={"maximum_segment_distance_km": 20}
+            ),
             "terrain_elevation_samples": [
                 {"coordinate": request.departure_site.coordinate, "elevation_m": 100}
             ],
@@ -112,3 +129,43 @@ def test_terrain_camera_refusal_explains_short_boundary_interval():
     assert error["recommendations"][0]["parameter"] == (
         "survey_parameters.maximum_segment_distance_km"
     )
+
+
+def test_terrain_camera_does_not_scan_transit_between_separate_strips():
+    request = productive_survey_request(optimization_mode="fast_heuristic")
+    assert request.departure_site is not None
+    request = PlanRequest.model_validate(
+        {
+            **request.model_dump(),
+            "altitude_reference": "agl",
+            "mission_altitude_m": 100,
+            "terrain_elevation_samples": [
+                {
+                    "coordinate": request.departure_site.coordinate,
+                    "elevation_m": 100,
+                }
+            ],
+            "drones": [
+                request.drones[0].model_copy(
+                    update={
+                        "maximum_climb_rate_mps": 5,
+                        "maximum_descent_rate_mps": 5,
+                    }
+                )
+            ],
+        }
+    )
+    with TestClient(create_app(create_default_dependencies(), serve_frontend=False)) as client:
+        response = client.post("/v1/plans", json=request.model_dump(mode="json"))
+        assert response.status_code == 200, response.text
+        plan = response.json()
+        assert plan["safety_audit"]["status"] == "passed"
+        quality = client.post(
+            "/v1/survey-quality",
+            json={
+                "request": request.model_dump(mode="json"),
+                "plan": plan,
+            },
+        ).json()
+    assert quality["issues"] == []
+    assert quality["minimum_capture_interval_s"] >= 4 - 1e-6

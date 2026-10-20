@@ -8,7 +8,7 @@ test("navigation selects and focuses the requested section without clipping work
     await expect(workflow.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "step");
     await expect(page.locator(`#${target}`)).toBeFocused();
   }
-  const restore = page.getByRole("button", { name: "Восстановить", exact: true });
+  const restore = page.getByRole("button", { name: "Открыть черновик", exact: true });
   await restore.scrollIntoViewIfNeeded();
   expect(await restore.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await workflow.getByRole("link", { name: "1 Задание", exact: true }).click();

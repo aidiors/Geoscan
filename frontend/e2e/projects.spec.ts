@@ -10,7 +10,7 @@ test("preserves project revisions, source files and reports across reload and tr
   }] });
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name: "original.geojson", mimeType: "application/geo+json", buffer: Buffer.from(field) });
   await page.getByRole("button", { name: "Импортировать зону" }).click();
-  await expect(page.getByText("Рабочие области взяты из импорта", { exact: false })).toBeVisible();
+  await expect(page.getByText("Используется собственная геометрия задания", { exact: false })).toBeVisible();
   await page.getByRole("checkbox", { name: /Быстрый расчёт/ }).check();
   await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
   await expect(page.getByRole("button", { name: "Рассчитать план", exact: true })).toBeEnabled();
@@ -56,7 +56,7 @@ test("preserves project revisions, source files and reports across reload and tr
   await expect(page.getByLabel("Высота задания MSL, м", { exact: true })).toHaveValue(String(first.document.editor_state.settings.altitude));
   await expect(page.getByRole("button", { name: "GeoJSON", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "QGroundControl", exact: true })).toBeDisabled();
-  await expect(page.getByText("Рабочие области взяты из импорта", { exact: false })).toBeVisible();
+  await expect(page.getByText("Используется собственная геометрия задания", { exact: false })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("restored-project.png") });
   const conflicted = page.waitForResponse((r) => r.url().endsWith(`/v1/projects/${first.project_id}/revisions`) && r.request().method() === "POST");
   await page.getByRole("button", { name: "Сохранить ревизию", exact: true }).click();

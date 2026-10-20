@@ -1,0 +1,81 @@
+import { expect, test } from "@playwright/test";
+
+test("names a new site before placement and edits it through the shared object manager", async ({ page }, testInfo) => {
+  page.setDefaultTimeout(15_000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Редактирование", exact: true }).click();
+  await page.getByRole("button", { name: "Добавить площадку", exact: true }).click();
+  await page.getByLabel("Название новой площадки").fill("Западный старт");
+  const map = page.getByRole("img", { name: "Интерактивная карта зоны обследования" });
+  const bounds = (await map.boundingBox())!;
+  await map.click({ position: { x: bounds.width * .2, y: bounds.height * .4 } });
+  await expect(map.locator(".site-layer text").filter({ hasText: "Западный старт" })).toHaveCount(1);
+  const launcher = page.getByRole("button", { name: /Управлять объектами/ });
+  await launcher.click();
+  const dialog = page.getByRole("dialog", { name: "Зоны и площадки", exact: true });
+  await expect(dialog).toBeVisible();
+  await page.getByLabel("Найти объект", { exact: true }).fill("Западный старт");
+  await page.locator(".geo-object-row").first().click();
+  await page.getByLabel("Название объекта").fill("Западная посадка");
+  await page.getByLabel("Роль площадки", { exact: true }).selectOption("landing");
+  await page.getByLabel("Широта площадки").fill("55.7");
+  await page.getByLabel("Долгота площадки").fill("37.4");
+  await page.getByRole("button", { name: "Применить изменения", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Западная посадка", exact: true })).toBeVisible();
+  await expect(page.locator(".object-feedback")).toHaveText("Изменения сохранены");
+  await page.screenshot({ path: testInfo.outputPath("site-manager.png"), fullPage: true });
+  await page.keyboard.press("Escape");
+  await expect(launcher).toBeFocused();
+  await page.getByRole("button", { name: "Сохранить черновик", exact: true }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("geoplan-scenario")!));
+  expect(saved.sites.find((site: { name: string }) => site.name === "Западная посадка")).toMatchObject({ role: "landing", coordinate: { latitude: 55.7, longitude: 37.4 } });
+  await launcher.click();
+  await page.getByLabel("Найти объект", { exact: true }).fill("Западная посадка");
+  await page.locator(".geo-object-row").first().click();
+  await page.getByRole("button", { name: "Удалить площадку", exact: true }).click();
+  await expect(page.locator(".geo-object-row")).toHaveCount(0);
+});
+
+test("renames, protects and removes zones while keeping restrictions distinct", async ({ page }, testInfo) => {
+  page.setDefaultTimeout(15_000);
+  await page.goto("/");
+  await page.getByRole("button", { name: /Управлять объектами/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Зоны и площадки", exact: true });
+  await page.getByLabel("Тип объектов", { exact: true }).selectOption("work_area");
+  await page.locator(".geo-object-row").first().click();
+  await page.getByLabel("Название объекта").fill("Участок А");
+  await page.getByRole("button", { name: "Применить название", exact: true }).click();
+  await dialog.getByRole("button", { name: "Защитить Участок А", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Удалить Участок А", exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Скрыть Участок А", exact: true }).click();
+  await dialog.getByRole("checkbox", { name: "Включить область Участок А", exact: true }).uncheck();
+  await expect(page.locator(".geo-object-row").first()).toContainText("исключена");
+  await page.getByLabel("Тип объектов", { exact: true }).selectOption("restriction");
+  await page.locator(".geo-object-row").first().click();
+  await expect(dialog.getByRole("checkbox", { name: /Включить область/ })).toHaveCount(0);
+  await page.getByLabel("Название объекта").fill("Охранная зона");
+  await page.getByRole("button", { name: "Применить название", exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("restriction-manager.png"), fullPage: true });
+  await page.getByLabel("Тип объектов", { exact: true }).selectOption("work_area");
+  await page.locator(".geo-object-row").first().click();
+  await dialog.getByRole("button", { name: "Разблокировать Участок А", exact: true }).click();
+  const count = await page.locator(".geo-object-row").count();
+  await dialog.getByRole("button", { name: "Удалить Участок А", exact: true }).click();
+  await expect(page.locator(".geo-object-row")).toHaveCount(count - 1);
+});
+
+
+test("uses quick layer actions without opening the manager", async ({ page }) => {
+  await page.goto("/");
+  const quick = page.getByLabel("Быстрые действия с зонами", { exact: true });
+  const row = quick.locator(".zone-item").first();
+  await row.getByRole("button", { name: /^Защитить / }).click();
+  await expect(row.getByRole("button", { name: /^Удалить / })).toBeDisabled();
+  await row.getByRole("button", { name: /^Скрыть / }).click();
+  await expect(row.getByRole("button", { name: /^Показать / })).toBeVisible();
+  await row.getByRole("button", { name: /^Разблокировать / }).click();
+  const before = await quick.locator(".zone-item").count();
+  await row.getByRole("button", { name: /^Удалить / }).click();
+  await expect(quick.locator(".zone-item")).toHaveCount(before - 1);
+  await expect(page.getByRole("dialog", { name: "Зоны и площадки" })).not.toBeVisible();
+});

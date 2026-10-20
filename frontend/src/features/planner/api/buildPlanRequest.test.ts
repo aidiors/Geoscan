@@ -48,6 +48,15 @@ const settings: PlanningSettings = {
 };
 
 describe("plan request", () => {
+  it("sends a site subset and keeps hidden work areas in the calculation", () => {
+    const scenario = scenarios[0], drones = cloneFleet(), sites = cloneSites(scenario);
+    sites[0] = { ...sites[0], assignedDroneIds: [drones[0].id, drones[1].id] };
+    const zone = { ...scenario.workAreas[0], visible: false, locked: true };
+    const request = buildPlanRequest("flight", scenario.task, scenario, drones, sites, [zone], survey, settings);
+    expect(request.departure_sites[0].assigned_drone_ids).toEqual([drones[0].id, drones[1].id]);
+    expect(request.coverage_areas.map((area) => area.area_id)).toContain(zone.zone_id);
+  });
+
   it("defaults to thirty minutes and preserves explicitly selected smaller budgets", () => {
     const scenario = scenarios[0];
     const build = (planningTimeLimitSeconds?: number) => buildPlanRequest("flight", scenario.task,

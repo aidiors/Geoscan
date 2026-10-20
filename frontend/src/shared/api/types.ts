@@ -97,6 +97,8 @@ export interface AutopilotProfile {
 }
 
 export interface ImportedZone {
+  visible?: boolean;
+  locked?: boolean;
   enabled?: boolean;
   metadata?: Record<string, string>;
   zone_id: string;
