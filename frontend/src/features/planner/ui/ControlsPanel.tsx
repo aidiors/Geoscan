@@ -1,3 +1,5 @@
+import { DraftControls } from "./DraftControls";
+import type { DraftResult } from "../model/draft";
 import { ZoneLayers } from "./ZoneLayers";
 import { SiteAssignment } from "./SiteAssignment";
 import { FleetManager } from "./FleetManager";
@@ -41,7 +43,6 @@ interface ControlsPanelProps {
   onRemoveDrone: () => void;
   onUpdateSurvey: (patch: Partial<SurveySettings>) => void;
   onUpdateSettings: (patch: Partial<PlanningSettings>) => void;
-  onArmSite: (role: SiteRole) => void;
   onAssignSite: (siteId: string, droneIds: string[]) => void;
   onRemoveSite: (siteId: string) => void;
   onImport: (file: File, zoneType: ZoneType) => Promise<void>;
@@ -50,8 +51,8 @@ interface ControlsPanelProps {
   onRemoveInvalidZones: () => void;
   onSelectZone: (zoneId: string, enabled: boolean) => void;
   onSelectAllWorkAreas: (enabled: boolean) => void;
-  onSave: () => void;
-  onLoad: () => void;
+  onSave: () => DraftResult;
+  onLoad: () => DraftResult;
 }
 
 const taskLabels: Record<MissionTask, string> = {
@@ -122,12 +123,26 @@ export function ControlsPanel(props: ControlsPanelProps) {
         {props.importedZones.some((zone) => zone.zone_type === "work_area") && (
           <><p className="hint">Выбрано рабочих областей: {props.importedZones.filter((zone) => zone.zone_type === "work_area" && zone.enabled !== false).length}. Расчёт выполняется для выбранного пакета.</p>
             <div className="mini-actions"><button type="button" onClick={() => props.onSelectAllWorkAreas(true)}>Выбрать все</button><button type="button" onClick={() => props.onSelectAllWorkAreas(false)}>Снять выбор</button></div>
-            <label className="field"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
+            <label className="field zone-search"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
         )}
         <ZoneLayers zones={(props.layerZones ?? props.importedZones).filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase()))}
           onUpdate={props.onUpdateLayer ?? (() => {})} onSelect={props.onSelectZone} onRemove={props.onRemoveZone} />
         <p className="hint">Глаз скрывает слой только на карте. Замок защищает от удаления. Флажок рабочей области управляет участием в расчёте.</p>
       </PanelSection>
+
+      <PanelSection title="Взлёт и посадка" badge={props.pendingSiteRole ? "Укажите на карте" : "Точки готовы"}>
+        <p className="hint">В режиме редактирования карты нажмите «Добавить площадку», выберите её роль и укажите место. Для каждой площадки настройте разрешённые БВС.</p>
+        <div className="site-list">
+          {props.sites.map((flightSite) => (
+            <div className="site-item" key={flightSite.site_id}>
+              <span><strong>{flightSite.name}</strong><small>{flightSite.coordinate.latitude.toFixed(5)}, {flightSite.coordinate.longitude.toFixed(5)}</small></span>
+              <button type="button" aria-label={`Удалить ${flightSite.name}`} onClick={() => props.onRemoveSite(flightSite.site_id)}>×</button>
+              <SiteAssignment site={flightSite} drones={props.drones} onChange={(ids) => props.onAssignSite(flightSite.site_id, ids)} />
+            </div>
+          ))}
+        </div>
+      </PanelSection>
+
 
       <PanelSection title="Тип работ" badge={taskLabels[props.task]}>
         <select value={props.task} onChange={(event) => props.onTaskChange(event.target.value as MissionTask)}>
@@ -189,23 +204,6 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <p className="hint">0 м — без ограничения. Положительный радиус применяется к галсам, транзиту и подходу к посадке. Проверяется горизонтальная траектория, не взлёт и глиссада.</p>
       </PanelSection>
 
-      <PanelSection title="Взлёт и посадка" badge={props.pendingSiteRole ? "Укажите на карте" : "Точки готовы"}>
-        <div className="site-actions">
-          <button type="button" className={props.pendingSiteRole === "takeoff" ? "active" : ""} onClick={() => props.onArmSite("takeoff")}>＋ Взлёт</button>
-          <button type="button" className={props.pendingSiteRole === "landing" ? "active" : ""} onClick={() => props.onArmSite("landing")}>＋ Посадка</button>
-          <button type="button" className={props.pendingSiteRole === "alternate" ? "active" : ""} onClick={() => props.onArmSite("alternate")}>＋ Резерв</button>
-        </div>
-        <p className="hint">Выберите тип площадки и нажмите на нужное место карты.</p>
-        <div className="site-list">
-          {props.sites.map((flightSite) => (
-            <div className="site-item" key={flightSite.site_id}>
-              <span><strong>{flightSite.name}</strong><small>{flightSite.coordinate.latitude.toFixed(5)}, {flightSite.coordinate.longitude.toFixed(5)}</small></span>
-              <button type="button" aria-label={`Удалить ${flightSite.name}`} onClick={() => props.onRemoveSite(flightSite.site_id)}>×</button>
-              <SiteAssignment site={flightSite} drones={props.drones} onChange={(ids) => props.onAssignSite(flightSite.site_id, ids)} />
-            </div>
-          ))}
-        </div>
-      </PanelSection>
 
       <PanelSection title="Ветер" badge="Учитывается">
         <div className="constraint"><Wind size={17} /><span>Постоянный профиль на всю миссию</span></div>
@@ -274,8 +272,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <p className="hint">Начало обязательно для временных зон. Окончание ограничивает полёты рабочим или световым окном. Эшелонирование выключено при максимальном повышении 0 м.</p>
       </PanelSection>
 
-      <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить черновик</button><button type="button" onClick={props.onLoad}>Открыть черновик</button></div>
-      <p className="hint">Черновик настроек хранится только в этом браузере. Для сохранения плана, исходных файлов и истории используйте проекты ниже.</p>
+      <DraftControls onSave={props.onSave} onLoad={props.onLoad} />
       {props.projects}
     </aside>
   );

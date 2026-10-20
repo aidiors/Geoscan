@@ -116,7 +116,6 @@ export default function App() {
           onRemoveDrone={handleRemoveDrone}
           onUpdateSurvey={(patch) => { setSurvey((current) => ({ ...current, ...patch })); invalidate("Параметры съёмки изменены"); }}
           onUpdateSettings={(patch) => { setSettings((current) => ({ ...current, ...patch })); invalidate("Ограничения расчёта изменены"); }}
-          onArmSite={(role) => { setPendingSiteRole(role); setStatus("Щёлкните по карте, чтобы добавить площадку"); }}
           onAssignSite={(siteId, droneIds) => { setSites((current) => current.map((flightSite) => flightSite.site_id === siteId ? { ...flightSite, assignedDroneId: "", assignedDroneIds: droneIds } : flightSite)); invalidate("Назначение площадки изменено"); }}
           onRemoveSite={(siteId) => { setSites((current) => current.filter((flightSite) => flightSite.site_id !== siteId)); invalidate("Площадка удалена"); }}
           onImport={handleImport}
@@ -141,6 +140,7 @@ export default function App() {
           pendingSiteRole={pendingSiteRole}
           onAddZone={handleDrawZone}
           onCancelSite={() => setPendingSiteRole(null)}
+          onArmSite={(role) => { setPendingSiteRole(role); setStatus("Щёлкните по карте, чтобы добавить площадку"); }}
           onAddSite={handleAddSite}
           onClearZones={handleClearZones}
         />

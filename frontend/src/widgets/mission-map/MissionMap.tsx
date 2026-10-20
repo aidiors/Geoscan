@@ -32,6 +32,7 @@ interface MissionMapProps {
   onClearZones: () => void;
   onAddZone?: (zone: ImportedZone) => void;
   onCancelSite?: () => void;
+  onArmSite?: (role: SiteRole) => void;
 }
 
 interface DragState {
@@ -65,6 +66,7 @@ export function MissionMap({
   onClearZones,
   onAddZone,
   onCancelSite,
+  onArmSite,
 }: MissionMapProps) {
   const editor = useMapDrawing(onAddZone);
   const editMode = pendingSiteRole !== null || editor.mode === "edit";
@@ -176,6 +178,14 @@ export function MissionMap({
             <button type="button" aria-pressed={editMode} onClick={() => editor.changeMode("edit")}>Редактирование</button>
           </div>
           {editMode && !editor.drawing && <button type="button" disabled={!onAddZone} onClick={() => { onCancelSite?.(); editor.begin(); }}>Нарисовать область</button>}
+          {editMode && !editor.drawing && <button type="button" disabled={!onArmSite} onClick={() => { editor.cancel(); onArmSite?.("takeoff"); }}>Добавить площадку</button>}
+          {pendingSiteRole && <div className="drawing-controls site-placement-controls">
+            <label>Роль площадки<select aria-label="Роль новой площадки" value={pendingSiteRole} onChange={(event) => onArmSite?.(event.target.value as SiteRole)}>
+              <option value="takeoff">Взлёт</option><option value="landing">Посадка</option><option value="alternate">Резерв</option>
+            </select></label>
+            <p>Щёлкните по карте. Назначение: {drones.find((drone) => drone.id === selectedDroneId)?.name ?? "выбранный БВС"}. Список БВС можно изменить в панели площадок.</p>
+            <button type="button" onClick={onCancelSite}>Отменить площадку</button>
+          </div>}
           {editor.drawing && <div className="drawing-controls">
             <label>Название<input aria-label="Название контура" value={editor.name} onChange={(event) => editor.setName(event.target.value)} maxLength={100} placeholder="Новая область" /></label>
             <label>Тип контура<select aria-label="Тип контура" value={editor.type} onChange={(event) => editor.setType(event.target.value as typeof editor.type)}><option value="work_area">Рабочая область</option><option value="no_fly_zone">Запретная зона</option></select></label>

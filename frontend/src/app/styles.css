@@ -439,3 +439,14 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
 .site-assignment input { width: auto; margin: 0; }
 
 .feasibility-card, .map-layer-notice { pointer-events: none; }
+
+.zone-search { margin-top: 14px; }
+.draft-controls { margin-top: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--editor); }
+.draft-controls > b { font-size: 13px; }
+.draft-controls .scenario-actions { margin-top: 10px; }
+.draft-feedback { margin: 10px 0 0; padding: 10px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
+.draft-feedback.success { color: #065f46; background: #d1fae5; }
+.draft-feedback.error { color: #9f1239; background: #ffe4e6; }
+.draft-feedback small { display: block; margin-top: 4px; }
+.draft-toast { position: fixed; z-index: 30; right: 20px; bottom: 20px; display: flex; align-items: center; gap: 12px; max-width: min(460px, calc(100vw - 40px)); padding: 14px; border: 1px solid #6ee7b7; border-radius: 12px; color: #065f46; background: #ecfdf5; box-shadow: 0 6px 24px #0002; font-size: 14px; }
+.draft-toast button { flex: none; border: 0; background: transparent; color: inherit; font-size: 22px; cursor: pointer; }

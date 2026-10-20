@@ -1,3 +1,4 @@
+import type { DraftResult } from "./draft";
 import { assignedDroneIds } from "./siteAssignments";
 import { TerrainRepository } from "@/features/terrain/api/TerrainRepository";
 import type { TerrainAsset } from "@/features/terrain/model/types";
@@ -461,38 +462,43 @@ export function usePlanner() {
     };
   }
 
-  function saveScenario(): void {
+  function saveScenario(): DraftResult {
     const snapshot = scenarioSnapshot();
     try {
       window.localStorage.setItem("geoplan-scenario", JSON.stringify(snapshot));
       setStatus("Сценарий сохранён");
+      return { success: true, message: "Черновик сохранён в этом браузере." };
     } catch (error: unknown) {
-      setStatus(error instanceof DOMException && error.name === "QuotaExceededError"
+      const message = error instanceof DOMException && error.name === "QuotaExceededError"
         ? "Недостаточно места в браузере для полного сценария. Предыдущее сохранение не изменено."
-        : errorMessage(error));
+        : errorMessage(error);
+      setStatus(message);
+      return { success: false, message };
     }
   }
 
-  function loadScenario(): void {
-    const serialized = window.localStorage.getItem("geoplan-scenario");
-    if (serialized === null) {
-      setStatus("Сохранённый сценарий не найден");
-      return;
-    }
-    let snapshot: SavedScenario;
+  function loadScenario(): DraftResult {
     try {
-      snapshot = parseSavedScenario(JSON.parse(serialized));
-    } catch (error: unknown) {
-      setStatus(error instanceof Error ? "Сохранённый сценарий повреждён" : "Не удалось восстановить сценарий");
-      return;
+      const serialized = window.localStorage.getItem("geoplan-scenario");
+      if (serialized === null) {
+        const message = "Сохранённый сценарий не найден";
+        setStatus(message);
+        return { success: false, message };
+      }
+      const snapshot = parseSavedScenario(JSON.parse(serialized));
+      if (!applyScenarioSnapshot(snapshot)) return { success: false, message: "Сохранённый сценарий имеет неподдерживаемый формат" };
+      return { success: true, message: "Черновик открыт. Настройки восстановлены; требуется новый расчёт." };
+    } catch {
+      const message = "Сохранённый сценарий повреждён или недоступен. Текущие настройки сохранены.";
+      setStatus(message);
+      return { success: false, message };
     }
-    applyScenarioSnapshot(snapshot);
   }
 
-  function applyScenarioSnapshot(snapshot: SavedScenario): void {
+  function applyScenarioSnapshot(snapshot: SavedScenario): boolean {
     if ((!snapshot.baseScenario && !scenarios.some((candidate) => candidate.id === snapshot.scenarioId)) || snapshot.drones.length === 0) {
       setStatus("Сохранённый сценарий имеет неподдерживаемый формат");
-      return;
+      return false;
     }
     terrainImportVersion.current += 1;
     setTerrainImporting(false);
@@ -535,6 +541,7 @@ export function usePlanner() {
     invalidate(snapshot.workAreaSource === undefined && !snapshot.importedZones.some((zone) => zone.zone_type === "work_area")
       ? "Старое сохранение не содержит импортированных рабочих областей. Используется выбранный демосценарий; при необходимости импортируйте исходный файл повторно."
       : "Сценарий восстановлен — требуется новый расчёт");
+    return true;
   }
 
   function captureProject(): ProjectDocument {
