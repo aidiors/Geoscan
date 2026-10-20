@@ -40,14 +40,15 @@ class MissionSurveyAdapter:
             (segment.route[i], segment.route[i + 1]) for i in range(0, len(segment.route), 2)
         ]
         updates = {
+            # Track ownership must survive for every aircraft: the connections
+            # between strips are transit, including outside a concave survey ROI.
+            "survey_tracks": tracks,
             "trigger_spacing_m": trigger,
             "survey_speed_limit_kmh": trigger / survey.sensor.minimum_trigger_interval_s * 3.6,
             "image_count": sum(
                 ceil(route_distance_km(list(t)) * 1000 / trigger) + 1 for t in tracks
             ),
         }
-        if physical.minimum_turn_radius_m > 0 or drone.installed_sensor is not None:
-            updates["survey_tracks"] = tracks
         prepared = segment.model_copy(update=updates)
         if physical.minimum_turn_radius_m > 0:
             area = next(a for a in request.coverage_areas if a.area_id == segment.coverage_area_id)

@@ -1,0 +1,38 @@
+{
+  "source": "reference/hackathon/Границы полетов.kml",
+  "source_sha256": "b48f4cf70726121919b7d8e20a9bab43027afb55730538698e4c17c8eacadf70",
+  "area_id": "zone-316",
+  "description": "Two consecutive mandatory survey tracks from zone-316-2 in the original 32-polygon customer batch. The connecting transit crosses the concave ROI boundary; both survey tracks remain inside. Coordinates are unchanged.",
+  "batch_selection": {
+    "quantiles": 7,
+    "seed_index": 1,
+    "counts": [
+      32,
+      64,
+      128
+    ]
+  },
+  "strip_spacing_m": 72.0,
+  "route": [
+    {
+      "longitude": 38.51188020982012,
+      "latitude": 55.06260731646434,
+      "altitude_m": null
+    },
+    {
+      "longitude": 38.50511134687352,
+      "latitude": 55.06267544106539,
+      "altitude_m": null
+    },
+    {
+      "longitude": 38.508182402630325,
+      "latitude": 55.06329577954183,
+      "altitude_m": null
+    },
+    {
+      "longitude": 38.511318812496455,
+      "latitude": 55.06326421343205,
+      "altitude_m": null
+    }
+  ]
+}
