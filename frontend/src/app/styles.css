@@ -64,6 +64,8 @@ button:disabled { cursor: not-allowed; opacity: .52; }
 .header-separator { color: #bdc5d2; }
 .header-actions { display: flex; align-items: center; gap: 9px; }
 .theme-button, .primary-button, .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 9px; padding: 10px 13px; font-weight: 700; }
+.secondary-button { border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
+.secondary-button:hover:not(:disabled) { border-color: #a78bfa; color: var(--soft-violet-text); background: var(--soft-violet); }
 .theme-button { border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
 .theme-button:hover { border-color: #a78bfa; }
 .primary-button { border: 0; color: #fff; background: var(--pink); box-shadow: 0 4px 12px #ff0a6240; }
@@ -129,6 +131,7 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 9px; }
 .field { display: grid; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 600; }
 .field input { min-width: 0; margin-top: 4px; padding: 7px 8px; }
+.altitude-mode-field + .field { margin-top: 12px; }
 .fleet-add-fields .field { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
 .fleet-add-fields .field :is(input, select) { min-width: 0; min-height: 36px; margin-top: 0; padding: 8px; }
 .hint { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.48; }
@@ -158,10 +161,59 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .fleet-row { display: flex; width: 100%; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 11px; padding: 10px; color: var(--ink); background: var(--surface); text-align: left; transition: .16s; }
 .fleet-row:hover, .fleet-row.active { border-color: #a78bfa; background: #f7f4ff; }
 .color-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
-.row-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 800; }
 .fleet-enabled, .fleet-disabled { font-size: 9px; font-weight: 800; }
 .fleet-enabled { color: var(--green); }
 .fleet-disabled { color: var(--muted); }
+.fleet-launcher { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--soft-violet-text); text-align: left; }
+.fleet-launcher:hover { border-color: #a78bfa; background: var(--soft-violet); }
+.fleet-launcher > span { flex: 1; min-width: 0; }
+.fleet-launcher strong, .fleet-launcher small { display: block; }
+.fleet-launcher strong { font-size: 13px; }
+.fleet-launcher small { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.fleet-dialog { width: min(1040px, calc(100vw - 32px)); height: min(820px, calc(100dvh - 48px)); max-width: none; max-height: none; margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 90px #11182755; }
+.fleet-dialog[open] { display: flex; flex-direction: column; }
+.fleet-dialog::backdrop { background: #1015278c; backdrop-filter: blur(3px); }
+.fleet-dialog-header, .fleet-dialog-footer { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 24px; }
+.fleet-dialog-header { border-bottom: 1px solid var(--line); }
+.fleet-dialog-header h2 { margin: 6px 0; font-size: 23px; }
+.fleet-dialog-header p { margin: 0; color: var(--muted); font-size: 12px; }
+.fleet-dialog-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: 300px minmax(0, 1fr); }
+.fleet-browser { display: flex; flex-direction: column; gap: 14px; min-height: 0; padding: 20px; background: var(--pale); border-right: 1px solid var(--line); }
+.fleet-search > span { display: flex; align-items: center; gap: 6px; }
+.fleet-browser .fleet-list { flex: 1; min-height: 100px; margin: 0; overflow-y: auto; align-content: start; }
+.fleet-browser .fleet-row { align-items: flex-start; }
+.fleet-browser .color-dot { margin-top: 5px; }
+.fleet-row-info { flex: 1; min-width: 0; }
+.fleet-row-info strong, .fleet-row-info small, .fleet-row-info > span { display: block; }
+.fleet-row-info strong { overflow-wrap: anywhere; font-size: 12px; }
+.fleet-row-info small { margin: 5px 0; color: var(--muted); font-size: 10px; }
+.fleet-add-panel { flex: none; border-top: 1px solid var(--line); padding-top: 14px; }
+.fleet-add-panel summary, .fleet-settings-group summary { cursor: pointer; font-size: 13px; font-weight: 700; }
+.fleet-add-panel .hint { font-size: 10px; }
+.fleet-editor-pane { min-width: 0; overflow-y: auto; padding: 24px; }
+.fleet-editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.fleet-editor-heading h3 { margin: 7px 0 0; overflow-wrap: anywhere; font-size: 20px; }
+.fleet-editor-heading .mini-actions { flex: 0 0 190px; margin: 0; }
+.fleet-editor-heading .mini-actions button { min-height: 34px; }
+.fleet-settings-group { margin-top: 12px; border: 1px solid var(--line); border-radius: 11px; padding: 14px; background: var(--editor); }
+.fleet-settings-group:first-child { margin-top: 0; }
+.fleet-settings-fields { display: grid; gap: 12px; padding-top: 14px; }
+.fleet-settings-fields > .field { gap: 6px; }
+.fleet-settings-fields :is(input:not([type="checkbox"]), select) { min-width: 0; min-height: 36px; }
+.fleet-settings-fields .hint { margin-top: 0; }
+.fleet-dialog-footer { border-top: 1px solid var(--line); padding: 14px 24px; }
+.fleet-dialog-footer .hint { margin: 0; }
+.fleet-dialog-footer button { flex: none; min-width: 110px; }
+@media (max-width: 680px) {
+  .fleet-dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  .fleet-dialog-layout { grid-template-columns: 1fr; overflow-y: auto; }
+  .fleet-browser { min-height: 350px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .fleet-browser .fleet-list { max-height: 200px; }
+  .fleet-editor-pane { overflow: visible; padding: 16px; }
+  .fleet-editor-heading { flex-direction: column; }
+  .fleet-editor-heading .mini-actions { flex: auto; width: 100%; }
+  .fleet-dialog-header, .fleet-dialog-footer { padding: 14px 16px; }
+}
 .editor-card { display: grid; gap: 8px; margin-top: 9px; padding: 10px; border: 1px solid var(--line); border-radius: 11px; background: var(--editor); }
 .editor-card > label { color: var(--muted); font-size: 10px; font-weight: 600; }
 .editor-card > label > input { margin-top: 4px; padding: 7px 8px; }

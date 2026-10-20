@@ -4,11 +4,9 @@ import { fleetCatalog } from "@/features/planner/model/fleetCatalog";
 interface FleetActionsProps {
   count: number;
   onAdd: (modelId: string, count: number) => void;
-  onClone: () => void;
-  onRemove: () => void;
 }
 
-export function FleetActions({ count, onAdd, onClone, onRemove }: FleetActionsProps) {
+export function FleetActions({ count, onAdd }: FleetActionsProps) {
   const [modelId, setModelId] = useState("201");
   const [quantity, setQuantity] = useState(1);
   return <>
@@ -21,8 +19,6 @@ export function FleetActions({ count, onAdd, onClone, onRemove }: FleetActionsPr
     </div>
     <div className="mini-actions">
       <button type="button" disabled={count >= 100 || !Number.isInteger(quantity) || quantity < 1 || count + quantity > 100} onClick={() => onAdd(modelId, quantity)}>＋ Добавить</button>
-      <button type="button" disabled={count >= 100} onClick={onClone}>Копировать настройки</button>
-      <button type="button" disabled={count <= 1} onClick={onRemove}>Удалить</button>
     </div>
     <p className="hint">Каждая строка — отдельный физический борт. Шаблон задаёт начальные характеристики; проверьте комплектацию, камеру и текущее состояние. Площадки для нового борта назначаются отдельно либо доступны всему парку.</p>
   </>;

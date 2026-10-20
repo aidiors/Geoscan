@@ -62,19 +62,26 @@ test("plans survey height above an explicit surface while exporting absolute MSL
     expect(item.params[6]).toBe(item.command === 21 ? 150 : 250);
   }
   await page.screenshot({ path: testInfo.outputPath("flight-release.png") });
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   for (const name of ["Геоскан 201", "Геоскан 801"]) {
     await page.locator(".fleet-row").filter({ hasText: name }).click();
     await page.getByLabel("Использовать в расчёте", { exact: true }).uncheck();
   }
   await page.locator(".fleet-row").filter({ hasText: "Геоскан Gemini" }).click();
+  await page.getByText("Лётные ограничения и фазы полёта", { exact: true }).click();
   await page.getByLabel("Учитывать вертикальные взлёт и посадку", { exact: true }).check();
   await page.getByLabel("Плановый набор, м/с", { exact: true }).fill("2");
   await page.getByLabel("Плановое снижение, м/с", { exact: true }).fill("1");
   await page.getByLabel("Расход на наборе / крейсерский", { exact: true }).fill("1.5");
-  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
+  await page.getByRole("button", { name: "Сохранить черновик", exact: true }).click();
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   await page.getByLabel("Плановый набор, м/с", { exact: true }).fill("1");
-  await page.getByRole("button", { name: "Восстановить", exact: true }).click();
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
+  await page.getByRole("button", { name: "Открыть черновик", exact: true }).click();
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   await expect(page.getByLabel("Плановый набор, м/с", { exact: true })).toHaveValue("2");
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
   const planned = page.waitForResponse((r) => r.url().endsWith("/v1/plans") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Рассчитать план", exact: true }).click();
   const response = await planned;

@@ -147,7 +147,7 @@ export function MissionMap({
     setView((current) => zoomAtPoint(current, event.deltaY < 0 ? 1 : -1, point, mapSize));
   }
 
-  const feasibility = plan?.feasibility?.message ?? "Маршрут ещё не рассчитан. Зоны и площадки готовы к проверке.";
+  const feasibility = plan?.feasibility?.message ?? "Маршрут ещё не рассчитан.";
 
   return (
     <section className="map-zone">

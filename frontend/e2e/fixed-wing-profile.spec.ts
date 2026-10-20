@@ -7,22 +7,29 @@ test("checks fixed-wing phases on transits and keeps unverified autopilot export
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name:"forward.geojson",mimeType:"application/geo+json",buffer:Buffer.from(JSON.stringify(field)) });
   await page.getByRole("button", { name:"Импортировать зону" }).click();
   await page.getByRole("button", { name:"Удалить Резервная площадка", exact:true }).click();
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   for (const name of ["Геоскан 801", "Геоскан Gemini"]) {
     await page.locator(".fleet-row").filter({hasText:name}).click();
     await page.getByLabel("Использовать в расчёте", {exact:true}).uncheck();
   }
   await page.locator(".fleet-row").filter({hasText:"Геоскан 201"}).click();
   await page.getByLabel("Радиус разворота этого БВС, м", {exact:true}).fill("50");
+  await page.getByText("Лётные ограничения и фазы полёта", { exact: true }).click();
   await page.getByLabel("Учитывать самолётный набор и снижение на ходу", {exact:true}).check();
   await page.getByLabel("Плановый предел набора на ходу, м/с", {exact:true}).fill("5");
   await page.getByLabel("Плановый предел снижения на ходу, м/с", {exact:true}).fill("5");
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
   await page.getByLabel("Высота задания MSL, м", {exact:true}).fill("250");
   await page.getByLabel("Отметка поверхности MSL, м", {exact:true}).fill("150");
   await page.getByRole("checkbox", {name:/Быстрый расчёт/}).check();
-  await page.getByRole("button", {name:"Сохранить",exact:true}).click();
+  await page.getByRole("button", {name:"Сохранить черновик",exact:true}).click();
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   await page.getByLabel("Плановый предел набора на ходу, м/с", {exact:true}).fill("1");
-  await page.getByRole("button", {name:"Восстановить",exact:true}).click();
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
+  await page.getByRole("button", {name:"Открыть черновик",exact:true}).click();
+  await page.getByRole("button", { name: /Управлять парком/ }).click();
   await expect(page.getByLabel("Плановый предел набора на ходу, м/с", {exact:true})).toHaveValue("5");
+  await page.getByRole("button", { name: "Готово", exact: true }).click();
   await page.getByRole("button", {name:"Рассчитать план",exact:true}).click();
   await expect(page.getByRole("button", {name:"Рассчитать план",exact:true})).toBeEnabled({timeout:120_000});
   await expect(page.getByText("Все применимые проверки пройдены")).toBeVisible();
