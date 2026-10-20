@@ -6,7 +6,11 @@ test("checks fixed-wing phases on transits and keeps unverified autopilot export
     geometry:{type:"Polygon",coordinates:[[[37.43,55.7],[37.45,55.7],[37.45,55.708],[37.43,55.708],[37.43,55.7]]]}}] };
   await page.locator('input[accept=".geojson,.json,.kml"]').setInputFiles({ name:"forward.geojson",mimeType:"application/geo+json",buffer:Buffer.from(JSON.stringify(field)) });
   await page.getByRole("button", { name:"Импортировать зону" }).click();
-  await page.getByRole("button", { name:"Удалить Резервная площадка", exact:true }).click();
+  await page.getByRole("button", { name: /Управлять объектами/ }).click();
+  await page.getByLabel("Найти объект", { exact: true }).fill("Резервная площадка");
+  await page.locator(".geo-object-row").first().click();
+  await page.getByRole("button", { name: "Удалить площадку", exact: true }).click();
+  await page.getByRole("button", { name: "Закрыть зоны и площадки" }).click();
   await page.getByRole("button", { name: /Управлять парком/ }).click();
   for (const name of ["Геоскан 801", "Геоскан Gemini"]) {
     await page.locator(".fleet-row").filter({hasText:name}).click();

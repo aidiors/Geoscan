@@ -1,9 +1,10 @@
+import type { ZoneLayerPatch } from "../model/objects";
 import { Eye, EyeOff, LockKeyhole, UnlockKeyhole, Trash2 } from "lucide-react";
 import type { ImportedZone } from "@/shared/api/types";
 
 interface Props {
   zones: ImportedZone[];
-  onUpdate: (id: string, patch: Pick<ImportedZone, "visible" | "locked">) => void;
+  onUpdate: (id: string, patch: ZoneLayerPatch) => void;
   onSelect: (id: string, enabled: boolean) => void;
   onRemove: (id: string) => void;
 }

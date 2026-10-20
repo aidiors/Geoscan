@@ -24,13 +24,15 @@ test("adds takeoff, landing and alternate sites from the map editor and cancels 
   await expect(page.getByRole("button", { name: "Добавить площадку", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Редактирование", exact: true }).click();
   const map = page.getByRole("img", { name: "Интерактивная карта зоны обследования" });
-  const count = await page.locator(".site-item").count();
+  await page.getByRole("button", { name: /Управлять объектами/ }).click();
+  const count = await page.locator('.geo-object-row[data-kind="site"]').count();
+  await page.getByRole("button", { name: "Закрыть зоны и площадки" }).click();
   for (const [index, role] of ["takeoff", "landing", "alternate"].entries()) {
     await page.getByRole("button", { name: "Добавить площадку", exact: true }).click();
     await page.getByLabel("Роль новой площадки").selectOption(role);
     const bounds = (await map.boundingBox())!;
     await map.click({ position: { x: bounds.width * .2, y: bounds.height * .4 } });
-    await expect(page.locator(".site-item")).toHaveCount(count + index + 1);
+    await expect(page.locator('.geo-object-row[data-kind="site"]')).toHaveCount(count + index + 1);
     await expect(page.getByLabel("Роль новой площадки")).toHaveCount(0);
   }
   await page.getByRole("button", { name: "Добавить площадку", exact: true }).click();
@@ -38,7 +40,7 @@ test("adds takeoff, landing and alternate sites from the map editor and cancels 
   await expect(page.getByLabel("Роль новой площадки")).toHaveCount(0);
   const bounds = (await map.boundingBox())!;
   await map.click({ position: { x: bounds.width * .2, y: bounds.height * .4 } });
-  await expect(page.locator(".site-item")).toHaveCount(count + 3);
+  await expect(page.locator('.geo-object-row[data-kind="site"]')).toHaveCount(count + 3);
 });
 
 test("keeps edit tools visible and retains an unfinished contour across tool switches", async ({ page }) => {
@@ -68,4 +70,8 @@ test("keeps edit tools visible and retains an unfinished contour across tool swi
   await expect(map.locator(".drawing-layer circle")).toHaveCount(1);
   await site.click();
   await expect(page.getByLabel("Роль новой площадки")).toHaveValue("alternate");
+  await page.getByRole("button", { name: "Редактирование", exact: true }).click();
+  await expect(page.getByLabel("Роль новой площадки")).toHaveCount(0);
+  await expect(site).toHaveAttribute("aria-pressed", "false");
+  await expect(area).toHaveAttribute("aria-pressed", "false");
 });

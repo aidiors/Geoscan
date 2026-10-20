@@ -61,6 +61,8 @@ export default function App() {
     handleAddSite,
     handleDrawZone,
     handleUpdateLayer,
+    handleUpdateSite,
+    handleSelectAllWorkAreas,
     handleRemoveZone,
     handleClearZones,
     handleSelectZone,
@@ -105,7 +107,6 @@ export default function App() {
           layerZones={mapZones}
           survey={survey}
           settings={settings}
-          pendingSiteRole={pendingSiteRole}
           importing={importing}
           onTaskChange={handleTaskChange}
           onObjectiveChange={(nextObjective) => { setObjective(nextObjective); invalidate("Критерий изменён — требуется новый расчёт"); }}
@@ -120,10 +121,11 @@ export default function App() {
           onRemoveSite={(siteId) => { setSites((current) => current.filter((flightSite) => flightSite.site_id !== siteId)); invalidate("Площадка удалена"); }}
           onImport={handleImport}
           onUpdateLayer={handleUpdateLayer}
+          onUpdateSite={handleUpdateSite}
           onRemoveZone={handleRemoveZone}
           onRemoveInvalidZones={() => { setImportedZones((current) => current.filter((zone) => zone.locked || (!zone.metadata?.geometry_issue && !zone.metadata?.geometry_warning))); invalidate("Области без площади и меньше 1 м² удалены из задания"); }}
           onSelectZone={handleSelectZone}
-          onSelectAllWorkAreas={(enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
+          onSelectAllWorkAreas={handleSelectAllWorkAreas}
           onSave={saveScenario}
           onLoad={loadScenario}
         />

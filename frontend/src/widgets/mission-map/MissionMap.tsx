@@ -28,7 +28,7 @@ interface MissionMapProps {
   radiusAnalysis: TurnRadiusAnalysisResult | null;
   selectedDroneId: string;
   pendingSiteRole: SiteRole | null;
-  onAddSite: (coordinate: Coordinate) => void;
+  onAddSite: (coordinate: Coordinate, name?: string) => void;
   onClearZones: () => void;
   onAddZone?: (zone: ImportedZone) => void;
   onCancelSite?: () => void;
@@ -69,6 +69,7 @@ export function MissionMap({
   onArmSite,
 }: MissionMapProps) {
   const editor = useMapDrawing(onAddZone);
+  const [siteName, setSiteName] = useState("");
   const [siteRole, setSiteRole] = useState<SiteRole>("takeoff");
   const editMode = pendingSiteRole !== null || editor.mode === "edit";
   const frameRef = useRef<HTMLDivElement>(null);
@@ -144,7 +145,8 @@ export function MissionMap({
     event.preventDefault();
     const point = pointerPoint(event.clientX, event.clientY);
     if (pendingSiteRole !== null) {
-      onAddSite(mapPointToCoordinate(point, view, mapSize));
+      onAddSite(mapPointToCoordinate(point, view, mapSize), siteName);
+      setSiteName("");
       return;
     }
     if (editMode && editor.drawing) { editor.add(mapPointToCoordinate(point, view, mapSize)); return; }
@@ -176,13 +178,14 @@ export function MissionMap({
         <div className="map-editor-controls">
           <div className="map-mode-switch" role="group" aria-label="Режим карты">
             <button type="button" aria-pressed={!editMode} onClick={() => { editor.changeMode("view"); onCancelSite?.(); }}>Просмотр</button>
-            <button type="button" aria-pressed={editMode} onClick={() => editor.changeMode("edit")}>Редактирование</button>
+            <button type="button" aria-pressed={editMode} onClick={() => { editor.changeMode("edit"); onCancelSite?.(); }}>Редактирование</button>
           </div>
           {editMode && <div className="map-tool-switch" role="group" aria-label="Инструменты редактирования">
             <button type="button" aria-pressed={editor.drawing} disabled={!onAddZone} onClick={() => { onCancelSite?.(); editor.begin(); }}>Нарисовать область</button>
             <button type="button" aria-pressed={pendingSiteRole !== null} disabled={!onArmSite} onClick={() => { editor.pause(); onArmSite?.(pendingSiteRole ?? siteRole); }}>Добавить площадку</button>
           </div>}
           {pendingSiteRole && <div className="drawing-controls site-placement-controls">
+            <label>Название площадки<input aria-label="Название новой площадки" maxLength={128} value={siteName} onChange={(event) => setSiteName(event.target.value)} placeholder="Автоматически по роли" /></label>
             <label>Роль площадки<select aria-label="Роль новой площадки" value={pendingSiteRole} onChange={(event) => { const role = event.target.value as SiteRole; setSiteRole(role); onArmSite?.(role); }}>
               <option value="takeoff">Взлёт</option><option value="landing">Посадка</option><option value="alternate">Резерв</option>
             </select></label>

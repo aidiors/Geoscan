@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useModalDialog } from "@/shared/ui/useModalDialog";
+import { useState } from "react";
 import { ChevronRight, Plane, Search, X } from "lucide-react";
 import { DroneEditor } from "./DroneEditor";
 import { FleetActions } from "./FleetActions";
@@ -23,17 +24,11 @@ function modelName(drone: DroneProfile): string {
 export function FleetManager(props: FleetManagerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useModalDialog(open);
   const selected = props.drones.find((drone) => drone.id === props.selectedDroneId) ?? props.drones[0];
   const enabled = props.drones.filter((drone) => drone.enabled).length;
   const visible = props.drones.filter((drone) =>
     `${drone.name} ${drone.id} ${modelName(drone)}`.toLowerCase().includes(search.trim().toLowerCase()));
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (open && !element?.open) element?.showModal();
-    if (!open && element?.open) element.close();
-  }, [open]);
 
   return <>
     <button className="fleet-launcher" type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}>

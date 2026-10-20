@@ -1,7 +1,7 @@
 import { DraftControls } from "./DraftControls";
 import type { DraftResult } from "../model/draft";
-import { ZoneLayers } from "./ZoneLayers";
-import { SiteAssignment } from "./SiteAssignment";
+import { GeoObjectManager } from "./GeoObjectManager";
+import type { SitePatch, ZoneLayerPatch } from "../model/objects";
 import { FleetManager } from "./FleetManager";
 import { NumberField } from "./NumberFields";
 import { TerrainFields } from "@/features/terrain/ui/TerrainFields";
@@ -13,7 +13,7 @@ import { scenarios } from "@/features/demos/data/scenarios";
 import { ImportedObstacleMapper } from "@/features/geodata/model/obstacles";
 import { maximumPlanningSeconds } from "@/features/planner/model/planningBudget";
 import type { ImportedZone, MissionTask, ZoneType } from "@/shared/api/types";
-import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SiteRole, SurveySettings } from "@/features/planner/model/types";
+import type { DroneProfile, FlightSiteState, Objective, PlanningSettings, SurveySettings } from "@/features/planner/model/types";
 
 interface ControlsPanelProps {
   terrain?: TerrainAsset | null;
@@ -32,7 +32,6 @@ interface ControlsPanelProps {
   layerZones?: ImportedZone[];
   survey: SurveySettings;
   settings: PlanningSettings;
-  pendingSiteRole: SiteRole | null;
   importing: boolean;
   onTaskChange: (task: MissionTask) => void;
   onObjectiveChange: (objective: Objective) => void;
@@ -46,7 +45,8 @@ interface ControlsPanelProps {
   onAssignSite: (siteId: string, droneIds: string[]) => void;
   onRemoveSite: (siteId: string) => void;
   onImport: (file: File, zoneType: ZoneType) => Promise<void>;
-  onUpdateLayer?: (id: string, patch: Pick<ImportedZone, "visible" | "locked">) => void;
+  onUpdateLayer: (id: string, patch: ZoneLayerPatch) => void;
+  onUpdateSite: (id: string, patch: SitePatch) => void;
   onRemoveZone: (zoneId: string) => void;
   onRemoveInvalidZones: () => void;
   onSelectZone: (zoneId: string, enabled: boolean) => void;
@@ -77,7 +77,6 @@ export function ControlsPanel(props: ControlsPanelProps) {
   const horizontalObstacles = props.importedZones.filter((zone) => zone.zone_type === "obstacle"
     && obstacleMapper.requiresHorizontalAvoidance(zone)).length;
   const [zoneType, setZoneType] = useState<ZoneType>("work_area");
-  const [zoneSearch, setZoneSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const selectedScenario = props.scenario ?? scenarios.find((scenario) => scenario.id === props.scenarioId) ?? scenarios[0];
@@ -120,29 +119,10 @@ export function ControlsPanel(props: ControlsPanelProps) {
         {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
           <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
         )}
-        {props.importedZones.some((zone) => zone.zone_type === "work_area") && (
-          <><p className="hint">Выбрано рабочих областей: {props.importedZones.filter((zone) => zone.zone_type === "work_area" && zone.enabled !== false).length}. Расчёт выполняется для выбранного пакета.</p>
-            <div className="mini-actions"><button type="button" onClick={() => props.onSelectAllWorkAreas(true)}>Выбрать все</button><button type="button" onClick={() => props.onSelectAllWorkAreas(false)}>Снять выбор</button></div>
-            <label className="field zone-search"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
-        )}
-        <ZoneLayers zones={(props.layerZones ?? props.importedZones).filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase()))}
-          onUpdate={props.onUpdateLayer ?? (() => {})} onSelect={props.onSelectZone} onRemove={props.onRemoveZone} />
-        <p className="hint">Глаз скрывает слой только на карте. Замок защищает от удаления. Флажок рабочей области управляет участием в расчёте.</p>
+        <GeoObjectManager zones={props.layerZones ?? props.importedZones} sites={props.sites} drones={props.drones}
+          onUpdateZone={props.onUpdateLayer} onSelectZone={props.onSelectZone} onRemoveZone={props.onRemoveZone}
+          onSelectAll={props.onSelectAllWorkAreas} onUpdateSite={props.onUpdateSite} onAssignSite={props.onAssignSite} onRemoveSite={props.onRemoveSite} />
       </PanelSection>
-
-      <PanelSection title="Взлёт и посадка" badge={props.pendingSiteRole ? "Укажите на карте" : "Точки готовы"}>
-        <p className="hint">В режиме редактирования карты нажмите «Добавить площадку», выберите её роль и укажите место. Для каждой площадки настройте разрешённые БВС.</p>
-        <div className="site-list">
-          {props.sites.map((flightSite) => (
-            <div className="site-item" key={flightSite.site_id}>
-              <span><strong>{flightSite.name}</strong><small>{flightSite.coordinate.latitude.toFixed(5)}, {flightSite.coordinate.longitude.toFixed(5)}</small></span>
-              <button type="button" aria-label={`Удалить ${flightSite.name}`} onClick={() => props.onRemoveSite(flightSite.site_id)}>×</button>
-              <SiteAssignment site={flightSite} drones={props.drones} onChange={(ids) => props.onAssignSite(flightSite.site_id, ids)} />
-            </div>
-          ))}
-        </div>
-      </PanelSection>
-
 
       <PanelSection title="Тип работ" badge={taskLabels[props.task]}>
         <select value={props.task} onChange={(event) => props.onTaskChange(event.target.value as MissionTask)}>

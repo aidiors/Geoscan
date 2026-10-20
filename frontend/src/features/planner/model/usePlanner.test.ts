@@ -6,6 +6,23 @@ import { usePlanner } from "./usePlanner";
 describe("planner workspace", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("keeps custom site names and object edits in saved projects", () => {
+    const { result } = renderHook(usePlanner);
+    act(() => result.current.setPendingSiteRole("takeoff"));
+    act(() => result.current.handleAddSite({ latitude: 55.7, longitude: 37.4 }, "  Именной старт  "));
+    const site = result.current.sites.at(-1)!;
+    expect(site.name).toBe("Именной старт");
+    act(() => result.current.handleUpdateSite(site.site_id, { name: "Именная посадка", role: "landing", coordinate: { latitude: 55.71, longitude: 37.41 } }));
+    const zone = result.current.mapZones[0];
+    act(() => result.current.handleUpdateLayer(zone.zone_id, { name: "Рабочий участок" }));
+    act(() => result.current.saveScenario());
+    act(() => result.current.loadScenario());
+    expect(result.current.sites.at(-1)).toMatchObject({ name: "Именная посадка", role: "landing", assignedDroneId: site.assignedDroneId, coordinate: { latitude: 55.71, longitude: 37.41 } });
+    expect(result.current.mapZones[0].name).toBe("Рабочий участок");
+    act(() => result.current.handleSelectAllWorkAreas(false));
+    expect(result.current.mapZones.filter((item) => item.zone_type === "work_area").every((item) => item.enabled === false)).toBe(true);
+  });
+
   it("keeps a pre-request validation error visible in the results", async () => {
     const { result } = renderHook(usePlanner);
     act(() => { for (const drone of result.current.drones) result.current.handleUpdateDrone(drone.id, { enabled: false }); });

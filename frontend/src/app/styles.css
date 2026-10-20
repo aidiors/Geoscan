@@ -158,8 +158,8 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .site-item button, .zone-item button { grid-column: 2; grid-row: 1 / 3; border: 0; padding: 3px 6px; color: #e11d48; background: transparent; font-size: 17px; font-weight: 900; }
 
 .fleet-list { display: grid; gap: 7px; margin-top: 9px; }
-.fleet-row { display: flex; width: 100%; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 11px; padding: 10px; color: var(--ink); background: var(--surface); text-align: left; transition: .16s; }
-.fleet-row:hover, .fleet-row.active { border-color: #a78bfa; background: #f7f4ff; }
+:is(.fleet-row, .geo-object-row) { display: flex; width: 100%; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 11px; padding: 10px; color: var(--ink); background: var(--surface); text-align: left; transition: .16s; }
+:is(.fleet-row, .geo-object-row):hover, :is(.fleet-row, .geo-object-row).active { border-color: #a78bfa; background: #f7f4ff; }
 .color-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
 .fleet-enabled, .fleet-disabled { font-size: 9px; font-weight: 800; }
 .fleet-enabled { color: var(--green); }
@@ -181,7 +181,7 @@ select:focus, input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf6
 .fleet-browser { display: flex; flex-direction: column; gap: 14px; min-height: 0; padding: 20px; background: var(--pale); border-right: 1px solid var(--line); }
 .fleet-search > span { display: flex; align-items: center; gap: 6px; }
 .fleet-browser .fleet-list { flex: 1; min-height: 100px; margin: 0; overflow-y: auto; align-content: start; }
-.fleet-browser .fleet-row { align-items: flex-start; }
+.fleet-browser :is(.fleet-row, .geo-object-row) { align-items: flex-start; }
 .fleet-browser .color-dot { margin-top: 5px; }
 .fleet-row-info { flex: 1; min-width: 0; }
 .fleet-row-info strong, .fleet-row-info small, .fleet-row-info > span { display: block; }
@@ -346,8 +346,8 @@ body[data-theme="dark"] .criteria button { color: #ece7ff; }
 body[data-theme="dark"] .criteria button[aria-pressed="true"] { background: #8064c8; }
 body[data-theme="dark"] .constraint { color: #f0f4ff; }
 body[data-theme="dark"] .constraint svg { color: #d8b4fe; }
-body[data-theme="dark"] .fleet-row:hover,
-body[data-theme="dark"] .fleet-row.active,
+body[data-theme="dark"] :is(.fleet-row, .geo-object-row):hover,
+body[data-theme="dark"] :is(.fleet-row, .geo-object-row).active,
 body[data-theme="dark"] .mission-card:hover,
 body[data-theme="dark"] .mission-card.active { background: #2b2542; }
 body[data-theme="dark"] .algorithm-card { color: #f4efff; background: #30294a; }
@@ -453,3 +453,9 @@ body[data-theme="dark"] .map-frame { border-color: #536078; background: #d7e2d9;
 
 .map-tool-switch { display: flex; flex-wrap: wrap; gap: 4px; }
 .map-tool-switch button[aria-pressed="true"] { border-color: #6d28d9; background: var(--soft-violet); color: var(--soft-violet-text); box-shadow: inset 0 -3px #6d28d9; }
+
+.object-edit-form { display: grid; gap: 12px; max-width: 600px; }
+.object-edit-form > button { justify-self: start; }
+.object-feedback { color: var(--green); font-size: 13px; }
+.object-dialog .fleet-browser > .field + .field { margin-top: 12px; }
+.object-dialog .zone-item { margin-top: 12px; }

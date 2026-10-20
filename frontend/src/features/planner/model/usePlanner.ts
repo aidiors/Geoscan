@@ -1,3 +1,4 @@
+import type { SitePatch, ZoneLayerPatch } from "./objects";
 import type { DraftResult } from "./draft";
 import { assignedDroneIds } from "./siteAssignments";
 import { TerrainRepository } from "@/features/terrain/api/TerrainRepository";
@@ -233,14 +234,14 @@ export function usePlanner() {
     invalidate("БВС удалён из парка");
   }
 
-  function handleAddSite(coordinate: Coordinate): void {
+  function handleAddSite(coordinate: Coordinate, name = ""): void {
     if (pendingSiteRole === null) return;
     const role = pendingSiteRole;
     const ordinal = sites.filter((flightSite) => flightSite.role === role).length + 1;
     const roleName = role === "takeoff" ? "Взлёт" : role === "landing" ? "Посадка" : "Резерв";
     setSites((current) => [...current, {
       site_id: `site-${role}-${Date.now()}`,
-      name: `${roleName} ${ordinal}`,
+      name: name.trim().slice(0, 128) || `${roleName} ${ordinal}`,
       role,
       coordinate,
       assignedDroneId: selectedDroneId,
@@ -622,17 +623,27 @@ export function usePlanner() {
     handleCloneDrone,
     handleRemoveDrone,
     handleAddSite,
+    handleUpdateSite: (id: string, patch: SitePatch) => {
+      setSites((current) => current.map((site) => site.site_id === id ? { ...site, ...patch } : site));
+      invalidate("Параметры площадки изменены — требуется новый расчёт");
+    },
+    handleSelectAllWorkAreas: (enabled: boolean) => {
+      setImportedZones(mapZones.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone));
+      setWorkAreaSource("imported");
+      invalidate("Выбор рабочих областей изменён");
+    },
     handleDrawZone: (zone: ImportedZone) => {
       setImportedZones([...mapZones, zone]);
       setWorkAreaSource("imported");
       invalidate("Контур добавлен. Проверьте геометрию и пересчитайте план");
     },
-    handleUpdateLayer: (id: string, patch: Pick<ImportedZone, "visible" | "locked">) => {
+    handleUpdateLayer: (id: string, patch: ZoneLayerPatch) => {
       const update = (zone: ImportedZone) => zone.zone_id === id ? { ...zone, ...patch } : zone;
       if (workAreaSource === "scenario" && !importedZones.some((zone) => zone.zone_type === "work_area")) {
         setScenarioOverride({ ...scenario, workAreas: scenario.workAreas.map(update), noFlyZones: scenario.noFlyZones.map(update) });
       }
       setImportedZones((current) => current.map(update));
+      if (patch.name !== undefined) invalidate("Название зоны изменено — требуется новый расчёт");
     },
     handleRemoveZone: (id: string) => {
       setImportedZones(mapZones.filter((zone) => zone.zone_id !== id || zone.locked));
