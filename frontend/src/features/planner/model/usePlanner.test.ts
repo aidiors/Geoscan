@@ -6,6 +6,16 @@ import { usePlanner } from "./usePlanner";
 describe("planner workspace", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("keeps a pre-request validation error visible in the results", async () => {
+    const { result } = renderHook(usePlanner);
+    act(() => { for (const drone of result.current.drones) result.current.handleUpdateDrone(drone.id, { enabled: false }); });
+    await act(async () => result.current.handleCalculate());
+    expect(result.current.calculating).toBe(false);
+    expect(result.current.planningIssue).toContain("Включите хотя бы один БВС");
+    act(() => result.current.invalidate("Параметры исправлены"));
+    expect(result.current.planningIssue).toBeNull();
+  });
+
   it("changes presentation flags without changing the request or replacing scenario work", () => {
     const { result } = renderHook(usePlanner);
     const initial = result.current.captureProject().editor_state;

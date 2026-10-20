@@ -40,3 +40,32 @@ test("adds takeoff, landing and alternate sites from the map editor and cancels 
   await map.click({ position: { x: bounds.width * .2, y: bounds.height * .4 } });
   await expect(page.locator(".site-item")).toHaveCount(count + 3);
 });
+
+test("keeps edit tools visible and retains an unfinished contour across tool switches", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Редактирование", exact: true }).click();
+  const area = page.getByRole("button", { name: "Нарисовать область", exact: true });
+  const site = page.getByRole("button", { name: "Добавить площадку", exact: true });
+  await area.click();
+  await expect(area).toHaveAttribute("aria-pressed", "true");
+  await expect(site).toBeVisible();
+  const map = page.getByRole("img", { name: "Интерактивная карта зоны обследования" });
+  const bounds = (await map.boundingBox())!;
+  await map.click({ position: { x: bounds.width * .2, y: bounds.height * .4 } });
+  await page.getByLabel("Название контура").fill("Незавершённый контур");
+  await site.click();
+  await expect(area).toBeVisible();
+  await expect(area).toHaveAttribute("aria-pressed", "false");
+  await expect(site).toHaveAttribute("aria-pressed", "true");
+  await page.getByLabel("Роль новой площадки").selectOption("alternate");
+  await area.click();
+  await expect(site).toHaveAttribute("aria-pressed", "false");
+  await expect(area).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Роль новой площадки")).toHaveCount(0);
+  await expect(page.getByLabel("Название контура")).toHaveValue("Незавершённый контур");
+  await expect(map.locator(".drawing-layer circle")).toHaveCount(1);
+  await area.click();
+  await expect(map.locator(".drawing-layer circle")).toHaveCount(1);
+  await site.click();
+  await expect(page.getByLabel("Роль новой площадки")).toHaveValue("alternate");
+});

@@ -69,6 +69,7 @@ export function MissionMap({
   onArmSite,
 }: MissionMapProps) {
   const editor = useMapDrawing(onAddZone);
+  const [siteRole, setSiteRole] = useState<SiteRole>("takeoff");
   const editMode = pendingSiteRole !== null || editor.mode === "edit";
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -177,10 +178,12 @@ export function MissionMap({
             <button type="button" aria-pressed={!editMode} onClick={() => { editor.changeMode("view"); onCancelSite?.(); }}>Просмотр</button>
             <button type="button" aria-pressed={editMode} onClick={() => editor.changeMode("edit")}>Редактирование</button>
           </div>
-          {editMode && !editor.drawing && <button type="button" disabled={!onAddZone} onClick={() => { onCancelSite?.(); editor.begin(); }}>Нарисовать область</button>}
-          {editMode && !editor.drawing && <button type="button" disabled={!onArmSite} onClick={() => { editor.cancel(); onArmSite?.("takeoff"); }}>Добавить площадку</button>}
+          {editMode && <div className="map-tool-switch" role="group" aria-label="Инструменты редактирования">
+            <button type="button" aria-pressed={editor.drawing} disabled={!onAddZone} onClick={() => { onCancelSite?.(); editor.begin(); }}>Нарисовать область</button>
+            <button type="button" aria-pressed={pendingSiteRole !== null} disabled={!onArmSite} onClick={() => { editor.pause(); onArmSite?.(pendingSiteRole ?? siteRole); }}>Добавить площадку</button>
+          </div>}
           {pendingSiteRole && <div className="drawing-controls site-placement-controls">
-            <label>Роль площадки<select aria-label="Роль новой площадки" value={pendingSiteRole} onChange={(event) => onArmSite?.(event.target.value as SiteRole)}>
+            <label>Роль площадки<select aria-label="Роль новой площадки" value={pendingSiteRole} onChange={(event) => { const role = event.target.value as SiteRole; setSiteRole(role); onArmSite?.(role); }}>
               <option value="takeoff">Взлёт</option><option value="landing">Посадка</option><option value="alternate">Резерв</option>
             </select></label>
             <p>Щёлкните по карте. Назначение: {drones.find((drone) => drone.id === selectedDroneId)?.name ?? "выбранный БВС"}. Список БВС можно изменить в панели площадок.</p>

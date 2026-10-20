@@ -353,7 +353,9 @@ export function usePlanner() {
     try {
       request = buildPlanRequest(objective, task, scenario, drones, sites, importedZones, survey, settings, workAreaSource, terrain);
     } catch (error: unknown) {
-      setStatus(errorMessage(error));
+      const message = errorMessage(error);
+      setStatus(message);
+      setPlanningIssue(message);
       return;
     }
     await calculatePlan(request, selectedDroneId);

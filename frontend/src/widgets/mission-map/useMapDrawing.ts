@@ -23,7 +23,8 @@ export function useMapDrawing(onAdd?: (zone: ImportedZone) => void) {
   }
   return { mode, drawing, vertices, error, name, type, setName, setType, cancel, finish,
     changeMode: (next: "view" | "edit") => { cancel(); setMode(next); },
-    begin: () => { cancel(); setDrawing(true); },
+    begin: () => { setDrawing(true); setError(""); },
+    pause: () => setDrawing(false),
     add: (point: Coordinate) => { setVertices((current) => [...current, point]); setError(""); },
     undo: () => { setVertices((current) => current.slice(0, -1)); setError(""); },
   };
