@@ -52,7 +52,6 @@ export default function App() {
     mapZones,
     fitKey,
     invalidate,
-    handleScenarioChange,
     handleDemoCaseLoad,
     handleTaskChange,
     handleUpdateDrone,
@@ -68,7 +67,6 @@ export default function App() {
     handleExport,
     saveScenario,
     loadScenario,
-    forgetSavedScenario,
     captureProject,
     restoreProject,
     archivedPlan,
@@ -103,7 +101,6 @@ export default function App() {
           settings={settings}
           pendingSiteRole={pendingSiteRole}
           importing={importing}
-          onScenarioChange={handleScenarioChange}
           onTaskChange={handleTaskChange}
           onObjectiveChange={(nextObjective) => { setObjective(nextObjective); invalidate("Критерий изменён — требуется новый расчёт"); }}
           onSelectDrone={setSelectedDroneId}
@@ -123,7 +120,6 @@ export default function App() {
           onSelectAllWorkAreas={(enabled) => { setImportedZones((current) => current.map((zone) => zone.zone_type === "work_area" ? { ...zone, enabled } : zone)); invalidate("Выбор рабочих областей изменён"); }}
           onSave={saveScenario}
           onLoad={loadScenario}
-          onForgetSavedScenario={forgetSavedScenario}
         />
         <MissionMap
           key={fitKey}

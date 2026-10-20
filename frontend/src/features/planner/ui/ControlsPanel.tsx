@@ -32,7 +32,6 @@ interface ControlsPanelProps {
   settings: PlanningSettings;
   pendingSiteRole: SiteRole | null;
   importing: boolean;
-  onScenarioChange: (scenarioId: string) => void;
   onTaskChange: (task: MissionTask) => void;
   onObjectiveChange: (objective: Objective) => void;
   onSelectDrone: (droneId: string) => void;
@@ -52,7 +51,6 @@ interface ControlsPanelProps {
   onSelectAllWorkAreas: (enabled: boolean) => void;
   onSave: () => void;
   onLoad: () => void;
-  onForgetSavedScenario: () => void;
 }
 
 const taskLabels: Record<MissionTask, string> = {
@@ -116,12 +114,34 @@ export function ControlsPanel(props: ControlsPanelProps) {
       <h1>{selectedScenario.title}</h1>
       <p className="lead">{selectedScenario.description}</p>
 
-      <PanelSection title="Тестовый сценарий" badge={`${scenarios.length} конфигураций`}>
-        <select value={props.scenarioId} onChange={(event) => props.onScenarioChange(event.target.value)}>
-          {!scenarios.some((entry) => entry.id === props.scenarioId) && <option value={props.scenarioId}>{selectedScenario.title}</option>}
-          {scenarios.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.title}</option>)}
+      <PanelSection title="Геоданные" badge="KML / GeoJSON">
+        <select aria-label="Тип импортируемых геоданных" value={zoneType} onChange={(event) => setZoneType(event.target.value as ZoneType)}>
+          {Object.entries(zoneTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <p className="hint">{selectedScenario.workAreas.length} рабочих зон · {selectedScenario.noFlyZones.length} запретных зон</p>
+        {zoneType === "allowed_airspace" && (
+          <div className="field-grid">
+            <NumberField label="Мин. высота MSL, м" value={props.settings.airspaceMinimumAltitude} min={-500} onChange={(airspaceMinimumAltitude) => props.onUpdateSettings({ airspaceMinimumAltitude })} />
+            <NumberField label="Макс. высота MSL, м" value={props.settings.airspaceMaximumAltitude} min={-499} onChange={(airspaceMaximumAltitude) => props.onUpdateSettings({ airspaceMaximumAltitude })} />
+          </div>
+        )}
+        <label className="file-picker">
+          <span>Выбрать файл</span><small>{selectedFile?.name ?? "Файл не выбран"}</small>
+          <input ref={fileInput} type="file" accept=".geojson,.json,.kml" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
+        </label>
+        <button className="secondary-button import-button" type="button" disabled={props.importing} onClick={() => void handleImport()}>{props.importing ? "Импортируем…" : selectedFile ? "Импортировать зону" : "Выбрать геоданные"}</button>
+        {horizontalObstacles > 0 && <p className="hint" role="status">Препятствий без абсолютной отметки вершины: {horizontalObstacles}. Они обходятся по горизонтали на всех высотах; недостающие высоты не заменяются нулём.</p>}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Рабочие области взяты из импорта; демозапреты исключены. Парк и площадки сохранены — проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
+        {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
+          <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
+        )}
+        {props.importedZones.some((zone) => zone.zone_type === "work_area") && (
+          <><p className="hint">Выбрано рабочих областей: {props.importedZones.filter((zone) => zone.zone_type === "work_area" && zone.enabled !== false).length}. Расчёт выполняется для выбранного пакета.</p>
+            <div className="mini-actions"><button type="button" onClick={() => props.onSelectAllWorkAreas(true)}>Выбрать все</button><button type="button" onClick={() => props.onSelectAllWorkAreas(false)}>Снять выбор</button></div>
+            <label className="field"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
+        )}
+        <div className="zone-list">
+          {props.importedZones.filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase())).map((zone) => <div className="zone-item" key={zone.zone_id}><span className="zone-selection">{zone.zone_type === "work_area" && <input type="checkbox" aria-label={`Включить область ${zone.name}`} checked={zone.enabled !== false} onChange={(event) => props.onSelectZone(zone.zone_id, event.target.checked)} />}<span><b>{zone.name}</b><small>{zone.metadata?.geometry_issue ?? zone.metadata?.geometry_warning ?? zoneTypeLabels[zone.zone_type]}</small></span></span><button type="button" aria-label={`Удалить ${zone.name}`} onClick={() => props.onRemoveZone(zone.zone_id)}>×</button></div>)}
+        </div>
       </PanelSection>
 
       <PanelSection title="Тип работ" badge={taskLabels[props.task]}>
@@ -357,38 +377,8 @@ export function ControlsPanel(props: ControlsPanelProps) {
         <FleetActions count={props.drones.length} onAdd={props.onAddDrone} onClone={props.onCloneDrone} onRemove={props.onRemoveDrone} />
       </PanelSection>
 
-      <PanelSection title="Геоданные" badge="KML / GeoJSON">
-        <select aria-label="Тип импортируемых геоданных" value={zoneType} onChange={(event) => setZoneType(event.target.value as ZoneType)}>
-          {Object.entries(zoneTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-        {zoneType === "allowed_airspace" && (
-          <div className="field-grid">
-            <NumberField label="Мин. высота MSL, м" value={props.settings.airspaceMinimumAltitude} min={-500} onChange={(airspaceMinimumAltitude) => props.onUpdateSettings({ airspaceMinimumAltitude })} />
-            <NumberField label="Макс. высота MSL, м" value={props.settings.airspaceMaximumAltitude} min={-499} onChange={(airspaceMaximumAltitude) => props.onUpdateSettings({ airspaceMaximumAltitude })} />
-          </div>
-        )}
-        <label className="file-picker">
-          <span>Выбрать файл</span><small>{selectedFile?.name ?? "Файл не выбран"}</small>
-          <input ref={fileInput} type="file" accept=".geojson,.json,.kml" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
-        </label>
-        <button className="secondary-button import-button" type="button" disabled={props.importing} onClick={() => void handleImport()}>{props.importing ? "Импортируем…" : selectedFile ? "Импортировать зону" : "Выбрать геоданные"}</button>
-        {horizontalObstacles > 0 && <p className="hint" role="status">Препятствий без абсолютной отметки вершины: {horizontalObstacles}. Они обходятся по горизонтали на всех высотах; недостающие высоты не заменяются нулём.</p>}
-        {props.importedZones.some((zone) => zone.zone_type === "work_area") && <p className="hint">Рабочие области взяты из импорта; демозапреты исключены. Парк и площадки сохранены — проверьте их соответствие заданию. Отсутствие загруженных запретов не подтверждает их отсутствие на местности.</p>}
-        {props.importedZones.some((zone) => zone.metadata?.geometry_issue || zone.metadata?.geometry_warning) && (
-          <p className="hint">Без площади: {props.importedZones.filter((zone) => zone.metadata?.geometry_issue).length}; меньше 1 м²: {props.importedZones.filter((zone) => zone.metadata?.geometry_warning).length}. Проверьте исходные данные. <button type="button" onClick={props.onRemoveInvalidZones}>Убрать области без площади и меньше 1 м²</button></p>
-        )}
-        {props.importedZones.some((zone) => zone.zone_type === "work_area") && (
-          <><p className="hint">Выбрано рабочих областей: {props.importedZones.filter((zone) => zone.zone_type === "work_area" && zone.enabled !== false).length}. Расчёт выполняется для выбранного пакета.</p>
-            <div className="mini-actions"><button type="button" onClick={() => props.onSelectAllWorkAreas(true)}>Выбрать все</button><button type="button" onClick={() => props.onSelectAllWorkAreas(false)}>Снять выбор</button></div>
-            <label className="field"><span>Найти область</span><input value={zoneSearch} onChange={(event) => setZoneSearch(event.target.value)} placeholder="Название или ID" /></label></>
-        )}
-        <div className="zone-list">
-          {props.importedZones.filter((zone) => `${zone.name} ${zone.zone_id}`.toLowerCase().includes(zoneSearch.toLowerCase())).map((zone) => <div className="zone-item" key={zone.zone_id}><span className="zone-selection">{zone.zone_type === "work_area" && <input type="checkbox" aria-label={`Включить область ${zone.name}`} checked={zone.enabled !== false} onChange={(event) => props.onSelectZone(zone.zone_id, event.target.checked)} />}<span><b>{zone.name}</b><small>{zone.metadata?.geometry_issue ?? zone.metadata?.geometry_warning ?? zoneTypeLabels[zone.zone_type]}</small></span></span><button type="button" aria-label={`Удалить ${zone.name}`} onClick={() => props.onRemoveZone(zone.zone_id)}>×</button></div>)}
-        </div>
-      </PanelSection>
-
-      <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить</button><button type="button" onClick={props.onLoad}>Восстановить</button><button type="button" onClick={props.onForgetSavedScenario}>Удалить локальное сохранение</button></div>
-      <p className="hint">Быстрый снимок настроек сохраняется в этом браузере. План, исходные файлы и историю сохраняйте в проекте.</p>
+      <div className="mini-actions scenario-actions"><button type="button" onClick={props.onSave}>Сохранить черновик</button><button type="button" onClick={props.onLoad}>Открыть черновик</button></div>
+      <p className="hint">Черновик настроек хранится только в этом браузере. Для сохранения плана, исходных файлов и истории используйте проекты ниже.</p>
       {props.projects}
     </aside>
   );

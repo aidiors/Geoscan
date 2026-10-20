@@ -467,15 +467,6 @@ export function usePlanner() {
     }
   }
 
-  function forgetSavedScenario(): void {
-    try {
-      window.localStorage.removeItem("geoplan-scenario");
-      setStatus("Локальное сохранение сценария удалено");
-    } catch (error: unknown) {
-      setStatus(errorMessage(error));
-    }
-  }
-
   function loadScenario(): void {
     const serialized = window.localStorage.getItem("geoplan-scenario");
     if (serialized === null) {
@@ -624,7 +615,6 @@ export function usePlanner() {
     handleExport,
     saveScenario,
     loadScenario,
-    forgetSavedScenario,
     captureProject,
     restoreProject,
     archivedPlan,
